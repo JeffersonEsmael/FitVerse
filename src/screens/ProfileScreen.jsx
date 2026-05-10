@@ -41,34 +41,23 @@ export default function ProfileScreen() {
 
         {/* Profile card */}
         <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-          <div style={styles.profileHeader}>
-            <div style={styles.leftInfo}>
-              <h3 style={styles.username}>{p.username || 'jeffersonesmael'}</h3>
-              <span style={styles.displayName}>{p.displayName || 'Jefferson Esmael'}</span>
-              
-              <div style={styles.statsRow}>
-                <div style={styles.statItemInline}>
-                  <span style={styles.statValueInline}>{p.totalVideos || 0}</span>
-                  <span style={styles.statLabelInline}>posts</span>
-                </div>
-                <div style={styles.statItemInline}>
-                  <span style={styles.statValueInline}>{p.followers || 0}</span>
-                  <span style={styles.statLabelInline}>seguidores</span>
-                </div>
-                <div style={styles.statItemInline}>
-                  <span style={styles.statValueInline}>{p.following || 0}</span>
-                  <span style={styles.statLabelInline}>seguindo</span>
-                </div>
-              </div>
+          <h3 style={styles.usernameCenter}>{p.username || 'jeffersonesmael'}</h3>
+          <span style={styles.displayNameCenter}>{p.displayName || 'Jefferson Esmael'}</span>
 
-              {p.bio && <p style={styles.bio}>{p.bio}</p>}
-              {p.fitnessGoals?.length > 0 && (
-                <div style={styles.goals}>
-                  {p.fitnessGoals.map((g) => (
-                    <span key={g} style={styles.goalChip}>{g}</span>
-                  ))}
-                </div>
-              )}
+          <div style={styles.statsAvatarRow}>
+            <div style={styles.statsRightAligned}>
+              <div style={styles.statItemInline}>
+                <span style={styles.statValueInline}>{p.totalVideos || 0}</span>
+                <span style={styles.statLabelInline}>posts</span>
+              </div>
+              <div style={styles.statItemInline}>
+                <span style={styles.statValueInline}>{p.followers || 0}</span>
+                <span style={styles.statLabelInline}>seguidores</span>
+              </div>
+              <div style={styles.statItemInline}>
+                <span style={styles.statValueInline}>{p.following || 0}</span>
+                <span style={styles.statLabelInline}>seguindo</span>
+              </div>
             </div>
 
             <div style={styles.avatarSection}>
@@ -79,6 +68,17 @@ export default function ProfileScreen() {
               </div>
               <div style={styles.levelBadge}>Lv.{p.level || 1}</div>
             </div>
+          </div>
+
+          <div style={styles.bioContainer}>
+            {p.bio && <p style={styles.bioCenter}>{p.bio}</p>}
+            {p.fitnessGoals?.length > 0 && (
+              <div style={styles.goalsCenter}>
+                {p.fitnessGoals.map((g) => (
+                  <span key={g} style={styles.goalChip}>{g}</span>
+                ))}
+              </div>
+            )}
           </div>
         </motion.div>
 
@@ -102,6 +102,20 @@ export default function ProfileScreen() {
             <div style={styles.quickInfo}>
               <span style={styles.quickTitle}>NutriScan</span>
               <span style={styles.quickDesc}>Escanear refeição com IA</span>
+            </div>
+            <ChevronRight size={16} color="#6C6C88" />
+          </motion.button>
+          <motion.button
+            style={styles.quickBtn}
+            onClick={() => navigate('ranking')}
+            whileTap={{ scale: 0.97 }}
+          >
+            <div style={{ ...styles.quickIcon, background: 'rgba(255,215,0,0.12)' }}>
+              <Award size={20} color="#FFD700" />
+            </div>
+            <div style={styles.quickInfo}>
+              <span style={styles.quickTitle}>Ranking</span>
+              <span style={styles.quickDesc}>Ver posição global</span>
             </div>
             <ChevronRight size={16} color="#6C6C88" />
           </motion.button>
@@ -150,33 +164,30 @@ export default function ProfileScreen() {
 
 const styles = {
   container: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' },
+  header: { display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '16px', position: 'relative' },
   title: { fontSize: '24px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0 },
-  settingsBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px' },
+  settingsBtn: { position: 'absolute', right: 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px' },
   profileCard: {
     padding: '0 0 16px 0',
     marginBottom: '16px',
-  },
-  profileHeader: {
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '16px'
-  },
-  leftInfo: {
     display: 'flex',
     flexDirection: 'column',
-    flex: 1,
-    paddingRight: '16px',
-    alignItems: 'flex-start'
+    alignItems: 'center',
   },
-  username: { fontSize: '20px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: '0 0 4px' },
-  displayName: { fontSize: '14px', color: '#fff', marginBottom: '12px' },
-  statsRow: {
+  usernameCenter: { fontSize: '20px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: '0 0 4px', textAlign: 'center' },
+  displayNameCenter: { fontSize: '14px', color: '#fff', marginBottom: '16px', textAlign: 'center' },
+  statsAvatarRow: {
+    display: 'flex',
+    width: '100%',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: '24px',
+    marginBottom: '16px'
+  },
+  statsRightAligned: {
     display: 'flex',
     gap: '16px',
-    marginBottom: '12px'
+    justifyContent: 'flex-end',
   },
   statItemInline: {
     display: 'flex',
@@ -184,7 +195,7 @@ const styles = {
     gap: '4px'
   },
   statValueInline: {
-    fontSize: '15px',
+    fontSize: '16px',
     fontWeight: 700,
     color: '#fff',
     fontFamily: "'Outfit', sans-serif"
@@ -198,9 +209,14 @@ const styles = {
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
   avatarPlaceholder: { width: '100%', height: '100%', background: 'linear-gradient(135deg, #00D4FF, #A855F7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '32px', fontFamily: "'Outfit', sans-serif" },
   levelBadge: { position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', padding: '2px 10px', borderRadius: '9999px', background: 'linear-gradient(135deg, #00D4FF, #0088CC)', color: '#fff', fontSize: '11px', fontWeight: 700, border: '2px solid #0A0A0F' },
-  bio: { fontSize: '14px', color: '#B0B0C8', textAlign: 'left', lineHeight: '1.4', margin: '0 0 10px', maxWidth: '100%' },
-  goals: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px', justifyContent: 'flex-start' },
-  goalChip: { padding: '4px 12px', borderRadius: '9999px', background: 'rgba(0,212,255,0.1)', color: '#00D4FF', fontSize: '12px', fontWeight: 600, border: '1px solid rgba(0,212,255,0.15)' },
+  bioContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    width: '100%',
+  },
+  bioCenter: { fontSize: '14px', color: '#B0B0C8', textAlign: 'center', lineHeight: '1.4', margin: '0 0 10px', maxWidth: '80%' },
+  goalsCenter: { display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center' },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '16px' },
   quickAccess: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' },
   quickBtn: { display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 14px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', fontFamily: "'Inter', sans-serif" },

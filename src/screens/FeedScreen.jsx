@@ -8,13 +8,15 @@ export default function FeedScreen() {
   const containerRef = useRef(null);
   const [touchStart, setTouchStart] = useState(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [direction, setDirection] = useState(1);
 
   const goToVideo = useCallback((index) => {
     if (index < 0 || index >= videos.length || isTransitioning) return;
+    setDirection(index > currentIndex ? 1 : -1);
     setIsTransitioning(true);
     setCurrentIndex(index);
     setTimeout(() => setIsTransitioning(false), 300);
-  }, [videos.length, isTransitioning, setCurrentIndex]);
+  }, [videos.length, isTransitioning, currentIndex, setCurrentIndex]);
 
   // Touch handlers for swipe
   const handleTouchStart = (e) => {
@@ -87,9 +89,9 @@ export default function FeedScreen() {
             <motion.div
               key={video.id}
               style={styles.videoSlide}
-              initial={{ y: '100%', opacity: 0.5 }}
+              initial={{ y: direction > 0 ? '100%' : '-100%', opacity: 0.5 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: '-30%', opacity: 0 }}
+              exit={{ y: direction > 0 ? '-30%' : '30%', opacity: 0 }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             >
               <VideoCard
