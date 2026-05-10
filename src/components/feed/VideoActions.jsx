@@ -14,7 +14,7 @@ function formatCount(n) {
   return String(n);
 }
 
-const InteractionBtn = ({ icon, label, onClick, isActive, activeColor, type, horizontal }) => {
+const InteractionBtn = ({ icon, label, onClick, isActive, activeColor, type }) => {
   const [animKey, setAnimKey] = useState(0);
 
   const handleClick = (e) => {
@@ -41,7 +41,7 @@ const InteractionBtn = ({ icon, label, onClick, isActive, activeColor, type, hor
 
   return (
     <motion.button
-      style={{ ...styles.actionBtn, flexDirection: horizontal ? 'row' : 'column', gap: horizontal ? '6px' : '4px' }}
+      style={styles.actionBtn}
       onClick={handleClick}
       whileTap={{ scale: 0.8 }}
     >
@@ -119,12 +119,27 @@ export default function VideoActions({ video }) {
       {/* Boost (New interaction) */}
       <InteractionBtn 
         type="boost"
-        icon={<BoostIcon filled={video.hasBoosted} size={28} />}
-        label={video.hasBoosted ? '' : 'Boost'}
+        icon={
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <BoostIcon filled={video.hasBoosted} size={30} />
+            {!video.hasBoosted && (
+              <span style={{
+                position: 'absolute',
+                fontSize: '9px',
+                fontWeight: 900,
+                color: '#fff',
+                textShadow: '0px 1px 3px rgba(0,0,0,0.9), 0px 0px 2px rgba(0,0,0,0.8)',
+                letterSpacing: '0.5px'
+              }}>
+                BOOST
+              </span>
+            )}
+          </div>
+        }
+        label={video.hasBoosted ? formatCount(video.boosts) : ''}
         onClick={handleBoost}
         isActive={video.hasBoosted}
         activeColor="#FFD700"
-        horizontal={!video.hasBoosted}
       />
 
       {/* Save (Notes emoji) */}

@@ -7,9 +7,9 @@ import ScreenWrapper from '../components/layout/ScreenWrapper';
 import GymBagIcon from '../components/icons/GymBagIcon';
 import ShapeIcon from '../components/icons/ShapeIcon';
 
-function StatBox({ label, value, icon: Icon, color }) {
+function StatBox({ label, value, icon: Icon, color, onClick }) {
   return (
-    <motion.div style={statStyles.box} whileTap={{ scale: 0.95 }}>
+    <motion.div style={{...statStyles.box, cursor: onClick ? 'pointer' : 'default'}} whileTap={{ scale: 0.95 }} onClick={onClick}>
       <Icon size={16} color={color} />
       <span style={{ ...statStyles.value, color }}>{value}</span>
       <span style={statStyles.label}>{label}</span>
@@ -42,19 +42,33 @@ export default function ProfileScreen() {
         {/* Profile card */}
         <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
           <div style={styles.profileHeader}>
-            <div style={styles.statsContainer}>
-              <div style={styles.statItem}>
-                <span style={styles.statValue}>{p.totalVideos || 0}</span>
-                <span style={styles.statLabel}>Posts</span>
+            <div style={styles.leftInfo}>
+              <h3 style={styles.username}>{p.username || 'jeffersonesmael'}</h3>
+              <span style={styles.displayName}>{p.displayName || 'Jefferson Esmael'}</span>
+              
+              <div style={styles.statsRow}>
+                <div style={styles.statItemInline}>
+                  <span style={styles.statValueInline}>{p.totalVideos || 0}</span>
+                  <span style={styles.statLabelInline}>posts</span>
+                </div>
+                <div style={styles.statItemInline}>
+                  <span style={styles.statValueInline}>{p.followers || 0}</span>
+                  <span style={styles.statLabelInline}>seguidores</span>
+                </div>
+                <div style={styles.statItemInline}>
+                  <span style={styles.statValueInline}>{p.following || 0}</span>
+                  <span style={styles.statLabelInline}>seguindo</span>
+                </div>
               </div>
-              <div style={styles.statItem}>
-                <span style={styles.statValue}>{p.followers || 0}</span>
-                <span style={styles.statLabel}>Seguidores</span>
-              </div>
-              <div style={styles.statItem}>
-                <span style={styles.statValue}>{p.following || 0}</span>
-                <span style={styles.statLabel}>Seguindo</span>
-              </div>
+
+              {p.bio && <p style={styles.bio}>{p.bio}</p>}
+              {p.fitnessGoals?.length > 0 && (
+                <div style={styles.goals}>
+                  {p.fitnessGoals.map((g) => (
+                    <span key={g} style={styles.goalChip}>{g}</span>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div style={styles.avatarSection}>
@@ -66,25 +80,12 @@ export default function ProfileScreen() {
               <div style={styles.levelBadge}>Lv.{p.level || 1}</div>
             </div>
           </div>
-
-          <div style={styles.profileInfo}>
-            <h3 style={styles.displayName}>{p.displayName || 'Usuário'}</h3>
-            <span style={styles.username}>@{p.username || 'user'}</span>
-            {p.bio && <p style={styles.bio}>{p.bio}</p>}
-            {p.fitnessGoals?.length > 0 && (
-              <div style={styles.goals}>
-                {p.fitnessGoals.map((g) => (
-                  <span key={g} style={styles.goalChip}>{g}</span>
-                ))}
-              </div>
-            )}
-          </div>
         </motion.div>
 
         {/* Stats */}
         <div style={styles.statsGrid}>
           <StatBox label="Streak" value={`${p.streak || 0}d`} icon={Flame} color="#FF6B35" />
-          <StatBox label="Ranking" value={`#${p.rankPosition || '-'}`} icon={Award} color="#FFD700" />
+          <StatBox label="Notificações" value="Avisos" icon={Bell} color="#FFD700" onClick={() => navigate('notifications')} />
           <StatBox label="Shapes" value={p.totalShapes || p.totalLikes || 0} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
         </div>
 
@@ -101,20 +102,6 @@ export default function ProfileScreen() {
             <div style={styles.quickInfo}>
               <span style={styles.quickTitle}>NutriScan</span>
               <span style={styles.quickDesc}>Escanear refeição com IA</span>
-            </div>
-            <ChevronRight size={16} color="#6C6C88" />
-          </motion.button>
-          <motion.button
-            style={styles.quickBtn}
-            onClick={() => navigate('notifications')}
-            whileTap={{ scale: 0.97 }}
-          >
-            <div style={{ ...styles.quickIcon, background: 'rgba(255,215,0,0.12)' }}>
-              <Bell size={20} color="#FFD700" />
-            </div>
-            <div style={styles.quickInfo}>
-              <span style={styles.quickTitle}>Notificações</span>
-              <span style={styles.quickDesc}>Ver atividade recente</span>
             </div>
             <ChevronRight size={16} color="#6C6C88" />
           </motion.button>
@@ -177,25 +164,33 @@ const styles = {
     alignItems: 'center',
     marginBottom: '16px'
   },
-  statsContainer: {
-    display: 'flex',
-    flex: 1,
-    justifyContent: 'space-around',
-    marginRight: '20px'
-  },
-  statItem: {
+  leftInfo: {
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center'
+    flex: 1,
+    paddingRight: '16px',
+    alignItems: 'flex-start'
   },
-  statValue: {
-    fontSize: '20px',
-    fontWeight: 800,
+  username: { fontSize: '20px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: '0 0 4px' },
+  displayName: { fontSize: '14px', color: '#fff', marginBottom: '12px' },
+  statsRow: {
+    display: 'flex',
+    gap: '16px',
+    marginBottom: '12px'
+  },
+  statItemInline: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px'
+  },
+  statValueInline: {
+    fontSize: '15px',
+    fontWeight: 700,
     color: '#fff',
     fontFamily: "'Outfit', sans-serif"
   },
-  statLabel: {
-    fontSize: '13px',
+  statLabelInline: {
+    fontSize: '14px',
     color: '#B0B0C8',
   },
   avatarSection: { position: 'relative', flexShrink: 0 },
@@ -203,10 +198,7 @@ const styles = {
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
   avatarPlaceholder: { width: '100%', height: '100%', background: 'linear-gradient(135deg, #00D4FF, #A855F7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '32px', fontFamily: "'Outfit', sans-serif" },
   levelBadge: { position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', padding: '2px 10px', borderRadius: '9999px', background: 'linear-gradient(135deg, #00D4FF, #0088CC)', color: '#fff', fontSize: '11px', fontWeight: 700, border: '2px solid #0A0A0F' },
-  profileInfo: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start' },
-  displayName: { fontSize: '20px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: '0 0 2px' },
-  username: { fontSize: '14px', color: '#6C6C88', marginBottom: '8px' },
-  bio: { fontSize: '14px', color: '#B0B0C8', textAlign: 'left', lineHeight: '1.4', maxWidth: '100%' },
+  bio: { fontSize: '14px', color: '#B0B0C8', textAlign: 'left', lineHeight: '1.4', margin: '0 0 10px', maxWidth: '100%' },
   goals: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px', justifyContent: 'flex-start' },
   goalChip: { padding: '4px 12px', borderRadius: '9999px', background: 'rgba(0,212,255,0.1)', color: '#00D4FF', fontSize: '12px', fontWeight: 600, border: '1px solid rgba(0,212,255,0.15)' },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '16px' },
