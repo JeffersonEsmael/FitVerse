@@ -41,31 +41,48 @@ export default function ProfileScreen() {
 
         {/* Profile card */}
         <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-          <div style={styles.avatarSection}>
-            <div style={styles.avatar}>
-              {p.photoURL ? <img src={p.photoURL} alt="" style={styles.avatarImg} /> : (
-                <div style={styles.avatarPlaceholder}>{p.displayName?.charAt(0) || '?'}</div>
-              )}
+          <div style={styles.profileHeader}>
+            <div style={styles.statsContainer}>
+              <div style={styles.statItem}>
+                <span style={styles.statValue}>{p.totalVideos || 0}</span>
+                <span style={styles.statLabel}>Posts</span>
+              </div>
+              <div style={styles.statItem}>
+                <span style={styles.statValue}>{p.followers || 0}</span>
+                <span style={styles.statLabel}>Seguidores</span>
+              </div>
+              <div style={styles.statItem}>
+                <span style={styles.statValue}>{p.following || 0}</span>
+                <span style={styles.statLabel}>Seguindo</span>
+              </div>
             </div>
-            <div style={styles.levelBadge}>Lv.{p.level || 1}</div>
+
+            <div style={styles.avatarSection}>
+              <div style={styles.avatar}>
+                {p.photoURL ? <img src={p.photoURL} alt="" style={styles.avatarImg} /> : (
+                  <div style={styles.avatarPlaceholder}>{p.displayName?.charAt(0) || '?'}</div>
+                )}
+              </div>
+              <div style={styles.levelBadge}>Lv.{p.level || 1}</div>
+            </div>
           </div>
-          <h3 style={styles.displayName}>{p.displayName || 'Usuário'}</h3>
-          <span style={styles.username}>@{p.username || 'user'}</span>
-          {p.bio && <p style={styles.bio}>{p.bio}</p>}
-          {p.fitnessGoals?.length > 0 && (
-            <div style={styles.goals}>
-              {p.fitnessGoals.map((g) => (
-                <span key={g} style={styles.goalChip}>{g}</span>
-              ))}
-            </div>
-          )}
+
+          <div style={styles.profileInfo}>
+            <h3 style={styles.displayName}>{p.displayName || 'Usuário'}</h3>
+            <span style={styles.username}>@{p.username || 'user'}</span>
+            {p.bio && <p style={styles.bio}>{p.bio}</p>}
+            {p.fitnessGoals?.length > 0 && (
+              <div style={styles.goals}>
+                {p.fitnessGoals.map((g) => (
+                  <span key={g} style={styles.goalChip}>{g}</span>
+                ))}
+              </div>
+            )}
+          </div>
         </motion.div>
 
         {/* Stats */}
         <div style={styles.statsGrid}>
-          <StatBox label="Seguidores" value={p.followers || 0} icon={Users} color="#00D4FF" />
-          <StatBox label="Seguindo" value={p.following || 0} icon={Heart} color="#FF2D55" />
-          <StatBox label="Vídeos" value={p.totalVideos || 0} icon={Video} color="#A855F7" />
           <StatBox label="Streak" value={`${p.streak || 0}d`} icon={Flame} color="#FF6B35" />
           <StatBox label="Ranking" value={`#${p.rankPosition || '-'}`} icon={Award} color="#FFD700" />
           <StatBox label="Shapes" value={p.totalShapes || p.totalLikes || 0} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
@@ -150,19 +167,47 @@ const styles = {
   title: { fontSize: '24px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0 },
   settingsBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px' },
   profileCard: {
-    display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 16px',
-    background: 'rgba(255,255,255,0.04)', borderRadius: '20px',
-    border: '1px solid rgba(255,255,255,0.06)', marginBottom: '16px',
+    padding: '0 0 16px 0',
+    marginBottom: '16px',
   },
-  avatarSection: { position: 'relative', marginBottom: '12px' },
+  profileHeader: {
+    display: 'flex',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '16px'
+  },
+  statsContainer: {
+    display: 'flex',
+    flex: 1,
+    justifyContent: 'space-around',
+    marginRight: '20px'
+  },
+  statItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center'
+  },
+  statValue: {
+    fontSize: '20px',
+    fontWeight: 800,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif"
+  },
+  statLabel: {
+    fontSize: '13px',
+    color: '#B0B0C8',
+  },
+  avatarSection: { position: 'relative', flexShrink: 0 },
   avatar: { width: '88px', height: '88px', borderRadius: '50%', border: '3px solid #00D4FF', overflow: 'hidden', boxShadow: '0 0 20px rgba(0,212,255,0.3)' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
   avatarPlaceholder: { width: '100%', height: '100%', background: 'linear-gradient(135deg, #00D4FF, #A855F7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '32px', fontFamily: "'Outfit', sans-serif" },
   levelBadge: { position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', padding: '2px 10px', borderRadius: '9999px', background: 'linear-gradient(135deg, #00D4FF, #0088CC)', color: '#fff', fontSize: '11px', fontWeight: 700, border: '2px solid #0A0A0F' },
+  profileInfo: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start' },
   displayName: { fontSize: '20px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: '0 0 2px' },
   username: { fontSize: '14px', color: '#6C6C88', marginBottom: '8px' },
-  bio: { fontSize: '14px', color: '#B0B0C8', textAlign: 'center', lineHeight: '1.4', maxWidth: '280px' },
-  goals: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px', justifyContent: 'center' },
+  bio: { fontSize: '14px', color: '#B0B0C8', textAlign: 'left', lineHeight: '1.4', maxWidth: '100%' },
+  goals: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px', justifyContent: 'flex-start' },
   goalChip: { padding: '4px 12px', borderRadius: '9999px', background: 'rgba(0,212,255,0.1)', color: '#00D4FF', fontSize: '12px', fontWeight: 600, border: '1px solid rgba(0,212,255,0.15)' },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '16px' },
   quickAccess: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' },

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, Forward, Music } from 'lucide-react';
+import { MessageCircle, Forward, Music, FileText } from 'lucide-react';
 import { useFeedStore } from '../../stores/feedStore';
 
 // Custom Icons
@@ -14,8 +14,7 @@ function formatCount(n) {
   return String(n);
 }
 
-// Reusable action button component
-const InteractionBtn = ({ icon, label, onClick, isActive, activeColor, type }) => {
+const InteractionBtn = ({ icon, label, onClick, isActive, activeColor, type, horizontal }) => {
   const [animKey, setAnimKey] = useState(0);
 
   const handleClick = (e) => {
@@ -33,6 +32,7 @@ const InteractionBtn = ({ icon, label, onClick, isActive, activeColor, type }) =
       case 'boost':
         return { scale: [1, 1.5, 1], rotate: [0, 10, -10, 0], filter: ['brightness(1)', 'brightness(1.5)', 'brightness(1)'] };
       case 'gymbag':
+      case 'save':
         return { scale: [1, 1.2, 0.9, 1], y: [0, -10, 0] };
       default:
         return { scale: [1, 1.3, 1] };
@@ -41,7 +41,7 @@ const InteractionBtn = ({ icon, label, onClick, isActive, activeColor, type }) =
 
   return (
     <motion.button
-      style={styles.actionBtn}
+      style={{ ...styles.actionBtn, flexDirection: horizontal ? 'row' : 'column', gap: horizontal ? '6px' : '4px' }}
       onClick={handleClick}
       whileTap={{ scale: 0.8 }}
     >
@@ -53,7 +53,7 @@ const InteractionBtn = ({ icon, label, onClick, isActive, activeColor, type }) =
       >
         {icon}
       </motion.div>
-      <span style={{...styles.actionCount, color: isActive ? activeColor : '#fff'}}>{label}</span>
+      {label !== '' && <span style={{...styles.actionCount, color: isActive ? activeColor : '#fff'}}>{label}</span>}
     </motion.button>
   );
 };
@@ -107,16 +107,6 @@ export default function VideoActions({ video }) {
         activeColor="#39FF14"
       />
 
-      {/* Boost (New interaction) */}
-      <InteractionBtn 
-        type="boost"
-        icon={<BoostIcon filled={video.hasBoosted} size={28} />}
-        label={formatCount(video.boosts)}
-        onClick={handleBoost}
-        isActive={video.hasBoosted}
-        activeColor="#FFD700"
-      />
-
       {/* Comment */}
       <InteractionBtn 
         type="comment"
@@ -126,10 +116,21 @@ export default function VideoActions({ video }) {
         isActive={false}
       />
 
-      {/* Gym Bag (Replaces Save) */}
+      {/* Boost (New interaction) */}
       <InteractionBtn 
-        type="gymbag"
-        icon={<GymBagIcon filled={video.inGymBag} size={28} />}
+        type="boost"
+        icon={<BoostIcon filled={video.hasBoosted} size={28} />}
+        label={video.hasBoosted ? '' : 'Boost'}
+        onClick={handleBoost}
+        isActive={video.hasBoosted}
+        activeColor="#FFD700"
+        horizontal={!video.hasBoosted}
+      />
+
+      {/* Save (Notes emoji) */}
+      <InteractionBtn 
+        type="save"
+        icon={<FileText size={28} color={video.inGymBag ? "#00D4FF" : "#fff"} fill={video.inGymBag ? "rgba(0,212,255,0.4)" : "none"} strokeWidth={2} />}
         label={video.gym_bag_saves > 0 ? formatCount(video.gym_bag_saves) : 'Salvar'}
         onClick={handleGymBag}
         isActive={video.inGymBag}
