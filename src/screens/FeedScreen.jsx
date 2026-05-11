@@ -80,6 +80,13 @@ export default function FeedScreen() {
         >
           Para Você
         </button>
+        <div style={styles.tabDivider} />
+        <button
+          style={{ ...styles.tabBtn, ...(activeTab === 'store' ? styles.tabActive : {}) }}
+          onClick={() => setActiveTab('store')}
+        >
+          Loja
+        </button>
       </div>
 
       {/* Video stack */}

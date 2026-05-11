@@ -1,13 +1,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Home, Search, PlusCircle, Trophy, User } from 'lucide-react';
+import { Home, Search, PlusCircle, Bell, User } from 'lucide-react';
 import { useNavigationStore } from '../../stores/navigationStore';
 
 const tabs = [
   { id: 'feed', icon: Home, label: 'Feed' },
   { id: 'explore', icon: Search, label: 'Explorar' },
   { id: 'create', icon: PlusCircle, label: '' },
-  { id: 'ranking', icon: Trophy, label: 'Ranking' },
+  { id: 'notifications', icon: Bell, label: 'Notificações' },
   { id: 'profile', icon: User, label: 'Perfil' },
 ];
 
