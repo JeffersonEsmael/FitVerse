@@ -1,6 +1,7 @@
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import VideoCard from '../components/feed/VideoCard';
+import StoreView from '../components/store/StoreView';
 import { useFeedStore } from '../stores/feedStore';
 
 export default function FeedScreen() {
@@ -89,32 +90,47 @@ export default function FeedScreen() {
         </button>
       </div>
 
-      {/* Video stack */}
+      {/* Content Area */}
       <AnimatePresence mode="wait">
-        {videos.map((video, index) => (
-          index === currentIndex && (
-            <motion.div
-              key={video.id}
-              style={styles.videoSlide}
-              initial={{ y: direction > 0 ? '100%' : '-100%', opacity: 0.5 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: direction > 0 ? '-30%' : '30%', opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <VideoCard
-                video={video}
-                isActive={index === currentIndex}
-                index={index}
-              />
-            </motion.div>
-          )
-        ))}
+        {activeTab === 'store' ? (
+          <motion.div
+            key="store"
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            transition={{ duration: 0.3 }}
+            style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
+          >
+            <StoreView />
+          </motion.div>
+        ) : (
+          videos.map((video, index) => (
+            index === currentIndex && (
+              <motion.div
+                key={video.id}
+                style={styles.videoSlide}
+                initial={{ y: direction > 0 ? '100%' : '-100%', opacity: 0.5 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: direction > 0 ? '-30%' : '30%', opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <VideoCard
+                  video={video}
+                  isActive={index === currentIndex}
+                  index={index}
+                />
+              </motion.div>
+            )
+          ))
+        )}
       </AnimatePresence>
 
       {/* Video counter */}
-      <div style={styles.counter}>
-        {currentIndex + 1} / {videos.length}
-      </div>
+      {activeTab !== 'store' && (
+        <div style={styles.counter}>
+          {currentIndex + 1} / {videos.length}
+        </div>
+      )}
     </div>
   );
 }

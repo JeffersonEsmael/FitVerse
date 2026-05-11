@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Grid3x3, Bookmark, Award, Flame, Users, Heart, Video, LogOut, ChevronRight, ScanLine, Bell } from 'lucide-react';
+import { Settings, Grid3x3, Bookmark, Award, Flame, Users, Heart, Video, LogOut, ChevronRight, ScanLine, Bell, MessageCircle } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
@@ -84,9 +84,9 @@ export default function ProfileScreen() {
 
         {/* Stats */}
         <div style={styles.statsGrid}>
-          <StatBox label="Streak" value={`${p.streak || 0}d`} icon={Flame} color="#FF6B35" />
-          <StatBox label="Notificações" value="Avisos" icon={Bell} color="#FFD700" onClick={() => navigate('notifications')} />
           <StatBox label="Shapes" value={p.totalShapes || p.totalLikes || 0} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
+          <StatBox label="Ranking" value={`#${p.rankPosition || '-'}`} icon={Award} color="#FFD700" onClick={() => navigate('ranking')} />
+          <StatBox label="DM" value="Chat" icon={MessageCircle} color="#00D4FF" onClick={() => navigate('messages')} />
         </div>
 
         {/* Quick access */}
@@ -102,20 +102,6 @@ export default function ProfileScreen() {
             <div style={styles.quickInfo}>
               <span style={styles.quickTitle}>NutriScan</span>
               <span style={styles.quickDesc}>Escanear refeição com IA</span>
-            </div>
-            <ChevronRight size={16} color="#6C6C88" />
-          </motion.button>
-          <motion.button
-            style={styles.quickBtn}
-            onClick={() => navigate('ranking')}
-            whileTap={{ scale: 0.97 }}
-          >
-            <div style={{ ...styles.quickIcon, background: 'rgba(255,215,0,0.12)' }}>
-              <Award size={20} color="#FFD700" />
-            </div>
-            <div style={styles.quickInfo}>
-              <span style={styles.quickTitle}>Ranking</span>
-              <span style={styles.quickDesc}>Ver posição global</span>
             </div>
             <ChevronRight size={16} color="#6C6C88" />
           </motion.button>
