@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, ShoppingCart } from 'lucide-react';
+import { useNavigationStore } from '../../stores/navigationStore';
 
 const categories = ['Wellness', 'Art', 'Sport', 'Home', 'Music'];
 
@@ -50,6 +51,7 @@ const products = [
 
 export default function StoreView() {
   const [activeCategory, setActiveCategory] = useState('Sport');
+  const navigate = useNavigationStore((s) => s.navigate);
 
   return (
     <div style={styles.container}>
@@ -81,8 +83,11 @@ export default function StoreView() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
+            onClick={() => navigate('product_details')}
+            role="button"
+            tabIndex={0}
           >
-            <button style={styles.heartBtn}>
+            <button style={styles.heartBtn} onClick={(e) => e.stopPropagation()}>
               <Heart size={16} color="#6C6C88" />
             </button>
             
@@ -98,7 +103,13 @@ export default function StoreView() {
               <h4 style={styles.name}>{product.name}</h4>
               {product.oldPrice && <span style={styles.oldPrice}>${product.oldPrice.toFixed(2)}</span>}
               <div style={styles.actionRow}>
-                <button style={{ ...styles.cartBtn, ...(product.inCart ? styles.cartBtnActive : {}) }}>
+                <button 
+                  style={{ ...styles.cartBtn, ...(product.inCart ? styles.cartBtnActive : {}) }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Toggle cart logic here
+                  }}
+                >
                   {product.inCart ? 'In cart' : (
                     <>
                       <ShoppingCart size={14} style={{ marginRight: 6 }} />
@@ -170,6 +181,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     border: '1px solid rgba(255,255,255,0.05)',
+    cursor: 'pointer',
   },
   heartBtn: {
     position: 'absolute',

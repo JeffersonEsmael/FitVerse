@@ -14,6 +14,8 @@ import RankingScreen from './screens/RankingScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import NutriScanScreen from './screens/NutriScanScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
+import MessagesScreen from './screens/MessagesScreen';
+import ProductDetailsScreen from './screens/ProductDetailsScreen';
 
 // Screens that show the bottom nav
 const NAV_SCREENS = ['feed', 'explore', 'create', 'ranking', 'profile', 'nutriscan', 'notifications'];
@@ -29,6 +31,8 @@ const SCREENS = {
   profile: ProfileScreen,
   nutriscan: NutriScanScreen,
   notifications: NotificationsScreen,
+  messages: MessagesScreen,
+  product_details: ProductDetailsScreen,
 };
 
 export default function App() {
