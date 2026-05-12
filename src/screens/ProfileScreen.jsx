@@ -34,7 +34,7 @@ export default function ProfileScreen() {
         {/* Header */}
         <div style={styles.header}>
           <h2 style={styles.title}>Perfil</h2>
-          <button style={styles.settingsBtn} onClick={() => {}}>
+          <button style={styles.settingsBtn} onClick={() => navigate('edit_profile')}>
             <Settings size={22} color="#B0B0C8" />
           </button>
         </div>

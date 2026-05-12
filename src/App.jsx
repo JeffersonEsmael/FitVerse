@@ -12,6 +12,7 @@ import ExploreScreen from './screens/ExploreScreen';
 import CreatePostScreen from './screens/CreatePostScreen';
 import RankingScreen from './screens/RankingScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import EditProfileScreen from './screens/EditProfileScreen';
 import NutriScanScreen from './screens/NutriScanScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import MessagesScreen from './screens/MessagesScreen';
@@ -29,6 +30,7 @@ const SCREENS = {
   create: CreatePostScreen,
   ranking: RankingScreen,
   profile: ProfileScreen,
+  edit_profile: EditProfileScreen,
   nutriscan: NutriScanScreen,
   notifications: NotificationsScreen,
   messages: MessagesScreen,

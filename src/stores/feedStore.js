@@ -1,53 +1,10 @@
 import { create } from 'zustand';
 import { supabase } from '../config/supabase';
 
-const sampleVideos = [
-  {
-    id: 'v1', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
-    userId: 'u1', username: 'fitpro_lucas', userAvatar: '', displayName: 'Lucas Trainer',
-    caption: 'Treino de peito completo! 💪🔥', hashtags: ['treino', 'peito', 'academia'],
-    category: 'treino', shapes: 1243, boosts: 85, comments: 89, shares: 34, views: 8500, gym_bag_saves: 150,
-    hasShaped: false, hasBoosted: false, inGymBag: false, createdAt: new Date('2026-05-07'),
-  },
-  {
-    id: 'v2', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    userId: 'u2', username: 'nutri_ana', userAvatar: '', displayName: 'Ana Nutrição',
-    caption: 'Refeição pré-treino favorita! 🥗', hashtags: ['dieta', 'nutrição', 'prétreino'],
-    category: 'dieta', shapes: 2100, boosts: 120, comments: 156, shares: 78, views: 15200, gym_bag_saves: 420,
-    hasShaped: false, hasBoosted: false, inGymBag: false, createdAt: new Date('2026-05-06'),
-  },
-  {
-    id: 'v3', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-    userId: 'u3', username: 'gym_rafael', userAvatar: '', displayName: 'Rafael GymBro',
-    caption: 'Evolução de 6 meses! 🏋️‍♂️ Nunca desista!', hashtags: ['evolução', 'motivação'],
-    category: 'evolução', shapes: 5400, boosts: 540, comments: 320, shares: 210, views: 42000, gym_bag_saves: 850,
-    hasShaped: false, hasBoosted: false, inGymBag: false, createdAt: new Date('2026-05-05'),
-  },
-  {
-    id: 'v4', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-    userId: 'u4', username: 'coach_maria', userAvatar: '', displayName: 'Maria Coach',
-    caption: 'Dia de perna! 🦵🔥 Comenta aí!', hashtags: ['perna', 'legday', 'treino'],
-    category: 'treino', shapes: 3200, boosts: 195, comments: 245, shares: 90, views: 22000, gym_bag_saves: 300,
-    hasShaped: false, hasBoosted: false, inGymBag: false, createdAt: new Date('2026-05-04'),
-  },
-  {
-    id: 'v5', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
-    userId: 'u5', username: 'fit_pedro', userAvatar: '', displayName: 'Pedro Fitness',
-    caption: 'Rotina matinal 🌅 5h sem desculpas!', hashtags: ['rotina', 'disciplina'],
-    category: 'rotina', shapes: 1800, boosts: 42, comments: 102, shares: 55, views: 12000, gym_bag_saves: 80,
-    hasShaped: false, hasBoosted: false, inGymBag: false, createdAt: new Date('2026-05-03'),
-  },
-  {
-    id: 'v6', videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
-    userId: 'u6', username: 'julia_fit', userAvatar: '', displayName: 'Julia Fit',
-    caption: 'Desafio 30 dias de abdominal! 🏆', hashtags: ['desafio', 'abdominal', '30dias'],
-    category: 'desafio', shapes: 4100, boosts: 280, comments: 380, shares: 165, views: 31000, gym_bag_saves: 950,
-    hasShaped: false, hasBoosted: false, inGymBag: false, createdAt: new Date('2026-05-02'),
-  },
-];
+// Sem vídeos placeholder
 
 export const useFeedStore = create((set, get) => ({
-  videos: sampleVideos,
+  videos: [],
   currentIndex: 0,
   isLoading: false,
   hasMore: true,
@@ -156,11 +113,11 @@ export const useFeedStore = create((set, get) => ({
       }));
 
       set((state) => ({
-        videos: loadMore ? [...state.videos, ...newVideos] : [...sampleVideos, ...newVideos],
+        videos: loadMore ? [...state.videos, ...newVideos] : newVideos,
         isLoading: false,
       }));
     } catch (error) {
-      console.log('Using sample videos due to error:', error.message);
+      console.error('Error fetching videos:', error.message);
       set({ isLoading: false });
     }
   },
