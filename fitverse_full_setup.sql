@@ -7,23 +7,7 @@
 -- =========================================================================================
 
 -- ============================================
--- 1. DROP EXISTING POLICIES (Para evitar duplicatas)
--- ============================================
-DROP POLICY IF EXISTS "Profiles are viewable by everyone" ON public.profiles;
-DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Videos are viewable by everyone" ON public.videos;
-DROP POLICY IF EXISTS "Authenticated users can upload videos" ON public.videos;
-DROP POLICY IF EXISTS "Users can update their own videos" ON public.videos;
-DROP POLICY IF EXISTS "Users can delete their own videos" ON public.videos;
-DROP POLICY IF EXISTS "Users can view their conversations" ON public.conversations;
-DROP POLICY IF EXISTS "Users can create conversations" ON public.conversations;
-DROP POLICY IF EXISTS "Users can update their conversations" ON public.conversations;
-DROP POLICY IF EXISTS "Users can view messages in their conversations" ON public.messages;
-DROP POLICY IF EXISTS "Users can send messages" ON public.messages;
-
--- ============================================
--- 2. CREATE/UPDATE TABLES
+-- 1. CREATE/UPDATE TABLES
 -- ============================================
 
 -- PROFILES
@@ -114,6 +98,20 @@ ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 -- ============================================
 -- 4. APPLY BULLETPROOF RLS POLICIES
 -- ============================================
+
+-- DROP EXISTING POLICIES FIRST (Para evitar erros de duplicação)
+DROP POLICY IF EXISTS "Profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Videos are viewable by everyone" ON public.videos;
+DROP POLICY IF EXISTS "Authenticated users can upload videos" ON public.videos;
+DROP POLICY IF EXISTS "Users can update their own videos" ON public.videos;
+DROP POLICY IF EXISTS "Users can delete their own videos" ON public.videos;
+DROP POLICY IF EXISTS "Users can view their conversations" ON public.conversations;
+DROP POLICY IF EXISTS "Users can create conversations" ON public.conversations;
+DROP POLICY IF EXISTS "Users can update their conversations" ON public.conversations;
+DROP POLICY IF EXISTS "Users can view messages in their conversations" ON public.messages;
+DROP POLICY IF EXISTS "Users can send messages" ON public.messages;
 
 -- PROFILES POLICIES
 CREATE POLICY "Profiles are viewable by everyone" 
