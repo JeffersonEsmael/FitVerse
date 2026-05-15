@@ -10,20 +10,39 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [showPass, setShowPass] = useState(false);
-  const { login, register, demoLogin, loginWithGoogle, loginWithApple, isLoading, error, clearError } = useAuthStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { login, register, demoLogin, loginWithGoogle, loginWithApple, error, clearError } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     clearError();
-    let result;
-    if (mode === 'login') {
-      result = await login(email, password);
-    } else {
-      result = await register(email, password, name);
+    setIsSubmitting(true);
+    
+    // Basic validation
+    if (mode === 'login' && !email.includes('@')) {
+      alert('Por favor, insira um email válido (ex: seuemail@gmail.com). Você digitou um nome ou formato inválido.');
+      setIsSubmitting(false);
+      return;
     }
-    if (result?.success) {
-      navigate('feed');
+
+    try {
+      let result;
+      if (mode === 'login') {
+        result = await login(email, password);
+      } else {
+        result = await register(email, password, name);
+      }
+      
+      if (result?.success) {
+        navigate('feed');
+      } else {
+        alert('Erro: ' + (result?.error || 'Falha na autenticação'));
+      }
+    } catch (err) {
+      alert('Erro inesperado: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -74,12 +93,12 @@ export default function AuthScreen() {
 
           <div style={styles.inputWrap}>
             <Mail size={18} color="#6C6C88" />
-            <input style={styles.input} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input style={styles.input} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" required />
           </div>
 
           <div style={styles.inputWrap}>
             <Lock size={18} color="#6C6C88" />
-            <input style={styles.input} type={showPass ? 'text' : 'password'} placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <input style={styles.input} type={showPass ? 'text' : 'password'} placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required />
             <button type="button" onClick={() => setShowPass(!showPass)} style={styles.eyeBtn}>
               {showPass ? <EyeOff size={18} color="#6C6C88" /> : <Eye size={18} color="#6C6C88" />}
             </button>
@@ -91,9 +110,9 @@ export default function AuthScreen() {
             type="submit"
             style={styles.submitBtn}
             whileTap={{ scale: 0.97 }}
-            disabled={isLoading}
+            disabled={isSubmitting}
           >
-            {isLoading ? (
+            {isSubmitting ? (
               <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }} style={styles.spinner} />
             ) : (
               <>
@@ -129,6 +148,11 @@ export default function AuthScreen() {
           <span style={styles.toggleLink} onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); clearError(); }}>
             {mode === 'login' ? 'Criar conta' : 'Fazer login'}
           </span>
+        </p>
+
+        {/* Reset */}
+        <p style={{...styles.toggleText, marginTop: '16px', fontSize: '12px'}}>
+          Problemas no login? <span style={styles.toggleLink} onClick={() => { localStorage.clear(); sessionStorage.clear(); window.location.reload(); }}>Limpar dados (Reset)</span>
         </p>
       </motion.div>
     </div>

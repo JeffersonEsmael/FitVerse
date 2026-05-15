@@ -45,7 +45,7 @@ export default function CreatePostScreen() {
   const handlePost = async () => {
     if (!file) return;
     setIsUploading(true);
-    await uploadVideo(file, {
+    const result = await uploadVideo(file, {
       userId: user?.uid || 'demo-user',
       username: profile?.username || 'user',
       displayName: profile?.displayName || 'Usuário',
@@ -55,7 +55,12 @@ export default function CreatePostScreen() {
       category,
     });
     setIsUploading(false);
-    setActiveTab('feed');
+    
+    if (result && result.success === false) {
+      alert('Erro ao postar: ' + result.error);
+    } else {
+      setActiveTab('feed');
+    }
   };
 
   return (

@@ -1,12 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Home, Search, PlusCircle, Bell, User } from 'lucide-react';
+import { Home, Search, MessageCircle, Bell, User } from 'lucide-react';
 import { useNavigationStore } from '../../stores/navigationStore';
 
 const tabs = [
   { id: 'feed', icon: Home, label: 'Feed' },
   { id: 'explore', icon: Search, label: 'Explorar' },
-  { id: 'create', icon: PlusCircle, label: '' },
+  { id: 'messages', icon: MessageCircle, label: 'Mensagens' },
   { id: 'notifications', icon: Bell, label: 'Notificações' },
   { id: 'profile', icon: User, label: 'Perfil' },
 ];
@@ -26,22 +26,10 @@ export default function BottomNav() {
             <motion.button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              style={{
-                ...styles.tab,
-                ...(isCreate ? styles.createTab : {}),
-              }}
+              style={styles.tab}
               whileTap={{ scale: 0.9 }}
             >
-              {isCreate ? (
-                <motion.div
-                  style={styles.createButton}
-                  whileHover={{ scale: 1.1 }}
-                  animate={{ boxShadow: isActive ? '0 0 25px rgba(0,212,255,0.5)' : '0 0 15px rgba(0,212,255,0.3)' }}
-                >
-                  <PlusCircle size={28} color="#fff" />
-                </motion.div>
-              ) : (
-                <>
+              <>
                   <motion.div
                     animate={{
                       scale: isActive ? 1 : 0.85,
@@ -68,7 +56,6 @@ export default function BottomNav() {
                     />
                   )}
                 </>
-              )}
             </motion.button>
           );
         })}
@@ -113,22 +100,6 @@ const styles = {
     position: 'relative',
     padding: '8px 0',
     WebkitTapHighlightColor: 'transparent',
-  },
-  createTab: {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  createButton: {
-    width: '48px',
-    height: '48px',
-    borderRadius: '16px',
-    background: 'linear-gradient(135deg, #00D4FF, #0088CC)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 0 15px rgba(0,212,255,0.3)',
   },
   label: {
     fontSize: '10px',

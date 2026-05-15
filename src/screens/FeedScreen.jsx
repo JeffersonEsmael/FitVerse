@@ -1,11 +1,14 @@
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PlusCircle } from 'lucide-react';
 import VideoCard from '../components/feed/VideoCard';
 import StoreView from '../components/store/StoreView';
 import { useFeedStore } from '../stores/feedStore';
+import { useNavigationStore } from '../stores/navigationStore';
 
 export default function FeedScreen() {
   const { videos, currentIndex, setCurrentIndex, activeTab, setActiveTab } = useFeedStore();
+  const navigate = useNavigationStore((s) => s.navigate);
   const containerRef = useRef(null);
   const [touchStart, setTouchStart] = useState(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -68,26 +71,32 @@ export default function FeedScreen() {
     >
       {/* Top tabs */}
       <div style={styles.topBar}>
-        <button
-          style={{ ...styles.tabBtn, ...(activeTab === 'following' ? styles.tabActive : {}) }}
-          onClick={() => setActiveTab('following')}
-        >
-          Seguindo
+        <button style={styles.createBtnTop} onClick={() => navigate('create')}>
+          <PlusCircle size={28} color="#00D4FF" />
         </button>
-        <div style={styles.tabDivider} />
-        <button
-          style={{ ...styles.tabBtn, ...(activeTab === 'forYou' ? styles.tabActive : {}) }}
-          onClick={() => setActiveTab('forYou')}
-        >
-          Para Você
-        </button>
-        <div style={styles.tabDivider} />
-        <button
-          style={{ ...styles.tabBtn, ...(activeTab === 'store' ? styles.tabActive : {}) }}
-          onClick={() => setActiveTab('store')}
-        >
-          Loja
-        </button>
+
+        <div style={styles.tabContainer}>
+          <button
+            style={{ ...styles.tabBtn, ...(activeTab === 'following' ? styles.tabActive : {}) }}
+            onClick={() => setActiveTab('following')}
+          >
+            Seguindo
+          </button>
+          <div style={styles.tabDivider} />
+          <button
+            style={{ ...styles.tabBtn, ...(activeTab === 'forYou' ? styles.tabActive : {}) }}
+            onClick={() => setActiveTab('forYou')}
+          >
+            Para Você
+          </button>
+          <div style={styles.tabDivider} />
+          <button
+            style={{ ...styles.tabBtn, ...(activeTab === 'store' ? styles.tabActive : {}) }}
+            onClick={() => setActiveTab('store')}
+          >
+            Loja
+          </button>
+        </div>
       </div>
 
       {/* Content Area */}
@@ -149,14 +158,29 @@ const styles = {
   topBar: {
     position: 'absolute',
     top: 'max(env(safe-area-inset-top, 0px), 12px)',
-    left: 0,
-    right: 0,
+    left: '16px',
+    right: '16px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '16px',
     zIndex: 20,
     padding: '8px 0',
+  },
+  createBtnTop: {
+    position: 'absolute',
+    left: 0,
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
   },
   tabBtn: {
     background: 'none',

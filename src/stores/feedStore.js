@@ -124,6 +124,33 @@ export const useFeedStore = create((set, get) => ({
 
   uploadVideo: async (file, metadata) => {
     set({ isLoading: true });
+    
+    if (metadata.userId === 'demo-user') {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          const newVideo = {
+            id: 'v_demo_' + Date.now(),
+            videoUrl: URL.createObjectURL(file),
+            userId: metadata.userId,
+            username: metadata.username,
+            userAvatar: metadata.userAvatar || '',
+            displayName: metadata.displayName,
+            caption: metadata.caption || '',
+            hashtags: metadata.hashtags || [],
+            category: metadata.category || 'geral',
+            shapes: 0, boosts: 0, gym_bag_saves: 0, comments: 0, shares: 0, views: 0,
+            hasShaped: false, hasBoosted: false, inGymBag: false,
+            createdAt: new Date(),
+          };
+          set((state) => ({
+            videos: [newVideo, ...state.videos],
+            isLoading: false,
+          }));
+          resolve({ success: true, videoId: newVideo.id });
+        }, 1500);
+      });
+    }
+
     try {
       // Upload video to Supabase Storage
       const fileName = `${Date.now()}_${file.name}`;
