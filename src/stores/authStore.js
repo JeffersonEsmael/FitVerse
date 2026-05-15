@@ -43,7 +43,9 @@ export const useAuthStore = create((set, get) => ({
     }
 
     // 1. Restore existing session first
+    console.log('[DEBUG] Calling getSession()');
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      console.log('[DEBUG] getSession() resolved:', { session, error });
       if (error) {
         console.error('getSession error:', error.message);
         set({ user: null, profile: null, isAuthenticated: false, isLoading: false });
@@ -51,7 +53,9 @@ export const useAuthStore = create((set, get) => ({
       }
 
       if (session?.user) {
+        console.log('[DEBUG] Session found. Fetching profile for:', session.user.id);
         const profile = await get().fetchProfile(session.user.id);
+        console.log('[DEBUG] Profile fetched:', profile);
         set({
           user: { uid: session.user.id, email: session.user.email },
           profile: profile || {
@@ -61,7 +65,9 @@ export const useAuthStore = create((set, get) => ({
           isAuthenticated: true,
           isLoading: false,
         });
+        console.log('[DEBUG] State updated for logged in user');
       } else {
+        console.log('[DEBUG] No session found. Setting logged out state.');
         set({ user: null, profile: null, isAuthenticated: false, isLoading: false });
       }
     }).catch((err) => {
