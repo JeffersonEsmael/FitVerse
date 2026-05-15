@@ -23,6 +23,7 @@ const defaultProfile = {
 
 // Track subscription to prevent duplicates
 let authSubscription = null;
+let isAuthInitialized = false;
 
 export const useAuthStore = create((set, get) => ({
   // State — single source of truth
@@ -32,18 +33,15 @@ export const useAuthStore = create((set, get) => ({
   isLoading: true,  // starts true, set to false once auth resolves
   error: null,
 
-  // ─── Initialize auth ───────────────────────────────────────
-  // Called once on App mount. Restores existing session, then
-  // listens for future changes. Returns unsubscribe function.
+  // ─── Initialize Auth ───────────────────────────────────────
   initAuth: () => {
-    // Prevent duplicate listeners (React StrictMode calls useEffect twice)
-    if (authSubscription) {
-      authSubscription.unsubscribe();
-      authSubscription = null;
-    }
+    // Only initialize once globally (prevents React StrictMode double-execution lockups)
+    if (isAuthInitialized) return;
+    isAuthInitialized = true;
 
+    console.log('[DEBUG] Calling getSession() for the first time');
+    
     // 1. Restore existing session first
-    console.log('[DEBUG] Calling getSession()');
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       console.log('[DEBUG] getSession() resolved:', { session, error });
       if (error) {
@@ -101,10 +99,8 @@ export const useAuthStore = create((set, get) => ({
     );
 
     authSubscription = subscription;
-    return () => {
-      subscription?.unsubscribe();
-      authSubscription = null;
-    };
+    // We don't return an unsubscribe function because this is a global store
+    // that should persist as long as the application is running.
   },
 
   // ─── Register ──────────────────────────────────────────────
