@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Grid3x3, Bookmark, Award, Flame, Users, Heart, Video, LogOut, ChevronRight, ScanLine, Bell, MessageCircle } from 'lucide-react';
+import { Settings, Grid3x3, Award, LogOut, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
+import { useFeedStore } from '../stores/feedStore';
+import { useChatStore } from '../stores/chatStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import GymBagIcon from '../components/icons/GymBagIcon';
 import ShapeIcon from '../components/icons/ShapeIcon';
@@ -18,15 +20,35 @@ function StatBox({ label, value, icon: Icon, color, onClick }) {
 }
 
 export default function ProfileScreen() {
-  const { profile, logout } = useAuthStore();
+  const { user, profile, logout } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
+  const { fetchUserPosts } = useFeedStore();
+  const { getOrCreateConversation } = useChatStore();
+  const [activeProfileTab, setActiveProfileTab] = useState('videos');
+  const [userPosts, setUserPosts] = useState([]);
+  const [postsLoaded, setPostsLoaded] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const p = profile || {};
+
+  // Fetch user's posts when video tab is active
+  useEffect(() => {
+    if (activeProfileTab === 'videos' && user?.uid && !postsLoaded) {
+      fetchUserPosts(user.uid).then((posts) => {
+        setUserPosts(posts);
+        setPostsLoaded(true);
+      });
+    }
+  }, [activeProfileTab, user?.uid, postsLoaded, fetchUserPosts]);
+
+  const handleLogout = async () => {
+    await logout();
     navigate('auth');
   };
 
-  const p = profile || {};
+  const handleDM = async () => {
+    // For own profile, navigate to conversations list
+    navigate('conversations');
+  };
 
   return (
     <ScreenWrapper screenKey="profile">
@@ -41,13 +63,13 @@ export default function ProfileScreen() {
 
         {/* Profile card */}
         <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-          <h3 style={styles.usernameCenter}>{p.username || 'jeffersonesmael'}</h3>
-          <span style={styles.displayNameCenter}>{p.displayName || 'Jefferson Esmael'}</span>
+          <h3 style={styles.usernameCenter}>@{p.username || 'user'}</h3>
+          <span style={styles.displayNameCenter}>{p.display_name || 'Usuário'}</span>
 
           <div style={styles.statsAvatarRow}>
             <div style={styles.statsRightAligned}>
               <div style={styles.statItemInline}>
-                <span style={styles.statValueInline}>{p.totalVideos || 0}</span>
+                <span style={styles.statValueInline}>{p.total_videos || 0}</span>
                 <span style={styles.statLabelInline}>posts</span>
               </div>
               <div style={styles.statItemInline}>
@@ -62,8 +84,8 @@ export default function ProfileScreen() {
 
             <div style={styles.avatarSection}>
               <div style={styles.avatar}>
-                {p.photoURL ? <img src={p.photoURL} alt="" style={styles.avatarImg} /> : (
-                  <div style={styles.avatarPlaceholder}>{p.displayName?.charAt(0) || '?'}</div>
+                {p.avatar_url ? <img src={p.avatar_url} alt="" style={styles.avatarImg} /> : (
+                  <div style={styles.avatarPlaceholder}>{p.display_name?.charAt(0) || '?'}</div>
                 )}
               </div>
               <div style={styles.levelBadge}>Lv.{p.level || 1}</div>
@@ -72,9 +94,9 @@ export default function ProfileScreen() {
 
           <div style={styles.bioContainer}>
             {p.bio && <p style={styles.bioCenter}>{p.bio}</p>}
-            {p.fitnessGoals?.length > 0 && (
+            {p.fitness_goals?.length > 0 && (
               <div style={styles.goalsCenter}>
-                {p.fitnessGoals.map((g) => (
+                {p.fitness_goals.map((g) => (
                   <span key={g} style={styles.goalChip}>{g}</span>
                 ))}
               </div>
@@ -84,9 +106,9 @@ export default function ProfileScreen() {
 
         {/* Stats */}
         <div style={styles.statsGrid}>
-          <StatBox label="Shapes" value={p.totalShapes || p.totalLikes || 0} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
-          <StatBox label="Ranking" value={`#${p.rankPosition || '-'}`} icon={Award} color="#FFD700" onClick={() => navigate('ranking')} />
-          <StatBox label="DM" value="Chat" icon={MessageCircle} color="#00D4FF" onClick={() => navigate('messages')} />
+          <StatBox label="Shapes" value={p.total_likes || 0} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
+          <StatBox label="Ranking" value={`#${p.rank_position || '-'}`} icon={Award} color="#FFD700" onClick={() => navigate('ranking')} />
+          <StatBox label="DM" value="Chat" icon={MessageCircle} color="#00D4FF" onClick={handleDM} />
         </div>
 
         {/* Quick access */}
@@ -109,33 +131,71 @@ export default function ProfileScreen() {
 
         {/* Content tabs */}
         <div style={styles.contentTabs}>
-          <button style={{ ...styles.contentTab, ...styles.contentTabActive }}>
+          <button
+            style={{ ...styles.contentTab, ...(activeProfileTab === 'videos' ? styles.contentTabActive : {}) }}
+            onClick={() => setActiveProfileTab('videos')}
+          >
             <Grid3x3 size={18} /> Vídeos
           </button>
-          <button style={styles.contentTab}>
-            <GymBagIcon filled={false} size={18} color="#6C6C88" /> Gym Bag
+          <button
+            style={{ ...styles.contentTab, ...(activeProfileTab === 'gymbag' ? styles.contentTabActive : {}) }}
+            onClick={() => setActiveProfileTab('gymbag')}
+          >
+            <GymBagIcon filled={false} size={18} color={activeProfileTab === 'gymbag' ? '#00D4FF' : '#6C6C88'} /> Gym Bag
           </button>
-          <button style={styles.contentTab}>
+          <button
+            style={{ ...styles.contentTab, ...(activeProfileTab === 'badges' ? styles.contentTabActive : {}) }}
+            onClick={() => setActiveProfileTab('badges')}
+          >
             <Award size={18} /> Badges
           </button>
         </div>
 
-        {/* Video grid placeholder */}
-        <div style={styles.videoGrid}>
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <motion.div
-              key={i}
-              style={styles.videoThumb}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.05 }}
-            >
-              <div style={styles.videoOverlay}>
-                <span style={styles.videoViews}>▶ {Math.floor(Math.random() * 9 + 1)}K</span>
+        {/* Content */}
+        {activeProfileTab === 'videos' && (
+          <div style={styles.videoGrid}>
+            {userPosts.length === 0 && postsLoaded ? (
+              <div style={styles.emptyGrid}>
+                <Video size={32} color="#6C6C88" />
+                <span style={styles.emptyGridText}>Nenhum post ainda</span>
               </div>
-            </motion.div>
-          ))}
-        </div>
+            ) : (
+              userPosts.map((post) => (
+                <motion.div
+                  key={post.id}
+                  style={styles.videoThumb}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                >
+                  {post.mediaType === 'image' ? (
+                    <img src={post.videoUrl} alt="" style={styles.thumbMedia} />
+                  ) : (
+                    <video src={post.videoUrl} style={styles.thumbMedia} muted preload="metadata" />
+                  )}
+                  <div style={styles.videoOverlay}>
+                    <span style={styles.videoViews}>
+                      {post.mediaType === 'image' ? <ImageIcon size={10} /> : '▶'} {post.views || 0}
+                    </span>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </div>
+        )}
+
+        {activeProfileTab === 'gymbag' && (
+          <div style={styles.emptyGrid}>
+            <GymBagIcon filled={false} size={32} color="#6C6C88" />
+            <span style={styles.emptyGridText}>Posts salvos aparecerão aqui</span>
+          </div>
+        )}
+
+        {activeProfileTab === 'badges' && (
+          <div style={styles.emptyGrid}>
+            <Award size={32} color="#6C6C88" />
+            <span style={styles.emptyGridText}>Conquistas em breve 🏆</span>
+          </div>
+        )}
 
         {/* Logout */}
         <motion.button style={styles.logoutBtn} onClick={handleLogout} whileTap={{ scale: 0.97 }}>
@@ -203,6 +263,7 @@ const styles = {
   },
   bioCenter: { fontSize: '14px', color: '#B0B0C8', textAlign: 'center', lineHeight: '1.4', margin: '0 0 10px', maxWidth: '80%' },
   goalsCenter: { display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center' },
+  goalChip: { padding: '4px 10px', borderRadius: '9999px', background: 'rgba(0,212,255,0.1)', color: '#00D4FF', fontSize: '12px', fontWeight: 600 },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '16px' },
   quickAccess: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' },
   quickBtn: { display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 14px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', fontFamily: "'Inter', sans-serif" },
@@ -215,8 +276,11 @@ const styles = {
   contentTabActive: { background: 'rgba(0,212,255,0.1)', color: '#00D4FF', borderColor: 'rgba(0,212,255,0.2)' },
   videoGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', marginBottom: '20px' },
   videoThumb: { aspectRatio: '9/16', borderRadius: '8px', background: 'linear-gradient(180deg, #1A1A2E, #22223A)', position: 'relative', overflow: 'hidden' },
+  thumbMedia: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
   videoOverlay: { position: 'absolute', bottom: '6px', left: '6px' },
-  videoViews: { fontSize: '11px', color: '#fff', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.5)' },
+  videoViews: { fontSize: '11px', color: '#fff', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: '3px' },
+  emptyGrid: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '40px 0', gridColumn: '1 / -1' },
+  emptyGridText: { fontSize: '13px', color: '#6C6C88' },
   logoutBtn: { display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '14px 16px', borderRadius: '12px', background: 'rgba(255,45,85,0.06)', border: '1px solid rgba(255,45,85,0.1)', color: '#FF2D55', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter', sans-serif", marginBottom: '32px' },
 };
 

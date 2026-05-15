@@ -1,18 +1,27 @@
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Video } from 'lucide-react';
 import VideoCard from '../components/feed/VideoCard';
 import StoreView from '../components/store/StoreView';
 import { useFeedStore } from '../stores/feedStore';
 import { useNavigationStore } from '../stores/navigationStore';
 
 export default function FeedScreen() {
-  const { videos, currentIndex, setCurrentIndex, activeTab, setActiveTab } = useFeedStore();
+  const { videos, currentIndex, setCurrentIndex, activeTab, setActiveTab, fetchVideos, isLoading } = useFeedStore();
   const navigate = useNavigationStore((s) => s.navigate);
   const containerRef = useRef(null);
   const [touchStart, setTouchStart] = useState(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [direction, setDirection] = useState(1);
+  const [hasFetched, setHasFetched] = useState(false);
+
+  // Fetch posts on mount
+  useEffect(() => {
+    if (!hasFetched) {
+      fetchVideos();
+      setHasFetched(true);
+    }
+  }, [hasFetched, fetchVideos]);
 
   const goToVideo = useCallback((index) => {
     if (index < 0 || index >= videos.length || isTransitioning) return;
@@ -112,6 +121,24 @@ export default function FeedScreen() {
           >
             <StoreView />
           </motion.div>
+        ) : videos.length === 0 ? (
+          <motion.div
+            key="empty"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            style={styles.emptyFeed}
+          >
+            <Video size={48} color="#6C6C88" />
+            <span style={styles.emptyTitle}>Nenhum post ainda</span>
+            <span style={styles.emptySubtitle}>Seja o primeiro a postar!</span>
+            <motion.button
+              style={styles.emptyBtn}
+              onClick={() => navigate('create')}
+              whileTap={{ scale: 0.95 }}
+            >
+              <PlusCircle size={18} /> Criar Post
+            </motion.button>
+          </motion.div>
         ) : (
           videos.map((video, index) => (
             index === currentIndex && (
@@ -135,7 +162,7 @@ export default function FeedScreen() {
       </AnimatePresence>
 
       {/* Video counter */}
-      {activeTab !== 'store' && (
+      {activeTab !== 'store' && videos.length > 0 && (
         <div style={styles.counter}>
           {currentIndex + 1} / {videos.length}
         </div>
@@ -219,5 +246,42 @@ const styles = {
     fontSize: '11px',
     fontFamily: "'Inter', sans-serif",
     zIndex: 5,
+  },
+  emptyFeed: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+  },
+  emptyTitle: {
+    fontSize: '18px',
+    fontWeight: 700,
+    color: '#B0B0C8',
+    fontFamily: "'Outfit', sans-serif",
+  },
+  emptySubtitle: {
+    fontSize: '14px',
+    color: '#6C6C88',
+  },
+  emptyBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '12px 24px',
+    borderRadius: '12px',
+    background: 'linear-gradient(135deg, #00D4FF, #0088CC)',
+    border: 'none',
+    color: '#fff',
+    fontSize: '15px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    marginTop: '8px',
+    fontFamily: "'Inter', sans-serif",
   },
 };

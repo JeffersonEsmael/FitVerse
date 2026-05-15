@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useAuthStore } from '../stores/authStore';
@@ -6,13 +6,21 @@ import { useAuthStore } from '../stores/authStore';
 export default function SplashScreen() {
   const navigate = useNavigationStore((s) => s.navigate);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const [minTimePassed, setMinTimePassed] = useState(false);
 
+  // Minimum display time for branding (1.8s)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      navigate(isAuthenticated ? 'feed' : 'auth');
-    }, 2500);
+    const timer = setTimeout(() => setMinTimePassed(true), 1800);
     return () => clearTimeout(timer);
-  }, [isAuthenticated, navigate]);
+  }, []);
+
+  // Navigate once auth resolves AND minimum time has passed
+  useEffect(() => {
+    if (!isLoading && minTimePassed) {
+      navigate(isAuthenticated ? 'feed' : 'auth');
+    }
+  }, [isLoading, minTimePassed, isAuthenticated, navigate]);
 
   return (
     <div style={styles.container}>
@@ -68,7 +76,7 @@ export default function SplashScreen() {
           style={styles.loadingFill}
           initial={{ width: '0%' }}
           animate={{ width: '100%' }}
-          transition={{ delay: 1.3, duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ delay: 0.4, duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
         />
       </motion.div>
     </div>

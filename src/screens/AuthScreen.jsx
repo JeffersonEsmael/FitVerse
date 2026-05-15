@@ -11,17 +11,27 @@ export default function AuthScreen() {
   const [name, setName] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login, register, demoLogin, loginWithGoogle, loginWithApple, error, clearError } = useAuthStore();
+  const { login, register, error, clearError } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     clearError();
     setIsSubmitting(true);
-    
-    // Basic validation
-    if (mode === 'login' && !email.includes('@')) {
-      alert('Por favor, insira um email válido (ex: seuemail@gmail.com). Você digitou um nome ou formato inválido.');
+
+    // Validation
+    if (!email.includes('@')) {
+      alert('Por favor, insira um email válido (ex: seuemail@gmail.com).');
+      setIsSubmitting(false);
+      return;
+    }
+    if (password.length < 6) {
+      alert('A senha precisa ter no mínimo 6 caracteres.');
+      setIsSubmitting(false);
+      return;
+    }
+    if (mode === 'register' && name.trim().length < 2) {
+      alert('Insira seu nome completo.');
       setIsSubmitting(false);
       return;
     }
@@ -31,9 +41,9 @@ export default function AuthScreen() {
       if (mode === 'login') {
         result = await login(email, password);
       } else {
-        result = await register(email, password, name);
+        result = await register(email, password, name.trim());
       }
-      
+
       if (result?.success) {
         navigate('feed');
       } else {
@@ -44,11 +54,6 @@ export default function AuthScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleDemo = () => {
-    demoLogin();
-    navigate('feed');
   };
 
   return (
@@ -73,7 +78,7 @@ export default function AuthScreen() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} style={styles.form}>
+        <form onSubmit={handleSubmit} style={styles.form} autoComplete="off">
           <AnimatePresence mode="wait">
             {mode === 'register' && (
               <motion.div
@@ -85,7 +90,7 @@ export default function AuthScreen() {
               >
                 <div style={styles.inputWrap}>
                   <User size={18} color="#6C6C88" />
-                  <input style={styles.input} type="text" placeholder="Nome completo" value={name} onChange={(e) => setName(e.target.value)} required />
+                  <input style={styles.input} type="text" placeholder="Nome completo" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" required />
                 </div>
               </motion.div>
             )}
@@ -98,7 +103,7 @@ export default function AuthScreen() {
 
           <div style={styles.inputWrap}>
             <Lock size={18} color="#6C6C88" />
-            <input style={styles.input} type={showPass ? 'text' : 'password'} placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required />
+            <input style={styles.input} type={showPass ? 'text' : 'password'} placeholder="Senha (mín. 6 caracteres)" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required />
             <button type="button" onClick={() => setShowPass(!showPass)} style={styles.eyeBtn}>
               {showPass ? <EyeOff size={18} color="#6C6C88" /> : <Eye size={18} color="#6C6C88" />}
             </button>
@@ -123,36 +128,12 @@ export default function AuthScreen() {
           </motion.button>
         </form>
 
-        {/* Social login */}
-        <div style={styles.dividerRow}>
-          <div style={styles.divider} />
-          <span style={styles.dividerText}>ou</span>
-          <div style={styles.divider} />
-        </div>
-
-        <div style={styles.socialRow}>
-          <button style={styles.socialBtn} onClick={handleDemo}>
-            <span>🚀</span> Demo
-          </button>
-          <button style={styles.socialBtn} onClick={loginWithGoogle}>
-            <span>G</span> Google
-          </button>
-          <button style={styles.socialBtn} onClick={loginWithApple}>
-            <span></span> Apple
-          </button>
-        </div>
-
         {/* Toggle mode */}
         <p style={styles.toggleText}>
           {mode === 'login' ? 'Não tem conta? ' : 'Já tem conta? '}
           <span style={styles.toggleLink} onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); clearError(); }}>
             {mode === 'login' ? 'Criar conta' : 'Fazer login'}
           </span>
-        </p>
-
-        {/* Reset */}
-        <p style={{...styles.toggleText, marginTop: '16px', fontSize: '12px'}}>
-          Problemas no login? <span style={styles.toggleLink} onClick={() => { localStorage.clear(); sessionStorage.clear(); window.location.reload(); }}>Limpar dados (Reset)</span>
         </p>
       </motion.div>
     </div>
@@ -210,17 +191,6 @@ const styles = {
     boxShadow: '0 0 20px rgba(0,212,255,0.3)', marginTop: '4px',
   },
   spinner: { width: '20px', height: '20px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%' },
-  dividerRow: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' },
-  divider: { flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' },
-  dividerText: { fontSize: '13px', color: '#6C6C88', fontFamily: "'Inter', sans-serif" },
-  socialRow: { display: 'flex', gap: '10px', marginBottom: '20px' },
-  socialBtn: {
-    flex: 1, padding: '10px', borderRadius: '10px',
-    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-    color: '#B0B0C8', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-    fontFamily: "'Inter', sans-serif", display: 'flex', alignItems: 'center',
-    justifyContent: 'center', gap: '6px',
-  },
   toggleText: { textAlign: 'center', fontSize: '14px', color: '#6C6C88', fontFamily: "'Inter', sans-serif" },
   toggleLink: { color: '#00D4FF', fontWeight: 600, cursor: 'pointer' },
 };

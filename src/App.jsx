@@ -15,11 +15,12 @@ import ProfileScreen from './screens/ProfileScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
 import NutriScanScreen from './screens/NutriScanScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
+import ConversationsListScreen from './screens/ConversationsListScreen';
 import MessagesScreen from './screens/MessagesScreen';
 import ProductDetailsScreen from './screens/ProductDetailsScreen';
 
 // Screens that show the bottom nav
-const NAV_SCREENS = ['feed', 'explore', 'create', 'ranking', 'profile', 'nutriscan', 'notifications'];
+const NAV_SCREENS = ['feed', 'explore', 'conversations', 'notifications', 'profile'];
 
 // Screen components map
 const SCREENS = {
@@ -33,6 +34,7 @@ const SCREENS = {
   edit_profile: EditProfileScreen,
   nutriscan: NutriScanScreen,
   notifications: NotificationsScreen,
+  conversations: ConversationsListScreen,
   messages: MessagesScreen,
   product_details: ProductDetailsScreen,
 };
@@ -41,7 +43,7 @@ export default function App() {
   const currentScreen = useNavigationStore((s) => s.currentScreen);
   const initAuth = useAuthStore((s) => s.initAuth);
 
-  // Initialize Firebase auth listener
+  // Initialize Supabase auth listener
   useEffect(() => {
     const unsubscribe = initAuth();
     return () => {

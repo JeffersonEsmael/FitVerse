@@ -1,90 +1,165 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Send, Phone, Video, MoreVertical, Image as ImageIcon, Smile } from 'lucide-react';
+import { ArrowLeft, Send, Image as ImageIcon } from 'lucide-react';
+import { useAuthStore } from '../stores/authStore';
+import { useChatStore } from '../stores/chatStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 
 export default function MessagesScreen() {
-  const navigate = useNavigationStore((s) => s.navigate);
-  const [message, setMessage] = useState('');
+  const { user } = useAuthStore();
+  const { messages, fetchMessages, sendMessage, uploadChatImage, subscribeToMessages, unsubscribeFromMessages } = useChatStore();
+  const { screenParams, goBack } = useNavigationStore();
+  const [text, setText] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const chatEndRef = useRef(null);
+  const fileInputRef = useRef(null);
 
-  const chatHistory = [
-    { id: 1, text: 'E aí, bora treinar hoje?', isSender: false, time: '10:30 AM' },
-    { id: 2, text: 'Opa, bora! Qual o treino?', isSender: true, time: '10:32 AM' },
-    { id: 3, text: 'Costas e bíceps. Vou colar lá na academia às 18h.', isSender: false, time: '10:33 AM' },
-    { id: 4, text: 'Fechou! Nos encontramos lá 🤝', isSender: true, time: '10:35 AM' },
-  ];
+  const conversationId = screenParams?.conversationId;
+  const otherUser = screenParams?.otherUser || { display_name: 'Usuário', avatar_url: '' };
+
+  // Load messages and subscribe to realtime
+  useEffect(() => {
+    if (conversationId) {
+      fetchMessages(conversationId);
+      subscribeToMessages(conversationId);
+    }
+    return () => unsubscribeFromMessages();
+  }, [conversationId, fetchMessages, subscribeToMessages, unsubscribeFromMessages]);
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = async () => {
+    const trimmed = text.trim();
+    if (!trimmed || !conversationId || !user?.uid) return;
+    setIsSending(true);
+    setText('');
+    await sendMessage(conversationId, user.uid, trimmed);
+    setIsSending(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.uid || !conversationId) return;
+    setIsSending(true);
+    const imageUrl = await uploadChatImage(file, user.uid);
+    if (imageUrl) {
+      await sendMessage(conversationId, user.uid, '', imageUrl);
+    }
+    setIsSending(false);
+  };
+
+  const formatTime = (date) => {
+    return new Date(date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
-    <ScreenWrapper screenKey="messages">
+    <ScreenWrapper screenKey="messages" noPadding>
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
-          <button style={styles.iconBtn} onClick={() => navigate('profile')}>
+          <button style={styles.iconBtn} onClick={goBack}>
             <ArrowLeft size={24} color="#fff" />
           </button>
           <div style={styles.headerUserInfo}>
             <div style={styles.avatar}>
-              <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="Avatar" style={styles.avatarImg} />
+              {otherUser.avatar_url ? (
+                <img src={otherUser.avatar_url} alt="" style={styles.avatarImg} />
+              ) : (
+                <div style={styles.avatarPlaceholder}>
+                  {otherUser.display_name?.charAt(0) || '?'}
+                </div>
+              )}
             </div>
             <div style={styles.headerTitles}>
-              <span style={styles.userName}>Jefferson Esmael</span>
-              <span style={styles.userStatus}>Online agora</span>
+              <span style={styles.userName}>{otherUser.display_name}</span>
+              <span style={styles.userHandle}>@{otherUser.username || 'user'}</span>
             </div>
-          </div>
-          <div style={styles.headerActions}>
-            <button style={styles.iconBtn}><Phone size={20} color="#fff" /></button>
-            <button style={styles.iconBtn}><Video size={20} color="#fff" /></button>
-            <button style={styles.iconBtn}><MoreVertical size={20} color="#fff" /></button>
           </div>
         </div>
 
         {/* Chat Area */}
         <div style={styles.chatArea}>
-          {chatHistory.map((msg) => (
-            <motion.div
-              key={msg.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              style={{
-                ...styles.messageWrapper,
-                justifyContent: msg.isSender ? 'flex-end' : 'flex-start'
-              }}
-            >
-              {!msg.isSender && (
-                <div style={styles.messageAvatar}>
-                  <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="" style={styles.avatarImg} />
+          {messages.length === 0 && (
+            <div style={styles.emptyChat}>
+              <span style={styles.emptyChatText}>Envie a primeira mensagem! 💬</span>
+            </div>
+          )}
+          {messages.map((msg) => {
+            const isSender = msg.senderId === user?.uid;
+            return (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{
+                  ...styles.messageWrapper,
+                  justifyContent: isSender ? 'flex-end' : 'flex-start',
+                }}
+              >
+                {!isSender && (
+                  <div style={styles.messageAvatar}>
+                    {otherUser.avatar_url ? (
+                      <img src={otherUser.avatar_url} alt="" style={styles.avatarImg} />
+                    ) : (
+                      <div style={styles.avatarPlaceholderSmall}>
+                        {otherUser.display_name?.charAt(0) || '?'}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div
+                  style={{
+                    ...styles.messageBubble,
+                    ...(isSender ? styles.senderBubble : styles.receiverBubble),
+                  }}
+                >
+                  {msg.imageUrl && (
+                    <img src={msg.imageUrl} alt="" style={styles.chatImage} />
+                  )}
+                  {msg.content && <p style={styles.messageText}>{msg.content}</p>}
+                  <span style={styles.messageTime}>{formatTime(msg.createdAt)}</span>
                 </div>
-              )}
-              <div style={{
-                ...styles.messageBubble,
-                ...(msg.isSender ? styles.senderBubble : styles.receiverBubble)
-              }}>
-                <p style={styles.messageText}>{msg.text}</p>
-                <span style={styles.messageTime}>{msg.time}</span>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
+          <div ref={chatEndRef} />
         </div>
 
         {/* Input Area */}
         <div style={styles.inputArea}>
-          <button style={styles.actionBtn}>
+          <button style={styles.actionBtn} onClick={() => fileInputRef.current?.click()}>
             <ImageIcon size={22} color="#6C6C88" />
           </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            style={{ display: 'none' }}
+          />
           <div style={styles.inputWrapper}>
             <input
               type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Digite uma mensagem..."
               style={styles.input}
+              disabled={isSending}
             />
-            <button style={styles.actionBtnInside}>
-              <Smile size={20} color="#6C6C88" />
-            </button>
           </div>
-          <button style={styles.sendBtn}>
+          <button style={styles.sendBtn} onClick={handleSend} disabled={isSending || !text.trim()}>
             <Send size={20} color="#fff" />
           </button>
         </div>
@@ -136,6 +211,18 @@ const styles = {
     height: '100%',
     objectFit: 'cover',
   },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(135deg, #00D4FF, #A855F7)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#fff',
+    fontWeight: 800,
+    fontSize: '16px',
+    fontFamily: "'Outfit', sans-serif",
+  },
   headerTitles: {
     display: 'flex',
     flexDirection: 'column',
@@ -146,15 +233,10 @@ const styles = {
     fontWeight: 600,
     fontFamily: "'Inter', sans-serif",
   },
-  userStatus: {
-    color: '#39FF14',
+  userHandle: {
+    color: '#6C6C88',
     fontSize: '12px',
     fontWeight: 500,
-  },
-  headerActions: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
   },
   chatArea: {
     flex: 1,
@@ -162,7 +244,18 @@ const styles = {
     overflowY: 'auto',
     display: 'flex',
     flexDirection: 'column',
-    gap: '16px',
+    gap: '12px',
+  },
+  emptyChat: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    paddingTop: '40px',
+  },
+  emptyChatText: {
+    fontSize: '14px',
+    color: '#6C6C88',
   },
   messageWrapper: {
     display: 'flex',
@@ -177,10 +270,21 @@ const styles = {
     overflow: 'hidden',
     flexShrink: 0,
   },
+  avatarPlaceholderSmall: {
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(135deg, #00D4FF, #A855F7)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#fff',
+    fontWeight: 700,
+    fontSize: '11px',
+  },
   messageBubble: {
     maxWidth: '75%',
-    padding: '12px 16px',
-    borderRadius: '20px',
+    padding: '10px 14px',
+    borderRadius: '18px',
     position: 'relative',
   },
   senderBubble: {
@@ -191,17 +295,26 @@ const styles = {
     background: 'rgba(255,255,255,0.05)',
     borderBottomLeftRadius: '4px',
   },
+  chatImage: {
+    maxWidth: '200px',
+    maxHeight: '200px',
+    borderRadius: '12px',
+    objectFit: 'cover',
+    marginBottom: '4px',
+    display: 'block',
+  },
   messageText: {
     color: '#fff',
     fontSize: '14px',
     lineHeight: '1.4',
     margin: 0,
     fontFamily: "'Inter', sans-serif",
+    wordBreak: 'break-word',
   },
   messageTime: {
     display: 'block',
     fontSize: '10px',
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.4)',
     marginTop: '4px',
     textAlign: 'right',
   },
@@ -242,15 +355,6 @@ const styles = {
     outline: 'none',
     fontFamily: "'Inter', sans-serif",
   },
-  actionBtnInside: {
-    background: 'none',
-    border: 'none',
-    padding: '8px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   sendBtn: {
     background: 'linear-gradient(135deg, #00D4FF, #0088CC)',
     border: 'none',
@@ -262,5 +366,6 @@ const styles = {
     justifyContent: 'center',
     cursor: 'pointer',
     boxShadow: '0 4px 15px rgba(0,212,255,0.3)',
+    opacity: 1,
   },
 };

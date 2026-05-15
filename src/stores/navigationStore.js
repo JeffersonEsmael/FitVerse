@@ -1,26 +1,18 @@
 import { create } from 'zustand';
 
 export const useNavigationStore = create((set, get) => ({
-  // Current active screen
   currentScreen: 'splash',
-
-  // Previous screen for back navigation
   previousScreen: null,
-
-  // Navigation history stack
   history: [],
-
-  // Active bottom nav tab
   activeTab: 'feed',
-
-  // Screen transition direction
   transitionDirection: 'forward',
-
-  // Modal/sheet state
   activeModal: null,
   modalData: null,
 
-  // Navigate to a screen
+  // Params for passing data between screens (e.g. conversationId)
+  screenParams: {},
+
+  // Navigate to a screen with optional params
   navigate: (screen, options = {}) => {
     const { currentScreen } = get();
     set({
@@ -28,10 +20,10 @@ export const useNavigationStore = create((set, get) => ({
       currentScreen: screen,
       transitionDirection: options.direction || 'forward',
       history: [...get().history, currentScreen],
+      screenParams: options.params || {},
     });
   },
 
-  // Navigate back
   goBack: () => {
     const { history } = get();
     if (history.length > 0) {
@@ -41,17 +33,18 @@ export const useNavigationStore = create((set, get) => ({
         previousScreen: get().currentScreen,
         transitionDirection: 'back',
         history: history.slice(0, -1),
+        screenParams: {},
       });
     }
   },
 
-  // Set active tab (bottom nav)
+  // Set active tab — maps tab id to screen name
   setActiveTab: (tab) => {
     const tabScreenMap = {
       feed: 'feed',
       explore: 'explore',
-      create: 'create',
-      ranking: 'ranking',
+      messages: 'conversations',
+      notifications: 'notifications',
       profile: 'profile',
     };
     set({
@@ -60,20 +53,18 @@ export const useNavigationStore = create((set, get) => ({
       previousScreen: get().currentScreen,
       transitionDirection: 'none',
       history: [],
+      screenParams: {},
     });
   },
 
-  // Open modal
   openModal: (modalName, data = null) => {
     set({ activeModal: modalName, modalData: data });
   },
 
-  // Close modal
   closeModal: () => {
     set({ activeModal: null, modalData: null });
   },
 
-  // Reset navigation (e.g., on logout)
   resetNavigation: () => {
     set({
       currentScreen: 'auth',
@@ -83,6 +74,7 @@ export const useNavigationStore = create((set, get) => ({
       transitionDirection: 'forward',
       activeModal: null,
       modalData: null,
+      screenParams: {},
     });
   },
 }));

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Camera, Save, Loader2 } from 'lucide-react';
+import { ChevronLeft, Camera, Save, Loader2, Globe, Lock } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
@@ -13,6 +13,7 @@ export default function EditProfileScreen() {
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
+  const [isPublic, setIsPublic] = useState(true);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -24,48 +25,66 @@ export default function EditProfileScreen() {
       setDisplayName(profile.display_name || '');
       setUsername(profile.username || '');
       setBio(profile.bio || '');
-      setPhotoPreview(profile.avatar_url || profile.photoURL || '');
+      setIsPublic(profile.is_public !== false);
+      setPhotoPreview(profile.avatar_url || '');
     }
   }, [profile]);
 
   const handlePhotoSelect = (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert('A imagem deve ter no máximo 5MB.');
+        return;
+      }
       setPhotoFile(file);
       setPhotoPreview(URL.createObjectURL(file));
     }
   };
 
   const handleSave = async () => {
+    if (!user?.uid) return;
     setIsSaving(true);
     let avatarUrl = profile?.avatar_url || '';
 
     try {
       // 1. Upload new photo if selected
-      if (photoFile && user?.uid !== 'demo-user') {
+      if (photoFile) {
         const fileExt = photoFile.name.split('.').pop();
-        const fileName = `${user.uid}-${Date.now()}.${fileExt}`;
+        const fileName = `${user.uid}/${Date.now()}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
           .from('avatars')
-          .upload(fileName, photoFile, { upsert: true });
+          .upload(fileName, photoFile, { 
+            contentType: photoFile.type,
+            upsert: true,
+          });
 
-        if (!uploadError) {
-          const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
-          avatarUrl = data.publicUrl;
+        if (uploadError) {
+          alert('Erro ao enviar foto: ' + uploadError.message);
+          setIsSaving(false);
+          return;
         }
+
+        const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+        avatarUrl = data.publicUrl;
       }
 
       // 2. Update profile data
       const updates = {
-        display_name: displayName,
-        username: username,
-        bio: bio,
+        display_name: displayName.trim(),
+        username: username.trim(),
+        bio: bio.trim(),
         avatar_url: avatarUrl,
+        is_public: isPublic,
       };
 
-      await updateProfile(updates);
-      navigate('profile');
+      const result = await updateProfile(updates);
+      if (result.success) {
+        navigate('profile');
+      } else {
+        alert('Erro ao salvar: ' + (result.error || 'Tente novamente'));
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
       alert('Erro ao atualizar perfil. Tente novamente.');
@@ -135,9 +154,9 @@ export default function EditProfileScreen() {
               <input
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
+                onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9._]/g, ''))}
                 style={styles.input}
-                placeholder="@username"
+                placeholder="username"
               />
             </div>
 
@@ -151,6 +170,25 @@ export default function EditProfileScreen() {
                 maxLength={150}
               />
               <span style={styles.charCount}>{bio.length}/150</span>
+            </div>
+
+            {/* Public/Private toggle */}
+            <div style={styles.field}>
+              <label style={styles.label}>Visibilidade da conta</label>
+              <div style={styles.toggleRow}>
+                <button
+                  style={{ ...styles.toggleBtn, ...(isPublic ? styles.toggleActive : {}) }}
+                  onClick={() => setIsPublic(true)}
+                >
+                  <Globe size={16} /> Pública
+                </button>
+                <button
+                  style={{ ...styles.toggleBtn, ...(!isPublic ? styles.toggleActive : {}) }}
+                  onClick={() => setIsPublic(false)}
+                >
+                  <Lock size={16} /> Privada
+                </button>
+              </div>
             </div>
           </div>
           
@@ -309,6 +347,31 @@ const styles = {
     fontSize: '12px',
     color: '#6C6C88',
     textAlign: 'right',
+  },
+  toggleRow: {
+    display: 'flex',
+    gap: '8px',
+  },
+  toggleBtn: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    padding: '12px',
+    borderRadius: '12px',
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    color: '#6C6C88',
+    fontSize: '14px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: "'Inter', sans-serif",
+  },
+  toggleActive: {
+    background: 'rgba(0,212,255,0.1)',
+    borderColor: 'rgba(0,212,255,0.3)',
+    color: '#00D4FF',
   },
   submitBtn: {
     background: 'linear-gradient(135deg, #00D4FF, #0088CC)',

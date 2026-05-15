@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../config/supabase';
 
-// Sem vídeos placeholder
-
 export const useFeedStore = create((set, get) => ({
   videos: [],
   currentIndex: 0,
@@ -13,6 +11,7 @@ export const useFeedStore = create((set, get) => ({
   setCurrentIndex: (index) => set({ currentIndex: index }),
   setActiveTab: (tab) => set({ activeTab: tab }),
 
+  // ─── Toggle interactions ─────────────────────────────────
   toggleShape: (videoId) => {
     set((state) => ({
       videos: state.videos.map((v) =>
@@ -21,9 +20,9 @@ export const useFeedStore = create((set, get) => ({
           : v
       ),
     }));
-
+    // Persist to Supabase (fire and forget)
     const video = get().videos.find((v) => v.id === videoId);
-    if (video && !video.id.startsWith('v')) {
+    if (video) {
       supabase.rpc('toggle_video_shape', { p_video_id: videoId }).catch(() => {});
     }
   },
@@ -36,9 +35,8 @@ export const useFeedStore = create((set, get) => ({
           : v
       ),
     }));
-
     const video = get().videos.find((v) => v.id === videoId);
-    if (video && !video.id.startsWith('v')) {
+    if (video) {
       supabase.rpc('toggle_video_boost', { p_video_id: videoId }).catch(() => {});
     }
   },
@@ -51,9 +49,8 @@ export const useFeedStore = create((set, get) => ({
           : v
       ),
     }));
-
     const video = get().videos.find((v) => v.id === videoId);
-    if (video && !video.id.startsWith('v')) {
+    if (video) {
       supabase.rpc('toggle_video_gym_bag', { p_video_id: videoId }).catch(() => {});
     }
   },
@@ -66,33 +63,33 @@ export const useFeedStore = create((set, get) => ({
     }));
   },
 
+  // ─── Fetch posts from Supabase ───────────────────────────
   fetchVideos: async (loadMore = false) => {
+    if (get().isLoading) return;
     set({ isLoading: true });
-    try {
-      const page = loadMore ? Math.floor(get().videos.length / 10) : 0;
-      
-      // Use the new RPC to get videos along with user interaction states
-      const { data, error } = await supabase
-        .rpc('get_feed_videos', { 
-          p_limit: 10, 
-          p_offset: page * 10 
-        });
 
-      if (error) {
-        // Fallback to table select if RPC fails or doesn't exist yet
-        console.warn('RPC get_feed_videos failed, trying direct table select', error);
-        throw error;
-      }
+    try {
+      const offset = loadMore ? get().videos.length : 0;
+      const limit = 10;
+
+      const { data, error } = await supabase
+        .from('videos')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) throw error;
 
       if (!data || data.length === 0) {
+        if (!loadMore) set({ videos: [] });
         set({ hasMore: false, isLoading: false });
         return;
       }
 
-      // Map Supabase columns to our format
       const newVideos = data.map((v) => ({
         id: v.id,
         videoUrl: v.video_url,
+        mediaType: v.media_type || 'video',
         userId: v.user_id,
         username: v.username,
         userAvatar: v.user_avatar || '',
@@ -106,56 +103,64 @@ export const useFeedStore = create((set, get) => ({
         comments: v.comments || 0,
         shares: v.shares || 0,
         views: v.views || 0,
-        hasShaped: v.has_shaped || false,
-        hasBoosted: v.has_boosted || false,
-        inGymBag: v.in_gym_bag || false,
+        hasShaped: false,
+        hasBoosted: false,
+        inGymBag: false,
         createdAt: new Date(v.created_at),
       }));
 
       set((state) => ({
         videos: loadMore ? [...state.videos, ...newVideos] : newVideos,
+        hasMore: data.length === limit,
         isLoading: false,
       }));
     } catch (error) {
-      console.error('Error fetching videos:', error.message);
+      console.error('Error fetching posts:', error.message);
       set({ isLoading: false });
     }
   },
 
-  uploadVideo: async (file, metadata) => {
-    set({ isLoading: true });
-    
-    if (metadata.userId === 'demo-user') {
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          const newVideo = {
-            id: 'v_demo_' + Date.now(),
-            videoUrl: URL.createObjectURL(file),
-            userId: metadata.userId,
-            username: metadata.username,
-            userAvatar: metadata.userAvatar || '',
-            displayName: metadata.displayName,
-            caption: metadata.caption || '',
-            hashtags: metadata.hashtags || [],
-            category: metadata.category || 'geral',
-            shapes: 0, boosts: 0, gym_bag_saves: 0, comments: 0, shares: 0, views: 0,
-            hasShaped: false, hasBoosted: false, inGymBag: false,
-            createdAt: new Date(),
-          };
-          set((state) => ({
-            videos: [newVideo, ...state.videos],
-            isLoading: false,
-          }));
-          resolve({ success: true, videoId: newVideo.id });
-        }, 1500);
-      });
+  // ─── Fetch posts by specific user ────────────────────────
+  fetchUserPosts: async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('videos')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []).map((v) => ({
+        id: v.id,
+        videoUrl: v.video_url,
+        mediaType: v.media_type || 'video',
+        caption: v.caption || '',
+        views: v.views || 0,
+        shapes: v.shapes || 0,
+        createdAt: new Date(v.created_at),
+      }));
+    } catch (error) {
+      console.error('Error fetching user posts:', error.message);
+      return [];
     }
+  },
+
+  // ─── Create post (video or image) ────────────────────────
+  createPost: async (file, metadata) => {
+    set({ isLoading: true });
 
     try {
-      // Upload video to Supabase Storage
-      const fileName = `${Date.now()}_${file.name}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('videos')
+      // Determine media type and bucket
+      const isVideo = file.type.startsWith('video');
+      const mediaType = isVideo ? 'video' : 'image';
+      const bucketName = isVideo ? 'videos' : 'posts';
+
+      // Upload to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${metadata.userId}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(bucketName)
         .upload(fileName, file, {
           contentType: file.type,
           cacheControl: '3600',
@@ -165,12 +170,13 @@ export const useFeedStore = create((set, get) => ({
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
-        .from('videos')
+        .from(bucketName)
         .getPublicUrl(fileName);
 
-      // Create video record in database
-      const videoData = {
+      // Create record in database
+      const postData = {
         video_url: publicUrl,
+        media_type: mediaType,
         user_id: metadata.userId,
         username: metadata.username,
         user_avatar: metadata.userAvatar || '',
@@ -186,9 +192,9 @@ export const useFeedStore = create((set, get) => ({
         views: 0,
       };
 
-      const { data: insertedVideo, error: insertError } = await supabase
+      const { data: insertedPost, error: insertError } = await supabase
         .from('videos')
-        .insert(videoData)
+        .insert(postData)
         .select()
         .single();
 
@@ -197,9 +203,16 @@ export const useFeedStore = create((set, get) => ({
       // Add to local state
       set((state) => ({
         videos: [{
-          id: insertedVideo.id,
+          id: insertedPost.id,
           videoUrl: publicUrl,
-          ...metadata,
+          mediaType,
+          userId: metadata.userId,
+          username: metadata.username,
+          userAvatar: metadata.userAvatar || '',
+          displayName: metadata.displayName,
+          caption: metadata.caption || '',
+          hashtags: metadata.hashtags || [],
+          category: metadata.category || 'geral',
           shapes: 0, boosts: 0, gym_bag_saves: 0, comments: 0, shares: 0, views: 0,
           hasShaped: false, hasBoosted: false, inGymBag: false,
           createdAt: new Date(),
@@ -207,8 +220,9 @@ export const useFeedStore = create((set, get) => ({
         isLoading: false,
       }));
 
-      return { success: true, videoId: insertedVideo.id };
+      return { success: true, videoId: insertedPost.id };
     } catch (error) {
+      console.error('Upload error:', error.message);
       set({ isLoading: false });
       return { success: false, error: error.message };
     }

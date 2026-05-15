@@ -10,7 +10,10 @@ export default function VideoCard({ video, isActive, index }) {
   const [isMuted, setIsMuted] = useState(true);
   const [showPlayIcon, setShowPlayIcon] = useState(false);
 
+  const isVideo = video.mediaType !== 'image';
+
   useEffect(() => {
+    if (!isVideo) return;
     const el = videoRef.current;
     if (!el) return;
 
@@ -21,9 +24,10 @@ export default function VideoCard({ video, isActive, index }) {
       el.pause();
       setIsPlaying(false);
     }
-  }, [isActive]);
+  }, [isActive, isVideo]);
 
   const togglePlay = () => {
+    if (!isVideo) return;
     const el = videoRef.current;
     if (!el) return;
     if (isPlaying) {
@@ -43,24 +47,32 @@ export default function VideoCard({ video, isActive, index }) {
   };
 
   return (
-    <div style={styles.container} onClick={togglePlay}>
-      {/* Video element */}
-      <video
-        ref={videoRef}
-        src={video.videoUrl}
-        style={styles.video}
-        loop
-        muted={isMuted}
-        playsInline
-        preload={isActive ? 'auto' : 'metadata'}
-      />
+    <div style={styles.container} onClick={isVideo ? togglePlay : undefined}>
+      {/* Media element */}
+      {isVideo ? (
+        <video
+          ref={videoRef}
+          src={video.videoUrl}
+          style={styles.media}
+          loop
+          muted={isMuted}
+          playsInline
+          preload={isActive ? 'auto' : 'metadata'}
+        />
+      ) : (
+        <img
+          src={video.videoUrl}
+          alt={video.caption || ''}
+          style={styles.media}
+        />
+      )}
 
       {/* Gradient overlays */}
       <div style={styles.gradientTop} />
       <div style={styles.gradientBottom} />
 
-      {/* Play icon on pause */}
-      {showPlayIcon && (
+      {/* Play icon on pause (video only) */}
+      {isVideo && showPlayIcon && (
         <motion.div
           style={styles.playIcon}
           initial={{ scale: 0, opacity: 0 }}
@@ -72,14 +84,16 @@ export default function VideoCard({ video, isActive, index }) {
         </motion.div>
       )}
 
-      {/* Mute toggle */}
-      <motion.button
-        style={styles.muteBtn}
-        onClick={toggleMute}
-        whileTap={{ scale: 0.85 }}
-      >
-        {isMuted ? <VolumeX size={16} color="#fff" /> : <Volume2 size={16} color="#fff" />}
-      </motion.button>
+      {/* Mute toggle (video only) */}
+      {isVideo && (
+        <motion.button
+          style={styles.muteBtn}
+          onClick={toggleMute}
+          whileTap={{ scale: 0.85 }}
+        >
+          {isMuted ? <VolumeX size={16} color="#fff" /> : <Volume2 size={16} color="#fff" />}
+        </motion.button>
+      )}
 
       {/* Video info (bottom-left) */}
       <VideoInfo video={video} />
@@ -100,7 +114,7 @@ const styles = {
     overflow: 'hidden',
     scrollSnapAlign: 'start',
   },
-  video: {
+  media: {
     position: 'absolute',
     top: '50%',
     left: '50%',

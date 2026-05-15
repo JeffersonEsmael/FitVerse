@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, Video, Hash, Tag, X, ChevronLeft, Send } from 'lucide-react';
+import { Upload, Image as ImageIcon, Video, Hash, X, ChevronLeft, Send } from 'lucide-react';
 import { useFeedStore } from '../stores/feedStore';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -11,6 +11,7 @@ const categories = ['treino', 'dieta', 'evolução', 'rotina', 'desafio', 'humor
 export default function CreatePostScreen() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [mediaType, setMediaType] = useState(null); // 'video' or 'image'
   const [caption, setCaption] = useState('');
   const [hashtagInput, setHashtagInput] = useState('');
   const [hashtags, setHashtags] = useState([]);
@@ -18,8 +19,9 @@ export default function CreatePostScreen() {
   const [isUploading, setIsUploading] = useState(false);
   const fileRef = useRef(null);
 
-  const { uploadVideo } = useFeedStore();
+  const { createPost } = useFeedStore();
   const { user, profile } = useAuthStore();
+  const navigate = useNavigationStore((s) => s.navigate);
   const { setActiveTab } = useNavigationStore();
 
   const handleFileSelect = (e) => {
@@ -27,6 +29,7 @@ export default function CreatePostScreen() {
     if (f) {
       setFile(f);
       setPreview(URL.createObjectURL(f));
+      setMediaType(f.type.startsWith('video') ? 'video' : 'image');
     }
   };
 
@@ -43,20 +46,20 @@ export default function CreatePostScreen() {
   };
 
   const handlePost = async () => {
-    if (!file) return;
+    if (!file || !user?.uid) return;
     setIsUploading(true);
-    const result = await uploadVideo(file, {
-      userId: user?.uid || 'demo-user',
+    const result = await createPost(file, {
+      userId: user.uid,
       username: profile?.username || 'user',
-      displayName: profile?.displayName || 'Usuário',
-      userAvatar: profile?.photoURL || '',
+      displayName: profile?.display_name || 'Usuário',
+      userAvatar: profile?.avatar_url || '',
       caption,
       hashtags,
       category,
     });
     setIsUploading(false);
     
-    if (result && result.success === false) {
+    if (result?.success === false) {
       alert('Erro ao postar: ' + result.error);
     } else {
       setActiveTab('feed');
@@ -68,7 +71,7 @@ export default function CreatePostScreen() {
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
-          <button style={styles.backBtn} onClick={() => setActiveTab('feed')}>
+          <button style={styles.backBtn} onClick={() => navigate('feed')}>
             <ChevronLeft size={24} color="#fff" />
           </button>
           <h2 style={styles.title}>Novo Post</h2>
@@ -91,22 +94,30 @@ export default function CreatePostScreen() {
             whileTap={{ scale: 0.98 }}
           >
             <Upload size={40} color="#00D4FF" />
-            <span style={styles.uploadTitle}>Selecionar Vídeo</span>
-            <span style={styles.uploadDesc}>MP4, MOV • Até 60 segundos</span>
+            <span style={styles.uploadTitle}>Selecionar Mídia</span>
+            <span style={styles.uploadDesc}>Fotos ou Vídeos • JPG, PNG, MP4, MOV</span>
             <input
               ref={fileRef}
               type="file"
-              accept="video/*"
+              accept="image/*,video/*"
               onChange={handleFileSelect}
               style={{ display: 'none' }}
             />
           </motion.div>
         ) : (
           <div style={styles.previewWrap}>
-            <video src={preview} style={styles.previewVideo} controls playsInline />
-            <button style={styles.removeBtn} onClick={() => { setFile(null); setPreview(null); }}>
+            {mediaType === 'video' ? (
+              <video src={preview} style={styles.previewMedia} controls playsInline />
+            ) : (
+              <img src={preview} alt="Preview" style={styles.previewMedia} />
+            )}
+            <button style={styles.removeBtn} onClick={() => { setFile(null); setPreview(null); setMediaType(null); }}>
               <X size={18} color="#fff" />
             </button>
+            <div style={styles.mediaTypeBadge}>
+              {mediaType === 'video' ? <Video size={14} color="#fff" /> : <ImageIcon size={14} color="#fff" />}
+              <span style={styles.mediaTypeText}>{mediaType === 'video' ? 'Vídeo' : 'Foto'}</span>
+            </div>
           </div>
         )}
 
@@ -175,8 +186,10 @@ const styles = {
   uploadTitle: { fontSize: '16px', fontWeight: 600, color: '#fff', fontFamily: "'Inter', sans-serif" },
   uploadDesc: { fontSize: '13px', color: '#6C6C88' },
   previewWrap: { position: 'relative', borderRadius: '16px', overflow: 'hidden', marginBottom: '20px', maxHeight: '300px' },
-  previewVideo: { width: '100%', maxHeight: '300px', objectFit: 'cover', borderRadius: '16px', display: 'block' },
+  previewMedia: { width: '100%', maxHeight: '300px', objectFit: 'cover', borderRadius: '16px', display: 'block' },
   removeBtn: { position: 'absolute', top: '10px', right: '10px', width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  mediaTypeBadge: { position: 'absolute', top: '10px', left: '10px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '8px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' },
+  mediaTypeText: { fontSize: '11px', color: '#fff', fontWeight: 600 },
   field: { marginBottom: '16px' },
   label: { display: 'block', fontSize: '14px', fontWeight: 600, color: '#B0B0C8', marginBottom: '8px', fontFamily: "'Inter', sans-serif" },
   textarea: { width: '100%', minHeight: '80px', padding: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', color: '#fff', fontSize: '15px', fontFamily: "'Inter', sans-serif", outline: 'none', resize: 'none' },

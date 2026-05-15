@@ -19,7 +19,6 @@ export default function BottomNav() {
       <div style={styles.inner}>
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
-          const isCreate = tab.id === 'create';
           const Icon = tab.icon;
 
           return (
@@ -29,33 +28,31 @@ export default function BottomNav() {
               style={styles.tab}
               whileTap={{ scale: 0.9 }}
             >
-              <>
-                  <motion.div
-                    animate={{
-                      scale: isActive ? 1 : 0.85,
-                      color: isActive ? '#00D4FF' : '#6C6C88',
-                    }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  >
-                    <Icon size={24} />
-                  </motion.div>
-                  <motion.span
-                    style={{
-                      ...styles.label,
-                      color: isActive ? '#00D4FF' : '#6C6C88',
-                    }}
-                    animate={{ opacity: isActive ? 1 : 0.6 }}
-                  >
-                    {tab.label}
-                  </motion.span>
-                  {isActive && (
-                    <motion.div
-                      layoutId="activeTabIndicator"
-                      style={styles.indicator}
-                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                    />
-                  )}
-                </>
+              <motion.div
+                animate={{
+                  scale: isActive ? 1 : 0.85,
+                  color: isActive ? '#00D4FF' : '#6C6C88',
+                }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              >
+                <Icon size={24} />
+              </motion.div>
+              <motion.span
+                style={{
+                  ...styles.label,
+                  color: isActive ? '#00D4FF' : '#6C6C88',
+                }}
+                animate={{ opacity: isActive ? 1 : 0.6 }}
+              >
+                {tab.label}
+              </motion.span>
+              {isActive && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  style={styles.indicator}
+                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                />
+              )}
             </motion.button>
           );
         })}

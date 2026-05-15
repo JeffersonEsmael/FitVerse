@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../config/supabase';
 
-// Default user profile structure
+// Default profile shape matching Supabase columns exactly
 const defaultProfile = {
   display_name: '',
   username: '',
@@ -18,55 +18,90 @@ const defaultProfile = {
   total_likes: 0,
   rank_position: null,
   badges: [],
+  is_public: true,
 };
 
+// Track subscription to prevent duplicates
+let authSubscription = null;
+
 export const useAuthStore = create((set, get) => ({
-  // State
-  user: null,
-  profile: null,
+  // State — single source of truth
+  user: null,       // { uid, email } — minimal auth identity
+  profile: null,    // full profile from Supabase profiles table
   isAuthenticated: false,
-  isLoading: true,
+  isLoading: true,  // starts true, set to false once auth resolves
   error: null,
 
-  // Initialize auth listener
+  // ─── Initialize auth ───────────────────────────────────────
+  // Called once on App mount. Restores existing session, then
+  // listens for future changes. Returns unsubscribe function.
   initAuth: () => {
-    // Listen for auth state changes
+    // Prevent duplicate listeners (React StrictMode calls useEffect twice)
+    if (authSubscription) {
+      authSubscription.unsubscribe();
+      authSubscription = null;
+    }
+
+    // 1. Restore existing session first
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (error) {
+        console.error('getSession error:', error.message);
+        set({ user: null, profile: null, isAuthenticated: false, isLoading: false });
+        return;
+      }
+
+      if (session?.user) {
+        const profile = await get().fetchProfile(session.user.id);
+        set({
+          user: { uid: session.user.id, email: session.user.email },
+          profile: profile || {
+            ...defaultProfile,
+            display_name: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || '',
+          },
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      } else {
+        set({ user: null, profile: null, isAuthenticated: false, isLoading: false });
+      }
+    }).catch((err) => {
+      console.error('Auth initialization failed:', err);
+      set({ user: null, profile: null, isAuthenticated: false, isLoading: false });
+    });
+
+    // 2. Listen for future auth changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (session?.user) {
-          const user = session.user;
-          // Fetch user profile from Supabase
-          const profile = await get().fetchProfile(user.id);
-          set({
-            user: {
-              uid: user.id,
-              email: user.email,
-              displayName: user.user_metadata?.display_name || user.email?.split('@')[0],
-              photoURL: user.user_metadata?.avatar_url || '',
-            },
-            profile: profile || {
-              ...defaultProfile,
-              display_name: user.user_metadata?.display_name || user.email?.split('@')[0] || '',
-            },
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        } else {
-          set({
-            user: null,
-            profile: null,
-            isAuthenticated: false,
-            isLoading: false,
-          });
+        // Ignore INITIAL_SESSION — already handled by getSession above
+        if (event === 'INITIAL_SESSION') return;
+
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (session?.user) {
+            const profile = await get().fetchProfile(session.user.id);
+            set({
+              user: { uid: session.user.id, email: session.user.email },
+              profile: profile || {
+                ...defaultProfile,
+                display_name: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || '',
+              },
+              isAuthenticated: true,
+              isLoading: false,
+            });
+          }
+        } else if (event === 'SIGNED_OUT') {
+          set({ user: null, profile: null, isAuthenticated: false, isLoading: false });
         }
       }
     );
 
-    // Return unsubscribe function
-    return () => subscription?.unsubscribe();
+    authSubscription = subscription;
+    return () => {
+      subscription?.unsubscribe();
+      authSubscription = null;
+    };
   },
 
-  // Register with email
+  // ─── Register ──────────────────────────────────────────────
   register: async (email, password, displayName) => {
     set({ isLoading: true, error: null });
     try {
@@ -81,28 +116,26 @@ export const useAuthStore = create((set, get) => ({
       if (error) throw error;
 
       const user = data.user;
-      if (user) {
-        // Create user profile in Supabase
-        const username = displayName.toLowerCase().replace(/\s+/g, '') + Math.floor(Math.random() * 1000);
-        const profileData = {
-          id: user.id,
-          display_name: displayName,
-          username,
-          email: user.email,
-          ...defaultProfile,
-          display_name: displayName,
-          username,
-        };
+      if (!user) throw new Error('Registro falhou — nenhum usuário retornado');
 
-        await supabase.from('profiles').upsert(profileData);
+      // Profile is auto-created by the DB trigger, but we upsert to be safe
+      const username = displayName.toLowerCase().replace(/[^a-z0-9]/g, '') + Math.floor(Math.random() * 1000);
+      const profileData = {
+        ...defaultProfile,
+        id: user.id,
+        display_name: displayName,
+        username,
+        email: user.email,
+      };
 
-        set({
-          user: { uid: user.id, email: user.email, displayName },
-          profile: profileData,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-      }
+      await supabase.from('profiles').upsert(profileData);
+
+      set({
+        user: { uid: user.id, email: user.email },
+        profile: profileData,
+        isAuthenticated: true,
+        isLoading: false,
+      });
 
       return { success: true };
     } catch (error) {
@@ -111,7 +144,7 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  // Login with email
+  // ─── Login ─────────────────────────────────────────────────
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {
@@ -123,43 +156,24 @@ export const useAuthStore = create((set, get) => ({
       if (error) throw error;
 
       const user = data.user;
-      if (user) {
-        const profile = await get().fetchProfile(user.id);
+      if (!user) throw new Error('Login falhou — nenhum usuário retornado');
 
-        // Update last active
-        await supabase
-          .from('profiles')
-          .update({ last_active_date: new Date().toISOString() })
-          .eq('id', user.id);
+      const profile = await get().fetchProfile(user.id);
 
-        set({
-          user: {
-            uid: user.id,
-            email: user.email,
-            displayName: user.user_metadata?.display_name || user.email?.split('@')[0],
-            photoURL: user.user_metadata?.avatar_url || '',
-          },
-          profile: profile || defaultProfile,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-      }
+      // Update last active silently
+      supabase
+        .from('profiles')
+        .update({ last_active_date: new Date().toISOString() })
+        .eq('id', user.id)
+        .then(() => {});
 
-      return { success: true };
-    } catch (error) {
-      set({ error: error.message, isLoading: false });
-      return { success: false, error: error.message };
-    }
-  },
-
-  // Login with Google (Supabase OAuth)
-  loginWithGoogle: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+      set({
+        user: { uid: user.id, email: user.email },
+        profile: profile || { ...defaultProfile, display_name: user.email?.split('@')[0] || '' },
+        isAuthenticated: true,
+        isLoading: false,
       });
-      if (error) throw error;
+
       return { success: true };
     } catch (error) {
       set({ error: error.message, isLoading: false });
@@ -167,61 +181,18 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  // Login with Apple (Supabase OAuth)
-  loginWithApple: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-      });
-      if (error) throw error;
-      return { success: true };
-    } catch (error) {
-      set({ error: error.message, isLoading: false });
-      return { success: false, error: error.message };
-    }
-  },
-
-  // Demo login (skip Supabase auth for demo purposes)
-  demoLogin: () => {
-    const demoProfile = {
-      ...defaultProfile,
-      display_name: 'FitUser',
-      username: 'fituser',
-      bio: '💪 Fitness enthusiast | 🏋️ 5x/week | 🥗 Clean eating',
-      level: 12,
-      xp: 2450,
-      streak: 7,
-      followers: 342,
-      following: 128,
-      total_videos: 24,
-      total_likes: 1820,
-      rank_position: 5,
-      fitness_goals: ['Ganho muscular', 'Definição', 'Saúde'],
-      badges: ['streak7', 'firstPost', 'top10'],
-    };
-
-    set({
-      user: { uid: 'demo-user', email: 'demo@fitverse.com', displayName: 'FitUser' },
-      profile: demoProfile,
-      isAuthenticated: true,
-      isLoading: false,
-    });
-  },
-
-  // Logout
+  // ─── Logout ────────────────────────────────────────────────
   logout: async () => {
     try {
-      if (get().user?.uid !== 'demo-user') {
-        await supabase.auth.signOut();
-      }
-      set({ user: null, profile: null, isAuthenticated: false });
+      await supabase.auth.signOut();
     } catch (error) {
-      set({ error: error.message });
+      console.error('Logout error:', error.message);
     }
+    // Always clear local state regardless of signOut result
+    set({ user: null, profile: null, isAuthenticated: false, isLoading: false, error: null });
   },
 
-  // Fetch profile from Supabase
+  // ─── Fetch profile ─────────────────────────────────────────
   fetchProfile: async (uid) => {
     try {
       const { data, error } = await supabase
@@ -230,23 +201,20 @@ export const useAuthStore = create((set, get) => ({
         .eq('id', uid)
         .single();
 
-      if (error) return null;
+      if (error) {
+        console.warn('fetchProfile error:', error.message);
+        return null;
+      }
       return data;
     } catch {
       return null;
     }
   },
 
-  // Update profile
+  // ─── Update profile ────────────────────────────────────────
   updateProfile: async (updates) => {
     const { user } = get();
-    if (!user || user.uid === 'demo-user') {
-      // Demo mode — just update local state
-      set((state) => ({
-        profile: { ...state.profile, ...updates },
-      }));
-      return { success: true };
-    }
+    if (!user) return { success: false, error: 'Não autenticado' };
 
     try {
       const { error } = await supabase
@@ -256,6 +224,7 @@ export const useAuthStore = create((set, get) => ({
 
       if (error) throw error;
 
+      // Update local state immediately
       set((state) => ({
         profile: { ...state.profile, ...updates },
       }));
@@ -265,6 +234,6 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  // Clear error
+  // ─── Clear error ───────────────────────────────────────────
   clearError: () => set({ error: null }),
 }));
