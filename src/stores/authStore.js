@@ -39,49 +39,20 @@ export const useAuthStore = create((set, get) => ({
     if (isAuthInitialized) return;
     isAuthInitialized = true;
 
-    console.log('[DEBUG] Calling getSession() for the first time');
-    
-    // 1. Restore existing session first
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-      console.log('[DEBUG] getSession() resolved:', { session, error });
-      if (error) {
-        console.error('getSession error:', error.message);
-        set({ user: null, profile: null, isAuthenticated: false, isLoading: false });
-        return;
-      }
+    console.log('[DEBUG] Setting up onAuthStateChange');
 
-      if (session?.user) {
-        console.log('[DEBUG] Session found. Fetching profile for:', session.user.id);
-        const profile = await get().fetchProfile(session.user.id);
-        console.log('[DEBUG] Profile fetched:', profile);
-        set({
-          user: { uid: session.user.id, email: session.user.email },
-          profile: profile || {
-            ...defaultProfile,
-            display_name: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || '',
-          },
-          isAuthenticated: true,
-          isLoading: false,
-        });
-        console.log('[DEBUG] State updated for logged in user');
-      } else {
-        console.log('[DEBUG] No session found. Setting logged out state.');
-        set({ user: null, profile: null, isAuthenticated: false, isLoading: false });
-      }
-    }).catch((err) => {
-      console.error('Auth initialization failed:', err);
-      set({ user: null, profile: null, isAuthenticated: false, isLoading: false });
-    });
-
-    // 2. Listen for future auth changes (login, logout, token refresh)
+    // Rely entirely on onAuthStateChange to prevent deadlocks in Supabase JS.
+    // It automatically fires an 'INITIAL_SESSION' event when it finishes reading storage.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        // Ignore INITIAL_SESSION — already handled by getSession above
-        if (event === 'INITIAL_SESSION') return;
+        console.log('[DEBUG] Auth event:', event, 'Session exists:', !!session);
 
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           if (session?.user) {
+            console.log('[DEBUG] Fetching profile for:', session.user.id);
             const profile = await get().fetchProfile(session.user.id);
+            console.log('[DEBUG] Profile fetched:', profile);
+            
             set({
               user: { uid: session.user.id, email: session.user.email },
               profile: profile || {
@@ -91,14 +62,17 @@ export const useAuthStore = create((set, get) => ({
               isAuthenticated: true,
               isLoading: false,
             });
+          } else {
+            console.log('[DEBUG] No session found (logged out state).');
+            set({ user: null, profile: null, isAuthenticated: false, isLoading: false });
           }
         } else if (event === 'SIGNED_OUT') {
+          console.log('[DEBUG] User signed out.');
           set({ user: null, profile: null, isAuthenticated: false, isLoading: false });
         }
       }
     );
 
-    authSubscription = subscription;
     // We don't return an unsubscribe function because this is a global store
     // that should persist as long as the application is running.
   },
