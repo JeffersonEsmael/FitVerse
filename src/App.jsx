@@ -43,13 +43,14 @@ export default function App() {
   const currentScreen = useNavigationStore((s) => s.currentScreen);
   const initAuth = useAuthStore((s) => s.initAuth);
 
-  // Initialize Supabase auth listener
+  // Initialize Supabase auth listener — initAuth returns unsubscribe function
   useEffect(() => {
     const unsubscribe = initAuth();
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
-  }, [initAuth]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Note: intentionally empty deps — auth listener should only be set up once
 
   const ScreenComponent = SCREENS[currentScreen] || FeedScreen;
   const showNav = NAV_SCREENS.includes(currentScreen);

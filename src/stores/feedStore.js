@@ -20,11 +20,9 @@ export const useFeedStore = create((set, get) => ({
           : v
       ),
     }));
-    // Persist to Supabase (fire and forget)
-    const video = get().videos.find((v) => v.id === videoId);
-    if (video) {
-      supabase.rpc('toggle_video_shape', { p_video_id: videoId }).catch(() => {});
-    }
+    supabase.rpc('toggle_video_shape', { p_video_id: videoId }).catch((err) => {
+      console.warn('[Feed] toggleShape RPC error:', err.message);
+    });
   },
 
   toggleBoost: (videoId) => {
@@ -35,10 +33,9 @@ export const useFeedStore = create((set, get) => ({
           : v
       ),
     }));
-    const video = get().videos.find((v) => v.id === videoId);
-    if (video) {
-      supabase.rpc('toggle_video_boost', { p_video_id: videoId }).catch(() => {});
-    }
+    supabase.rpc('toggle_video_boost', { p_video_id: videoId }).catch((err) => {
+      console.warn('[Feed] toggleBoost RPC error:', err.message);
+    });
   },
 
   toggleGymBag: (videoId) => {
@@ -49,10 +46,9 @@ export const useFeedStore = create((set, get) => ({
           : v
       ),
     }));
-    const video = get().videos.find((v) => v.id === videoId);
-    if (video) {
-      supabase.rpc('toggle_video_gym_bag', { p_video_id: videoId }).catch(() => {});
-    }
+    supabase.rpc('toggle_video_gym_bag', { p_video_id: videoId }).catch((err) => {
+      console.warn('[Feed] toggleGymBag RPC error:', err.message);
+    });
   },
 
   incrementViews: (videoId) => {
@@ -115,7 +111,7 @@ export const useFeedStore = create((set, get) => ({
         isLoading: false,
       }));
     } catch (error) {
-      console.error('Error fetching posts:', error.message);
+      console.error('[Feed] fetchVideos error:', error.message);
       set({ isLoading: false });
     }
   },
@@ -130,6 +126,7 @@ export const useFeedStore = create((set, get) => ({
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+
       return (data || []).map((v) => ({
         id: v.id,
         videoUrl: v.video_url,
@@ -140,13 +137,25 @@ export const useFeedStore = create((set, get) => ({
         createdAt: new Date(v.created_at),
       }));
     } catch (error) {
-      console.error('Error fetching user posts:', error.message);
+      console.error('[Feed] fetchUserPosts error:', error.message);
       return [];
     }
   },
 
   // ─── Create post (video or image) ────────────────────────
   createPost: async (file, metadata) => {
+    // Guard: ensure user is authenticated before attempting upload
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.error('[Feed] createPost: No active session — user must be logged in.');
+      return { success: false, error: 'Você precisa estar logado para postar.' };
+    }
+
+    if (!metadata.userId) {
+      console.error('[Feed] createPost: userId is missing from metadata.');
+      return { success: false, error: 'ID do usuário não encontrado. Tente sair e entrar novamente.' };
+    }
+
     set({ isLoading: true });
 
     try {
@@ -155,32 +164,45 @@ export const useFeedStore = create((set, get) => ({
       const mediaType = isVideo ? 'video' : 'image';
       const bucketName = isVideo ? 'videos' : 'posts';
 
-      // Upload to Supabase Storage
-      const fileExt = file.name.split('.').pop();
+      // Build unique file path
+      const fileExt = file.name.split('.').pop().toLowerCase();
       const fileName = `${metadata.userId}/${Date.now()}.${fileExt}`;
+
+      console.log(`[Feed] Uploading ${mediaType} to bucket '${bucketName}': ${fileName}`);
 
       const { error: uploadError } = await supabase.storage
         .from(bucketName)
         .upload(fileName, file, {
           contentType: file.type,
           cacheControl: '3600',
+          upsert: false,
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('[Feed] Storage upload error:', uploadError);
+        throw new Error(`Falha no upload: ${uploadError.message}`);
+      }
 
       // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      const { data: urlData } = supabase.storage
         .from(bucketName)
         .getPublicUrl(fileName);
+
+      const publicUrl = urlData?.publicUrl;
+      if (!publicUrl) {
+        throw new Error('Não foi possível obter a URL pública do arquivo.');
+      }
+
+      console.log('[Feed] Upload successful. Public URL:', publicUrl);
 
       // Create record in database
       const postData = {
         video_url: publicUrl,
         media_type: mediaType,
         user_id: metadata.userId,
-        username: metadata.username,
+        username: metadata.username || 'user',
         user_avatar: metadata.userAvatar || '',
-        display_name: metadata.displayName,
+        display_name: metadata.displayName || 'Usuário',
         caption: metadata.caption || '',
         hashtags: metadata.hashtags || [],
         category: metadata.category || 'geral',
@@ -198,18 +220,23 @@ export const useFeedStore = create((set, get) => ({
         .select()
         .single();
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('[Feed] DB insert error:', insertError);
+        throw new Error(`Falha ao salvar post: ${insertError.message}`);
+      }
 
-      // Add to local state
+      console.log('[Feed] Post created with ID:', insertedPost.id);
+
+      // Prepend to local state
       set((state) => ({
         videos: [{
           id: insertedPost.id,
           videoUrl: publicUrl,
           mediaType,
           userId: metadata.userId,
-          username: metadata.username,
+          username: metadata.username || 'user',
           userAvatar: metadata.userAvatar || '',
-          displayName: metadata.displayName,
+          displayName: metadata.displayName || 'Usuário',
           caption: metadata.caption || '',
           hashtags: metadata.hashtags || [],
           category: metadata.category || 'geral',
@@ -222,7 +249,7 @@ export const useFeedStore = create((set, get) => ({
 
       return { success: true, videoId: insertedPost.id };
     } catch (error) {
-      console.error('Upload error:', error.message);
+      console.error('[Feed] createPost error:', error.message);
       set({ isLoading: false });
       return { success: false, error: error.message };
     }

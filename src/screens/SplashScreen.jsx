@@ -3,24 +3,42 @@ import { motion } from 'framer-motion';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useAuthStore } from '../stores/authStore';
 
+// Safety timeout — if auth NEVER fires INITIAL_SESSION (e.g. Supabase unreachable),
+// force navigation after this many ms rather than hanging forever.
+const AUTH_TIMEOUT_MS = 8000;
+
 export default function SplashScreen() {
   const navigate = useNavigationStore((s) => s.navigate);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const [minTimePassed, setMinTimePassed] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
 
-  // Minimum display time for branding (1.8s)
+  // Minimum display time for branding (1.5s)
   useEffect(() => {
-    const timer = setTimeout(() => setMinTimePassed(true), 1800);
-    return () => clearTimeout(timer);
+    const minTimer = setTimeout(() => setMinTimePassed(true), 1500);
+    return () => clearTimeout(minTimer);
   }, []);
 
-  // Navigate once auth resolves AND minimum time has passed
+  // Safety timeout — forces navigation if Supabase never responds
   useEffect(() => {
-    if (!isLoading && minTimePassed) {
+    const safetyTimer = setTimeout(() => {
+      console.warn('[Splash] Safety timeout reached — forcing navigation to auth screen.');
+      setTimedOut(true);
+    }, AUTH_TIMEOUT_MS);
+    return () => clearTimeout(safetyTimer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Navigate once BOTH conditions are met:
+  // 1. Minimum display time has passed
+  // 2. Auth has resolved (isLoading = false) OR safety timeout triggered
+  useEffect(() => {
+    const authResolved = !isLoading || timedOut;
+    if (authResolved && minTimePassed) {
+      console.log(`[Splash] Navigating → ${isAuthenticated ? 'feed' : 'auth'}`);
       navigate(isAuthenticated ? 'feed' : 'auth');
     }
-  }, [isLoading, minTimePassed, isAuthenticated, navigate]);
+  }, [isLoading, minTimePassed, timedOut, isAuthenticated, navigate]);
 
   return (
     <div style={styles.container}>

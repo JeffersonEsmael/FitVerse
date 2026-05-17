@@ -21,65 +21,130 @@ const defaultProfile = {
   is_public: true,
 };
 
-// Track subscription to prevent duplicates
-let authSubscription = null;
-let isAuthInitialized = false;
-
 export const useAuthStore = create((set, get) => ({
   // State — single source of truth
-  user: null,       // { uid, email } — minimal auth identity
-  profile: null,    // full profile from Supabase profiles table
+  user: null,          // { uid, email } — minimal auth identity
+  profile: null,       // full profile from Supabase profiles table
   isAuthenticated: false,
-  isLoading: true,  // starts true, set to false once auth resolves
+  isLoading: true,     // true until the FIRST auth event arrives from Supabase
+  isProfileLoading: false, // true while fetching profile from DB (separate from auth)
   error: null,
 
   // ─── Initialize Auth ───────────────────────────────────────
+  // IMPORTANT: Returns the unsubscribe function — App.jsx calls it on unmount.
   initAuth: () => {
-    // Only initialize once globally (prevents React StrictMode double-execution lockups)
-    if (isAuthInitialized) return;
-    isAuthInitialized = true;
+    console.log('[Auth] Initializing auth listener...');
 
-    console.log('[DEBUG] Setting up onAuthStateChange');
-
-    // Rely entirely on onAuthStateChange to prevent deadlocks in Supabase JS.
-    // It automatically fires an 'INITIAL_SESSION' event when it finishes reading storage.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('[DEBUG] Auth event:', event, 'Session exists:', !!session);
+        console.log(`[Auth] Event: ${event} | Session: ${!!session} | User: ${session?.user?.id ?? 'none'}`);
 
-        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          if (session?.user) {
-            console.log('[DEBUG] Fetching profile for:', session.user.id);
-            const profile = await get().fetchProfile(session.user.id);
-            console.log('[DEBUG] Profile fetched:', profile);
-            
-            set({
-              user: { uid: session.user.id, email: session.user.email },
-              profile: profile || {
-                ...defaultProfile,
-                display_name: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || '',
-              },
-              isAuthenticated: true,
-              isLoading: false,
-            });
-          } else {
-            console.log('[DEBUG] No session found (logged out state).');
-            set({ user: null, profile: null, isAuthenticated: false, isLoading: false });
+        if (event === 'SIGNED_OUT') {
+          set({ user: null, profile: null, isAuthenticated: false, isLoading: false, isProfileLoading: false });
+          return;
+        }
+
+        if (event === 'PASSWORD_RECOVERY') {
+          // Handle password recovery if needed
+          set({ isLoading: false });
+          return;
+        }
+
+        // INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED
+        if (session?.user) {
+          const uid = session.user.id;
+          const email = session.user.email;
+
+          // ── STEP 1: Immediately mark auth as resolved so SplashScreen can navigate ──
+          // We use a placeholder profile until the real one loads from DB.
+          const placeholderProfile = {
+            ...defaultProfile,
+            display_name: session.user.user_metadata?.display_name || email?.split('@')[0] || 'Usuário',
+            username: email?.split('@')[0] || 'user',
+          };
+
+          set({
+            user: { uid, email },
+            profile: placeholderProfile,
+            isAuthenticated: true,
+            isLoading: false,        // ← Splash can navigate NOW
+            isProfileLoading: true,  // ← Profile fetch starts in background
+          });
+
+          // ── STEP 2: Fetch real profile from DB in background ──
+          console.log('[Auth] Fetching profile for:', uid);
+          const profile = await get()._fetchOrCreateProfile(uid, email, session.user.user_metadata);
+          console.log('[Auth] Profile loaded:', profile?.display_name);
+
+          // Only update if user is still logged in (could have signed out in the meantime)
+          if (get().user?.uid === uid) {
+            set({ profile, isProfileLoading: false });
           }
-        } else if (event === 'SIGNED_OUT') {
-          console.log('[DEBUG] User signed out.');
-          set({ user: null, profile: null, isAuthenticated: false, isLoading: false });
+        } else {
+          // INITIAL_SESSION with no session = logged out state
+          set({ user: null, profile: null, isAuthenticated: false, isLoading: false, isProfileLoading: false });
         }
       }
     );
 
-    // We don't return an unsubscribe function because this is a global store
-    // that should persist as long as the application is running.
+    // Return unsubscribe so App.jsx can clean up on unmount
+    return () => {
+      console.log('[Auth] Unsubscribing auth listener.');
+      subscription.unsubscribe();
+    };
+  },
+
+  // ─── Internal: fetch profile, create if missing ────────────
+  _fetchOrCreateProfile: async (uid, email, metadata = {}) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', uid)
+        .single();
+
+      if (error && error.code === 'PGRST116') {
+        // Row not found — create it manually (trigger may not have run yet)
+        console.warn('[Auth] Profile not found, creating...');
+        const displayName = metadata?.display_name || email?.split('@')[0] || 'Usuário';
+        const username = displayName.toLowerCase().replace(/[^a-z0-9]/g, '') + Math.floor(Math.random() * 9000 + 1000);
+
+        const newProfile = {
+          ...defaultProfile,
+          id: uid,
+          email,
+          display_name: displayName,
+          username,
+        };
+
+        const { data: created, error: createError } = await supabase
+          .from('profiles')
+          .upsert(newProfile)
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('[Auth] Failed to create profile:', createError.message);
+          return { ...defaultProfile, id: uid, display_name: displayName, username };
+        }
+        return created;
+      }
+
+      if (error) {
+        console.error('[Auth] fetchProfile error:', error.code, error.message);
+        return { ...defaultProfile, id: uid };
+      }
+
+      return data;
+    } catch (err) {
+      console.error('[Auth] _fetchOrCreateProfile exception:', err.message);
+      return { ...defaultProfile, id: uid };
+    }
   },
 
   // ─── Register ──────────────────────────────────────────────
   register: async (email, password, displayName) => {
-    set({ isLoading: true, error: null });
+    set({ error: null });
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -92,37 +157,27 @@ export const useAuthStore = create((set, get) => ({
       if (error) throw error;
 
       const user = data.user;
-      if (!user) throw new Error('Registro falhou — nenhum usuário retornado');
+      if (!user) throw new Error('Registro falhou — nenhum usuário retornado.');
 
-      // Profile is auto-created by the DB trigger, but we upsert to be safe
-      const username = displayName.toLowerCase().replace(/[^a-z0-9]/g, '') + Math.floor(Math.random() * 1000);
-      const profileData = {
-        ...defaultProfile,
-        id: user.id,
-        display_name: displayName,
-        username,
-        email: user.email,
-      };
+      // If email confirmation is disabled, onAuthStateChange fires SIGNED_IN automatically.
+      // If email confirmation is required, data.session will be null.
+      const needsConfirmation = !data.session;
+      if (needsConfirmation) {
+        return { success: true, needsConfirmation: true };
+      }
 
-      await supabase.from('profiles').upsert(profileData);
-
-      set({
-        user: { uid: user.id, email: user.email },
-        profile: profileData,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-
+      // onAuthStateChange will handle state update via SIGNED_IN event
       return { success: true };
     } catch (error) {
-      set({ error: error.message, isLoading: false });
+      console.error('[Auth] Register error:', error.message);
+      set({ error: error.message });
       return { success: false, error: error.message };
     }
   },
 
   // ─── Login ─────────────────────────────────────────────────
   login: async (email, password) => {
-    set({ isLoading: true, error: null });
+    set({ error: null });
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -131,28 +186,11 @@ export const useAuthStore = create((set, get) => ({
 
       if (error) throw error;
 
-      const user = data.user;
-      if (!user) throw new Error('Login falhou — nenhum usuário retornado');
-
-      const profile = await get().fetchProfile(user.id);
-
-      // Update last active silently
-      supabase
-        .from('profiles')
-        .update({ last_active_date: new Date().toISOString() })
-        .eq('id', user.id)
-        .then(() => {});
-
-      set({
-        user: { uid: user.id, email: user.email },
-        profile: profile || { ...defaultProfile, display_name: user.email?.split('@')[0] || '' },
-        isAuthenticated: true,
-        isLoading: false,
-      });
-
+      // onAuthStateChange fires SIGNED_IN automatically and handles state.
       return { success: true };
     } catch (error) {
-      set({ error: error.message, isLoading: false });
+      console.error('[Auth] Login error:', error.message);
+      set({ error: error.message });
       return { success: false, error: error.message };
     }
   },
@@ -162,37 +200,22 @@ export const useAuthStore = create((set, get) => ({
     try {
       await supabase.auth.signOut();
     } catch (error) {
-      console.error('Logout error:', error.message);
+      console.error('[Auth] Logout error:', error.message);
     }
-    // Always clear local state regardless of signOut result
+    // onAuthStateChange fires SIGNED_OUT. We also clear locally for immediacy.
     set({ user: null, profile: null, isAuthenticated: false, isLoading: false, error: null });
-  },
-
-  // ─── Fetch profile ─────────────────────────────────────────
-  fetchProfile: async (uid) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', uid)
-        .single();
-
-      if (error) {
-        console.warn('fetchProfile error:', error.message);
-        return null;
-      }
-      return data;
-    } catch {
-      return null;
-    }
   },
 
   // ─── Update profile ────────────────────────────────────────
   updateProfile: async (updates) => {
     const { user } = get();
-    if (!user) return { success: false, error: 'Não autenticado' };
+    if (!user?.uid) {
+      console.error('[Auth] updateProfile called without authenticated user.');
+      return { success: false, error: 'Não autenticado. Faça login novamente.' };
+    }
 
     try {
+      console.log('[Auth] Updating profile for', user.uid, updates);
       const { error } = await supabase
         .from('profiles')
         .update(updates)
@@ -200,14 +223,26 @@ export const useAuthStore = create((set, get) => ({
 
       if (error) throw error;
 
-      // Update local state immediately
+      // Update local state immediately for instant UI feedback
       set((state) => ({
         profile: { ...state.profile, ...updates },
       }));
+
+      console.log('[Auth] Profile updated successfully.');
       return { success: true };
     } catch (error) {
+      console.error('[Auth] updateProfile error:', error.message);
       return { success: false, error: error.message };
     }
+  },
+
+  // ─── Refresh profile from DB ───────────────────────────────
+  refreshProfile: async () => {
+    const { user } = get();
+    if (!user?.uid) return;
+    set({ isProfileLoading: true });
+    const profile = await get()._fetchOrCreateProfile(user.uid, user.email);
+    set({ profile, isProfileLoading: false });
   },
 
   // ─── Clear error ───────────────────────────────────────────

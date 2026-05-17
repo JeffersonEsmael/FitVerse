@@ -17,7 +17,8 @@ export default function EditProfileScreen() {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  
+  const [statusMessage, setStatusMessage] = useState('');
+
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -32,62 +33,96 @@ export default function EditProfileScreen() {
 
   const handlePhotoSelect = (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert('A imagem deve ter no máximo 5MB.');
-        return;
-      }
-      setPhotoFile(file);
-      setPhotoPreview(URL.createObjectURL(file));
+    if (!file) return;
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      alert('Formato inválido. Use JPG, PNG, WEBP ou GIF.');
+      return;
     }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('A imagem deve ter no máximo 5MB.');
+      return;
+    }
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
   };
 
   const handleSave = async () => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      alert('Sessão expirada. Faça login novamente.');
+      return;
+    }
+
     setIsSaving(true);
+    setStatusMessage('Salvando...');
     let avatarUrl = profile?.avatar_url || '';
 
     try {
       // 1. Upload new photo if selected
       if (photoFile) {
-        const fileExt = photoFile.name.split('.').pop();
+        setStatusMessage('Enviando foto...');
+        console.log('[EditProfile] Uploading avatar for user:', user.uid);
+
+        // Verify active session first
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          alert('Sessão expirada. Faça login novamente.');
+          setIsSaving(false);
+          setStatusMessage('');
+          return;
+        }
+
+        const fileExt = photoFile.name.split('.').pop().toLowerCase();
         const fileName = `${user.uid}/${Date.now()}.${fileExt}`;
-        
+
         const { error: uploadError } = await supabase.storage
           .from('avatars')
-          .upload(fileName, photoFile, { 
+          .upload(fileName, photoFile, {
             contentType: photoFile.type,
             upsert: true,
           });
 
         if (uploadError) {
-          alert('Erro ao enviar foto: ' + uploadError.message);
+          console.error('[EditProfile] Avatar upload error:', uploadError);
+          alert(`Erro ao enviar foto: ${uploadError.message}`);
           setIsSaving(false);
+          setStatusMessage('');
           return;
         }
 
-        const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
-        avatarUrl = data.publicUrl;
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+        avatarUrl = urlData?.publicUrl || avatarUrl;
+        console.log('[EditProfile] Avatar uploaded. URL:', avatarUrl);
       }
 
       // 2. Update profile data
+      setStatusMessage('Atualizando perfil...');
       const updates = {
         display_name: displayName.trim(),
-        username: username.trim(),
+        username: username.trim().toLowerCase(),
         bio: bio.trim(),
         avatar_url: avatarUrl,
         is_public: isPublic,
+        updated_at: new Date().toISOString(),
       };
 
+      console.log('[EditProfile] Updating profile:', updates);
       const result = await updateProfile(updates);
+
       if (result.success) {
-        navigate('profile');
+        console.log('[EditProfile] Profile saved successfully.');
+        setStatusMessage('Salvo!');
+        setTimeout(() => navigate('profile'), 500);
       } else {
-        alert('Erro ao salvar: ' + (result.error || 'Tente novamente'));
+        console.error('[EditProfile] updateProfile failed:', result.error);
+        alert('Erro ao salvar perfil: ' + (result.error || 'Tente novamente.'));
+        setStatusMessage('');
       }
     } catch (error) {
-      console.error('Error updating profile:', error);
-      alert('Erro ao atualizar perfil. Tente novamente.');
+      console.error('[EditProfile] Unexpected error:', error);
+      alert('Erro inesperado: ' + error.message);
+      setStatusMessage('');
     } finally {
       setIsSaving(false);
     }
@@ -102,14 +137,24 @@ export default function EditProfileScreen() {
             <ChevronLeft size={24} color="#fff" />
           </button>
           <h2 style={styles.title}>Editar Perfil</h2>
-          <button 
-            style={{ ...styles.saveBtn, opacity: isSaving ? 0.5 : 1 }} 
-            onClick={handleSave} 
+          <button
+            style={{ ...styles.saveBtn, opacity: isSaving ? 0.5 : 1 }}
+            onClick={handleSave}
             disabled={isSaving}
           >
-            {isSaving ? <Loader2 size={20} style={styles.spinner} /> : <Save size={20} color="#fff" />}
+            {isSaving
+              ? <Loader2 size={20} style={styles.spinner} />
+              : <Save size={20} color="#fff" />
+            }
           </button>
         </div>
+
+        {/* Status message */}
+        {statusMessage && (
+          <div style={styles.statusBar}>
+            <span style={styles.statusText}>{statusMessage}</span>
+          </div>
+        )}
 
         <div style={styles.content}>
           {/* Avatar Section */}
@@ -118,17 +163,23 @@ export default function EditProfileScreen() {
               {photoPreview ? (
                 <img src={photoPreview} alt="Avatar" style={styles.avatarImg} />
               ) : (
-                <div style={styles.avatarPlaceholder}>{displayName.charAt(0) || '?'}</div>
+                <div style={styles.avatarPlaceholder}>
+                  {displayName.charAt(0).toUpperCase() || '?'}
+                </div>
               )}
-              
-              <button style={styles.cameraBtn} onClick={() => fileInputRef.current?.click()}>
+
+              <button
+                style={styles.cameraBtn}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isSaving}
+              >
                 <Camera size={20} color="#fff" />
               </button>
-              
+
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/gif"
                 onChange={handlePhotoSelect}
                 style={{ display: 'none' }}
               />
@@ -146,6 +197,8 @@ export default function EditProfileScreen() {
                 onChange={(e) => setDisplayName(e.target.value)}
                 style={styles.input}
                 placeholder="Seu nome"
+                maxLength={50}
+                disabled={isSaving}
               />
             </div>
 
@@ -157,6 +210,8 @@ export default function EditProfileScreen() {
                 onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9._]/g, ''))}
                 style={styles.input}
                 placeholder="username"
+                maxLength={30}
+                disabled={isSaving}
               />
             </div>
 
@@ -168,6 +223,7 @@ export default function EditProfileScreen() {
                 style={styles.textarea}
                 placeholder="Fale um pouco sobre seus objetivos fitness..."
                 maxLength={150}
+                disabled={isSaving}
               />
               <span style={styles.charCount}>{bio.length}/150</span>
             </div>
@@ -179,26 +235,28 @@ export default function EditProfileScreen() {
                 <button
                   style={{ ...styles.toggleBtn, ...(isPublic ? styles.toggleActive : {}) }}
                   onClick={() => setIsPublic(true)}
+                  disabled={isSaving}
                 >
                   <Globe size={16} /> Pública
                 </button>
                 <button
                   style={{ ...styles.toggleBtn, ...(!isPublic ? styles.toggleActive : {}) }}
                   onClick={() => setIsPublic(false)}
+                  disabled={isSaving}
                 >
                   <Lock size={16} /> Privada
                 </button>
               </div>
             </div>
           </div>
-          
-          <motion.button 
-            style={styles.submitBtn} 
+
+          <motion.button
+            style={{ ...styles.submitBtn, opacity: isSaving ? 0.6 : 1 }}
             onClick={handleSave}
             disabled={isSaving}
             whileTap={{ scale: 0.97 }}
           >
-            {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+            {isSaving ? statusMessage || 'Salvando...' : 'Salvar Alterações'}
           </motion.button>
         </div>
       </div>
@@ -245,6 +303,18 @@ const styles = {
   spinner: {
     animation: 'spin 1s linear infinite',
     color: '#00D4FF',
+  },
+  statusBar: {
+    background: 'rgba(0,212,255,0.1)',
+    borderBottom: '1px solid rgba(0,212,255,0.15)',
+    padding: '8px 16px',
+    textAlign: 'center',
+  },
+  statusText: {
+    fontSize: '13px',
+    color: '#00D4FF',
+    fontFamily: "'Inter', sans-serif",
+    fontWeight: 500,
   },
   content: {
     flex: 1,

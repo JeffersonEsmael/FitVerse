@@ -11,16 +11,18 @@ export default function AuthScreen() {
   const [name, setName] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [infoMessage, setInfoMessage] = useState('');
   const { login, register, error, clearError } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     clearError();
+    setInfoMessage('');
     setIsSubmitting(true);
 
     // Validation
-    if (!email.includes('@')) {
+    if (!email.trim() || !email.includes('@')) {
       alert('Por favor, insira um email válido (ex: seuemail@gmail.com).');
       setIsSubmitting(false);
       return;
@@ -31,7 +33,7 @@ export default function AuthScreen() {
       return;
     }
     if (mode === 'register' && name.trim().length < 2) {
-      alert('Insira seu nome completo.');
+      alert('Insira seu nome (mínimo 2 caracteres).');
       setIsSubmitting(false);
       return;
     }
@@ -39,17 +41,29 @@ export default function AuthScreen() {
     try {
       let result;
       if (mode === 'login') {
-        result = await login(email, password);
+        result = await login(email.trim(), password);
+        if (result?.success) {
+          // onAuthStateChange will trigger navigation via SplashScreen logic.
+          // But since we're already on AuthScreen, navigate manually.
+          navigate('feed');
+        } else {
+          alert('Erro ao entrar: ' + (result?.error || 'Verifique seu email e senha.'));
+        }
       } else {
-        result = await register(email, password, name.trim());
-      }
-
-      if (result?.success) {
-        navigate('feed');
-      } else {
-        alert('Erro: ' + (result?.error || 'Falha na autenticação'));
+        result = await register(email.trim(), password, name.trim());
+        if (result?.success) {
+          if (result?.needsConfirmation) {
+            setInfoMessage('✉️ Verifique seu email para confirmar o cadastro e depois faça login.');
+            setMode('login');
+          } else {
+            navigate('feed');
+          }
+        } else {
+          alert('Erro ao criar conta: ' + (result?.error || 'Tente novamente.'));
+        }
       }
     } catch (err) {
+      console.error('[AuthScreen] Unexpected error:', err);
       alert('Erro inesperado: ' + err.message);
     } finally {
       setIsSubmitting(false);
@@ -77,6 +91,13 @@ export default function AuthScreen() {
           </p>
         </div>
 
+        {/* Info message (e.g. email confirmation) */}
+        {infoMessage && (
+          <div style={styles.infoBox}>
+            <p style={styles.infoText}>{infoMessage}</p>
+          </div>
+        )}
+
         {/* Form */}
         <form onSubmit={handleSubmit} style={styles.form} autoComplete="off">
           <AnimatePresence mode="wait">
@@ -90,7 +111,14 @@ export default function AuthScreen() {
               >
                 <div style={styles.inputWrap}>
                   <User size={18} color="#6C6C88" />
-                  <input style={styles.input} type="text" placeholder="Nome completo" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" required />
+                  <input
+                    style={styles.input}
+                    type="text"
+                    placeholder="Nome completo"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    autoComplete="off"
+                  />
                 </div>
               </motion.div>
             )}
@@ -98,12 +126,26 @@ export default function AuthScreen() {
 
           <div style={styles.inputWrap}>
             <Mail size={18} color="#6C6C88" />
-            <input style={styles.input} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" required />
+            <input
+              style={styles.input}
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="off"
+            />
           </div>
 
           <div style={styles.inputWrap}>
             <Lock size={18} color="#6C6C88" />
-            <input style={styles.input} type={showPass ? 'text' : 'password'} placeholder="Senha (mín. 6 caracteres)" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required />
+            <input
+              style={styles.input}
+              type={showPass ? 'text' : 'password'}
+              placeholder="Senha (mín. 6 caracteres)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+            />
             <button type="button" onClick={() => setShowPass(!showPass)} style={styles.eyeBtn}>
               {showPass ? <EyeOff size={18} color="#6C6C88" /> : <Eye size={18} color="#6C6C88" />}
             </button>
@@ -118,7 +160,11 @@ export default function AuthScreen() {
             disabled={isSubmitting}
           >
             {isSubmitting ? (
-              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }} style={styles.spinner} />
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }}
+                style={styles.spinner}
+              />
             ) : (
               <>
                 {mode === 'login' ? 'Entrar' : 'Criar Conta'}
@@ -131,7 +177,14 @@ export default function AuthScreen() {
         {/* Toggle mode */}
         <p style={styles.toggleText}>
           {mode === 'login' ? 'Não tem conta? ' : 'Já tem conta? '}
-          <span style={styles.toggleLink} onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); clearError(); }}>
+          <span
+            style={styles.toggleLink}
+            onClick={() => {
+              setMode(mode === 'login' ? 'register' : 'login');
+              clearError();
+              setInfoMessage('');
+            }}
+          >
             {mode === 'login' ? 'Criar conta' : 'Fazer login'}
           </span>
         </p>
@@ -171,6 +224,20 @@ const styles = {
     WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
   },
   tagline: { fontSize: '14px', color: '#6C6C88', fontFamily: "'Inter', sans-serif" },
+  infoBox: {
+    background: 'rgba(0,212,255,0.08)',
+    border: '1px solid rgba(0,212,255,0.2)',
+    borderRadius: '12px',
+    padding: '12px 16px',
+    marginBottom: '16px',
+  },
+  infoText: {
+    fontSize: '13px',
+    color: '#00D4FF',
+    fontFamily: "'Inter', sans-serif",
+    margin: 0,
+    lineHeight: 1.5,
+  },
   form: { display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' },
   inputWrap: {
     display: 'flex', alignItems: 'center', gap: '10px',
@@ -190,7 +257,11 @@ const styles = {
     fontSize: '16px', fontWeight: 700, fontFamily: "'Inter', sans-serif",
     boxShadow: '0 0 20px rgba(0,212,255,0.3)', marginTop: '4px',
   },
-  spinner: { width: '20px', height: '20px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%' },
+  spinner: {
+    width: '20px', height: '20px',
+    border: '2px solid rgba(255,255,255,0.3)',
+    borderTopColor: '#fff', borderRadius: '50%',
+  },
   toggleText: { textAlign: 'center', fontSize: '14px', color: '#6C6C88', fontFamily: "'Inter', sans-serif" },
   toggleLink: { color: '#00D4FF', fontWeight: 600, cursor: 'pointer' },
 };
