@@ -11,7 +11,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('  VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? '✓' : '✗ MISSING');
 }
 
-// Validate that the anon key looks like a JWT (starts with eyJ)
 if (supabaseAnonKey && !supabaseAnonKey.startsWith('eyJ')) {
   console.error(
     '[Supabase] FATAL: VITE_SUPABASE_ANON_KEY does not look like a valid JWT.\n' +
@@ -25,9 +24,61 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false, // Set to false for SPA apps without URL-based auth
+    detectSessionInUrl: false,
     storage: window.localStorage,
   },
 });
 
+// ── Startup diagnostic ────────────────────────────────────────────────────────
+// Runs once on app start to detect common misconfigurations.
+// Results appear in the browser DevTools console.
+(async () => {
+  try {
+    // Test 1: Can we reach the profiles table at all?
+    const { error: selectError } = await supabase
+      .from('profiles')
+      .select('id')
+      .limit(1);
+
+    if (selectError) {
+      if (selectError.code === '42P01') {
+        console.error(
+          '[Supabase Diagnostic] ❌ Table "profiles" does not exist!\n' +
+          '  → Execute o arquivo fitverse_full_setup.sql no SQL Editor do Supabase Dashboard.'
+        );
+      } else if (selectError.code === '42501' || selectError.message?.includes('permission')) {
+        console.error(
+          '[Supabase Diagnostic] ❌ RLS blocking SELECT on profiles!\n' +
+          '  → Execute o arquivo fitverse_full_setup.sql no SQL Editor do Supabase Dashboard.'
+        );
+      } else {
+        console.error('[Supabase Diagnostic] ❌ profiles SELECT error:', selectError.code, selectError.message);
+      }
+    } else {
+      console.log('[Supabase Diagnostic] ✅ profiles table accessible (SELECT OK)');
+    }
+
+    // Test 2: Can we read storage buckets?
+    const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+    if (bucketError) {
+      console.error('[Supabase Diagnostic] ❌ Storage error:', bucketError.message);
+    } else {
+      const names = (buckets || []).map(b => b.name);
+      const required = ['avatars', 'videos', 'posts'];
+      const missing = required.filter(r => !names.includes(r));
+      if (missing.length > 0) {
+        console.error(
+          `[Supabase Diagnostic] ❌ Missing storage buckets: ${missing.join(', ')}\n` +
+          '  → Execute o arquivo fitverse_full_setup.sql no SQL Editor do Supabase Dashboard.'
+        );
+      } else {
+        console.log('[Supabase Diagnostic] ✅ Storage buckets OK:', names.join(', '));
+      }
+    }
+  } catch (err) {
+    console.error('[Supabase Diagnostic] ❌ Connection failed:', err.message);
+  }
+})();
+
 export default supabase;
+

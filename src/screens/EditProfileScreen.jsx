@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Camera, Save, Loader2, Globe, Lock } from 'lucide-react';
+import { ChevronLeft, Camera, Save, Loader2, Globe, Lock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
@@ -17,7 +17,8 @@ export default function EditProfileScreen() {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('');
+  const [saveStatus, setSaveStatus] = useState(null); // null | 'success' | 'error'
+  const [errorMsg, setErrorMsg] = useState('');
 
   const fileInputRef = useRef(null);
 
@@ -34,43 +35,50 @@ export default function EditProfileScreen() {
   const handlePhotoSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (!validTypes.includes(file.type)) {
-      alert('Formato inválido. Use JPG, PNG, WEBP ou GIF.');
+      setErrorMsg('Formato inválido. Use JPG, PNG, WEBP ou GIF.');
+      setSaveStatus('error');
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      alert('A imagem deve ter no máximo 5MB.');
+      setErrorMsg('A imagem deve ter no máximo 5MB.');
+      setSaveStatus('error');
       return;
     }
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
+    setSaveStatus(null);
   };
 
   const handleSave = async () => {
     if (!user?.uid) {
-      alert('Sessão expirada. Faça login novamente.');
+      setErrorMsg('Sessão expirada. Faça login novamente.');
+      setSaveStatus('error');
+      return;
+    }
+
+    if (!displayName.trim()) {
+      setErrorMsg('O nome de exibição não pode estar vazio.');
+      setSaveStatus('error');
       return;
     }
 
     setIsSaving(true);
-    setStatusMessage('Salvando...');
+    setSaveStatus(null);
+    setErrorMsg('');
+
     let avatarUrl = profile?.avatar_url || '';
 
     try {
-      // 1. Upload new photo if selected
+      // ── 1. Upload avatar if a new photo was selected ──
       if (photoFile) {
-        setStatusMessage('Enviando foto...');
-        console.log('[EditProfile] Uploading avatar for user:', user.uid);
+        console.log('[EditProfile] Uploading avatar...');
 
-        // Verify active session first
-        const { data: { session } } = await supabase.auth.getSession();
+        const sessionResult = await supabase.auth.getSession();
+        const session = sessionResult?.data?.session;
         if (!session) {
-          alert('Sessão expirada. Faça login novamente.');
-          setIsSaving(false);
-          setStatusMessage('');
-          return;
+          throw new Error('Sessão expirada. Faça login novamente.');
         }
 
         const fileExt = photoFile.name.split('.').pop().toLowerCase();
@@ -85,44 +93,41 @@ export default function EditProfileScreen() {
 
         if (uploadError) {
           console.error('[EditProfile] Avatar upload error:', uploadError);
-          alert(`Erro ao enviar foto: ${uploadError.message}`);
-          setIsSaving(false);
-          setStatusMessage('');
-          return;
+          throw new Error(`Falha ao enviar foto: ${uploadError.message}`);
         }
 
         const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
         avatarUrl = urlData?.publicUrl || avatarUrl;
-        console.log('[EditProfile] Avatar uploaded. URL:', avatarUrl);
+        console.log('[EditProfile] Avatar URL:', avatarUrl);
       }
 
-      // 2. Update profile data
-      setStatusMessage('Atualizando perfil...');
+      // ── 2. Save profile data ──
       const updates = {
         display_name: displayName.trim(),
-        username: username.trim().toLowerCase(),
+        username: username.trim().toLowerCase() || profile?.username || 'user',
         bio: bio.trim(),
         avatar_url: avatarUrl,
         is_public: isPublic,
         updated_at: new Date().toISOString(),
       };
 
-      console.log('[EditProfile] Updating profile:', updates);
+      console.log('[EditProfile] Saving profile:', updates);
       const result = await updateProfile(updates);
 
-      if (result.success) {
-        console.log('[EditProfile] Profile saved successfully.');
-        setStatusMessage('Salvo!');
-        setTimeout(() => navigate('profile'), 500);
-      } else {
-        console.error('[EditProfile] updateProfile failed:', result.error);
-        alert('Erro ao salvar perfil: ' + (result.error || 'Tente novamente.'));
-        setStatusMessage('');
+      if (!result.success) {
+        throw new Error(result.error || 'Falha ao salvar perfil.');
       }
-    } catch (error) {
-      console.error('[EditProfile] Unexpected error:', error);
-      alert('Erro inesperado: ' + error.message);
-      setStatusMessage('');
+
+      // ── 3. Success — show tick then navigate ──
+      console.log('[EditProfile] Saved successfully!');
+      setSaveStatus('success');
+
+      // Navigate immediately — no setTimeout needed
+      navigate('profile');
+    } catch (err) {
+      console.error('[EditProfile] Save error:', err.message);
+      setErrorMsg(err.message);
+      setSaveStatus('error');
     } finally {
       setIsSaving(false);
     }
@@ -143,16 +148,35 @@ export default function EditProfileScreen() {
             disabled={isSaving}
           >
             {isSaving
-              ? <Loader2 size={20} style={styles.spinner} />
-              : <Save size={20} color="#fff" />
+              ? <Loader2 size={20} color="#00D4FF" style={{ animation: 'spin 1s linear infinite' }} />
+              : saveStatus === 'success'
+              ? <CheckCircle size={20} color="#39FF14" />
+              : <Save size={20} color="#00D4FF" />
             }
           </button>
         </div>
 
-        {/* Status message */}
-        {statusMessage && (
-          <div style={styles.statusBar}>
-            <span style={styles.statusText}>{statusMessage}</span>
+        {/* Error message */}
+        {saveStatus === 'error' && errorMsg && (
+          <motion.div
+            style={styles.errorBar}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <AlertCircle size={16} color="#FF2D55" />
+            <span style={styles.errorBarText}>{errorMsg}</span>
+          </motion.div>
+        )}
+
+        {/* Loading overlay */}
+        {isSaving && (
+          <div style={styles.savingOverlay}>
+            <div style={styles.savingCard}>
+              <div style={styles.savingSpinner} />
+              <span style={styles.savingText}>
+                {photoFile ? 'Enviando foto e salvando...' : 'Salvando alterações...'}
+              </span>
+            </div>
           </div>
         )}
 
@@ -167,7 +191,6 @@ export default function EditProfileScreen() {
                   {displayName.charAt(0).toUpperCase() || '?'}
                 </div>
               )}
-
               <button
                 style={styles.cameraBtn}
                 onClick={() => fileInputRef.current?.click()}
@@ -175,7 +198,6 @@ export default function EditProfileScreen() {
               >
                 <Camera size={20} color="#fff" />
               </button>
-
               <input
                 ref={fileInputRef}
                 type="file"
@@ -190,7 +212,7 @@ export default function EditProfileScreen() {
           {/* Form Fields */}
           <div style={styles.form}>
             <div style={styles.field}>
-              <label style={styles.label}>Nome de exibição</label>
+              <label style={styles.label}>Nome de exibição *</label>
               <input
                 type="text"
                 value={displayName}
@@ -228,7 +250,6 @@ export default function EditProfileScreen() {
               <span style={styles.charCount}>{bio.length}/150</span>
             </div>
 
-            {/* Public/Private toggle */}
             <div style={styles.field}>
               <label style={styles.label}>Visibilidade da conta</label>
               <div style={styles.toggleRow}>
@@ -256,7 +277,10 @@ export default function EditProfileScreen() {
             disabled={isSaving}
             whileTap={{ scale: 0.97 }}
           >
-            {isSaving ? statusMessage || 'Salvando...' : 'Salvar Alterações'}
+            {isSaving
+              ? (photoFile ? 'Enviando foto...' : 'Salvando...')
+              : 'Salvar Alterações'
+            }
           </motion.button>
         </div>
       </div>
@@ -265,195 +289,87 @@ export default function EditProfileScreen() {
 }
 
 const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
-    background: '#0A0A0F',
-  },
+  container: { display: 'flex', flexDirection: 'column', height: '100%', background: '#0A0A0F' },
   header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '16px',
-    paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)',
     borderBottom: '1px solid rgba(255,255,255,0.05)',
   },
-  backBtn: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '4px',
-    display: 'flex',
+  backBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex' },
+  title: { fontSize: '18px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0 },
+  saveBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex' },
+  errorBar: {
+    display: 'flex', alignItems: 'center', gap: '8px',
+    padding: '10px 16px',
+    background: 'rgba(255,45,85,0.08)',
+    borderBottom: '1px solid rgba(255,45,85,0.15)',
   },
-  title: {
-    fontSize: '18px',
-    fontWeight: 700,
-    color: '#fff',
-    fontFamily: "'Outfit', sans-serif",
-    margin: 0,
+  errorBarText: { fontSize: '13px', color: '#FF2D55', fontFamily: "'Inter', sans-serif", flex: 1 },
+  savingOverlay: {
+    position: 'absolute', inset: 0, zIndex: 50,
+    background: 'rgba(10,10,15,0.7)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    backdropFilter: 'blur(4px)',
   },
-  saveBtn: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '4px',
-    display: 'flex',
+  savingCard: {
+    background: 'rgba(255,255,255,0.06)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '16px', padding: '24px 32px',
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px',
   },
-  spinner: {
-    animation: 'spin 1s linear infinite',
-    color: '#00D4FF',
+  savingSpinner: {
+    width: '32px', height: '32px', borderRadius: '50%',
+    border: '3px solid rgba(0,212,255,0.2)',
+    borderTopColor: '#00D4FF',
+    animation: 'spin 0.8s linear infinite',
   },
-  statusBar: {
-    background: 'rgba(0,212,255,0.1)',
-    borderBottom: '1px solid rgba(0,212,255,0.15)',
-    padding: '8px 16px',
-    textAlign: 'center',
-  },
-  statusText: {
-    fontSize: '13px',
-    color: '#00D4FF',
-    fontFamily: "'Inter', sans-serif",
-    fontWeight: 500,
-  },
-  content: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: '24px 16px',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  avatarSection: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    marginBottom: '32px',
-  },
-  avatarWrapper: {
-    position: 'relative',
-    width: '100px',
-    height: '100px',
-    borderRadius: '50%',
-    marginBottom: '12px',
-  },
-  avatarImg: {
-    width: '100%',
-    height: '100%',
-    borderRadius: '50%',
-    objectFit: 'cover',
-    border: '3px solid #00D4FF',
-  },
+  savingText: { fontSize: '15px', color: '#fff', fontFamily: "'Inter', sans-serif", fontWeight: 500 },
+  content: { flex: 1, overflowY: 'auto', padding: '24px 16px', display: 'flex', flexDirection: 'column' },
+  avatarSection: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '32px' },
+  avatarWrapper: { position: 'relative', width: '100px', height: '100px', borderRadius: '50%', marginBottom: '12px' },
+  avatarImg: { width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '3px solid #00D4FF' },
   avatarPlaceholder: {
-    width: '100%',
-    height: '100%',
-    borderRadius: '50%',
+    width: '100%', height: '100%', borderRadius: '50%',
     background: 'linear-gradient(135deg, #00D4FF, #A855F7)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#fff',
-    fontSize: '36px',
-    fontWeight: 800,
-    border: '3px solid #00D4FF',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#fff', fontSize: '36px', fontWeight: 800, border: '3px solid #00D4FF',
   },
   cameraBtn: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    background: '#A855F7',
-    border: '2px solid #0A0A0F',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
+    position: 'absolute', bottom: 0, right: 0,
+    width: '32px', height: '32px', borderRadius: '50%',
+    background: '#A855F7', border: '2px solid #0A0A0F',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
   },
-  avatarHint: {
-    fontSize: '13px',
-    color: '#6C6C88',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px',
-    marginBottom: '32px',
-  },
-  field: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  label: {
-    fontSize: '14px',
-    color: '#B0B0C8',
-    fontWeight: 600,
-    fontFamily: "'Inter', sans-serif",
-  },
+  avatarHint: { fontSize: '13px', color: '#6C6C88' },
+  form: { display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '32px' },
+  field: { display: 'flex', flexDirection: 'column', gap: '8px' },
+  label: { fontSize: '14px', color: '#B0B0C8', fontWeight: 600, fontFamily: "'Inter', sans-serif" },
   input: {
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: '12px',
-    padding: '14px 16px',
-    color: '#fff',
-    fontSize: '16px',
-    outline: 'none',
-    fontFamily: "'Inter', sans-serif",
+    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '12px', padding: '14px 16px', color: '#fff',
+    fontSize: '16px', outline: 'none', fontFamily: "'Inter', sans-serif",
   },
   textarea: {
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: '12px',
-    padding: '14px 16px',
-    color: '#fff',
-    fontSize: '16px',
-    outline: 'none',
-    minHeight: '100px',
-    resize: 'none',
+    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '12px', padding: '14px 16px', color: '#fff',
+    fontSize: '16px', outline: 'none', minHeight: '100px', resize: 'none',
     fontFamily: "'Inter', sans-serif",
   },
-  charCount: {
-    fontSize: '12px',
-    color: '#6C6C88',
-    textAlign: 'right',
-  },
-  toggleRow: {
-    display: 'flex',
-    gap: '8px',
-  },
+  charCount: { fontSize: '12px', color: '#6C6C88', textAlign: 'right' },
+  toggleRow: { display: 'flex', gap: '8px' },
   toggleBtn: {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    padding: '12px',
-    borderRadius: '12px',
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    color: '#6C6C88',
-    fontSize: '14px',
-    fontWeight: 600,
-    cursor: 'pointer',
+    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    gap: '8px', padding: '12px', borderRadius: '12px',
+    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+    color: '#6C6C88', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
     fontFamily: "'Inter', sans-serif",
   },
-  toggleActive: {
-    background: 'rgba(0,212,255,0.1)',
-    borderColor: 'rgba(0,212,255,0.3)',
-    color: '#00D4FF',
-  },
+  toggleActive: { background: 'rgba(0,212,255,0.1)', borderColor: 'rgba(0,212,255,0.3)', color: '#00D4FF' },
   submitBtn: {
     background: 'linear-gradient(135deg, #00D4FF, #0088CC)',
-    border: 'none',
-    borderRadius: '16px',
-    padding: '16px',
-    color: '#fff',
-    fontSize: '16px',
-    fontWeight: 700,
-    cursor: 'pointer',
-    fontFamily: "'Inter', sans-serif",
-    boxShadow: '0 4px 15px rgba(0,212,255,0.3)',
+    border: 'none', borderRadius: '16px', padding: '16px',
+    color: '#fff', fontSize: '16px', fontWeight: 700, cursor: 'pointer',
+    fontFamily: "'Inter', sans-serif", boxShadow: '0 4px 15px rgba(0,212,255,0.3)',
     marginTop: 'auto',
   },
 };

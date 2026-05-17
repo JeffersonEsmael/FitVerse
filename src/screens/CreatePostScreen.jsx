@@ -11,18 +11,17 @@ const categories = ['treino', 'dieta', 'evolução', 'rotina', 'desafio', 'humor
 export default function CreatePostScreen() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
-  const [mediaType, setMediaType] = useState(null); // 'video' or 'image'
+  const [mediaType, setMediaType] = useState(null);
   const [caption, setCaption] = useState('');
   const [hashtagInput, setHashtagInput] = useState('');
   const [hashtags, setHashtags] = useState([]);
   const [category, setCategory] = useState('treino');
-  const [isUploading, setIsUploading] = useState(false);
   const fileRef = useRef(null);
 
   const { createPost } = useFeedStore();
   const { user, profile } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
-  const { setActiveTab } = useNavigationStore();
+  const setActiveTab = useNavigationStore((s) => s.setActiveTab);
 
   const handleFileSelect = (e) => {
     const f = e.target.files?.[0];
@@ -45,10 +44,21 @@ export default function CreatePostScreen() {
     setHashtags(hashtags.filter((t) => t !== tag));
   };
 
-  const handlePost = async () => {
-    if (!file || !user?.uid) return;
-    setIsUploading(true);
-    const result = await createPost(file, {
+  const handlePost = () => {
+    if (!file) return;
+
+    if (!user?.uid) {
+      alert('Você precisa estar logado para postar.');
+      return;
+    }
+
+    // ── 1. Navigate to feed IMMEDIATELY ──────────────────────────
+    // The user sees the feed at once; upload happens in the background.
+    setActiveTab('feed');
+
+    // ── 2. Start upload in background (fire-and-forget) ──────────
+    // createPost updates feedStore.uploadingPost so FeedScreen shows a progress banner.
+    createPost(file, {
       userId: user.uid,
       username: profile?.username || 'user',
       displayName: profile?.display_name || 'Usuário',
@@ -56,14 +66,12 @@ export default function CreatePostScreen() {
       caption,
       hashtags,
       category,
+    }).then((result) => {
+      if (!result.success) {
+        // feedStore already set uploadError which FeedScreen will show
+        console.error('[CreatePost] Upload failed:', result.error);
+      }
     });
-    setIsUploading(false);
-    
-    if (result?.success === false) {
-      alert('Erro ao postar: ' + result.error);
-    } else {
-      setActiveTab('feed');
-    }
   };
 
   return (
@@ -78,10 +86,10 @@ export default function CreatePostScreen() {
           <motion.button
             style={{ ...styles.postBtn, opacity: file ? 1 : 0.4 }}
             onClick={handlePost}
-            disabled={!file || isUploading}
+            disabled={!file}
             whileTap={{ scale: 0.95 }}
           >
-            {isUploading ? '...' : <><Send size={16} /> Postar</>}
+            <Send size={16} /> Postar
           </motion.button>
         </div>
 
@@ -111,7 +119,10 @@ export default function CreatePostScreen() {
             ) : (
               <img src={preview} alt="Preview" style={styles.previewMedia} />
             )}
-            <button style={styles.removeBtn} onClick={() => { setFile(null); setPreview(null); setMediaType(null); }}>
+            <button
+              style={styles.removeBtn}
+              onClick={() => { setFile(null); setPreview(null); setMediaType(null); }}
+            >
               <X size={18} color="#fff" />
             </button>
             <div style={styles.mediaTypeBadge}>

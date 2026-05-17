@@ -8,8 +8,13 @@ export const useFeedStore = create((set, get) => ({
   hasMore: true,
   activeTab: 'forYou',
 
+  // ─── Global upload state (shown in FeedScreen while uploading) ──
+  uploadingPost: null,   // null = idle | { progress: 0-100, mediaType, caption }
+  uploadError: null,     // string | null
+
   setCurrentIndex: (index) => set({ currentIndex: index }),
   setActiveTab: (tab) => set({ activeTab: tab }),
+  clearUploadError: () => set({ uploadError: null }),
 
   // ─── Toggle interactions ─────────────────────────────────
   toggleShape: (videoId) => {
@@ -142,33 +147,40 @@ export const useFeedStore = create((set, get) => ({
     }
   },
 
-  // ─── Create post (video or image) ────────────────────────
+  // ─── Create post — runs in background after navigation ───
+  // Call this AFTER navigating to feed. It shows a progress banner.
   createPost: async (file, metadata) => {
-    // Guard: ensure user is authenticated before attempting upload
-    const { data: { session } } = await supabase.auth.getSession();
+    // Validate inputs upfront
+    if (!metadata?.userId) {
+      console.error('[Feed] createPost: userId is missing.');
+      set({ uploadError: 'ID do usuário não encontrado. Tente sair e entrar novamente.' });
+      return { success: false, error: 'ID do usuário não encontrado.' };
+    }
+
+    // Check session using safe optional chaining
+    const sessionResult = await supabase.auth.getSession();
+    const session = sessionResult?.data?.session;
     if (!session) {
-      console.error('[Feed] createPost: No active session — user must be logged in.');
-      return { success: false, error: 'Você precisa estar logado para postar.' };
+      console.error('[Feed] createPost: No active session.');
+      set({ uploadError: 'Sessão expirada. Faça login novamente.' });
+      return { success: false, error: 'Sessão expirada. Faça login novamente.' };
     }
 
-    if (!metadata.userId) {
-      console.error('[Feed] createPost: userId is missing from metadata.');
-      return { success: false, error: 'ID do usuário não encontrado. Tente sair e entrar novamente.' };
-    }
-
-    set({ isLoading: true });
+    // Show upload banner
+    set({
+      uploadingPost: { progress: 5, mediaType: file.type.startsWith('video') ? 'video' : 'image', caption: metadata.caption || '' },
+      uploadError: null,
+    });
 
     try {
-      // Determine media type and bucket
       const isVideo = file.type.startsWith('video');
       const mediaType = isVideo ? 'video' : 'image';
       const bucketName = isVideo ? 'videos' : 'posts';
-
-      // Build unique file path
       const fileExt = file.name.split('.').pop().toLowerCase();
       const fileName = `${metadata.userId}/${Date.now()}.${fileExt}`;
 
-      console.log(`[Feed] Uploading ${mediaType} to bucket '${bucketName}': ${fileName}`);
+      console.log(`[Feed] Uploading ${mediaType} → bucket '${bucketName}': ${fileName}`);
+      set((s) => ({ uploadingPost: { ...s.uploadingPost, progress: 20 } }));
 
       const { error: uploadError } = await supabase.storage
         .from(bucketName)
@@ -180,22 +192,20 @@ export const useFeedStore = create((set, get) => ({
 
       if (uploadError) {
         console.error('[Feed] Storage upload error:', uploadError);
-        throw new Error(`Falha no upload: ${uploadError.message}`);
+        throw new Error(uploadError.message);
       }
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from(bucketName)
-        .getPublicUrl(fileName);
+      set((s) => ({ uploadingPost: { ...s.uploadingPost, progress: 70 } }));
 
+      // Get public URL (synchronous — no network call needed)
+      const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
       const publicUrl = urlData?.publicUrl;
-      if (!publicUrl) {
-        throw new Error('Não foi possível obter a URL pública do arquivo.');
-      }
+      if (!publicUrl) throw new Error('Não foi possível obter a URL pública do arquivo.');
 
-      console.log('[Feed] Upload successful. Public URL:', publicUrl);
+      console.log('[Feed] File uploaded. URL:', publicUrl);
+      set((s) => ({ uploadingPost: { ...s.uploadingPost, progress: 85 } }));
 
-      // Create record in database
+      // Insert post record
       const postData = {
         video_url: publicUrl,
         media_type: mediaType,
@@ -206,12 +216,8 @@ export const useFeedStore = create((set, get) => ({
         caption: metadata.caption || '',
         hashtags: metadata.hashtags || [],
         category: metadata.category || 'geral',
-        shapes: 0,
-        boosts: 0,
-        gym_bag_saves: 0,
-        comments: 0,
-        shares: 0,
-        views: 0,
+        shapes: 0, boosts: 0, gym_bag_saves: 0,
+        comments: 0, shares: 0, views: 0,
       };
 
       const { data: insertedPost, error: insertError } = await supabase
@@ -222,35 +228,43 @@ export const useFeedStore = create((set, get) => ({
 
       if (insertError) {
         console.error('[Feed] DB insert error:', insertError);
-        throw new Error(`Falha ao salvar post: ${insertError.message}`);
+        throw new Error(insertError.message);
       }
 
       console.log('[Feed] Post created with ID:', insertedPost.id);
+      set((s) => ({ uploadingPost: { ...s.uploadingPost, progress: 100 } }));
 
-      // Prepend to local state
-      set((state) => ({
-        videos: [{
-          id: insertedPost.id,
-          videoUrl: publicUrl,
-          mediaType,
-          userId: metadata.userId,
-          username: metadata.username || 'user',
-          userAvatar: metadata.userAvatar || '',
-          displayName: metadata.displayName || 'Usuário',
-          caption: metadata.caption || '',
-          hashtags: metadata.hashtags || [],
-          category: metadata.category || 'geral',
-          shapes: 0, boosts: 0, gym_bag_saves: 0, comments: 0, shares: 0, views: 0,
-          hasShaped: false, hasBoosted: false, inGymBag: false,
-          createdAt: new Date(),
-        }, ...state.videos],
-        isLoading: false,
-      }));
+      // Add to top of feed
+      const newVideo = {
+        id: insertedPost.id,
+        videoUrl: publicUrl,
+        mediaType,
+        userId: metadata.userId,
+        username: metadata.username || 'user',
+        userAvatar: metadata.userAvatar || '',
+        displayName: metadata.displayName || 'Usuário',
+        caption: metadata.caption || '',
+        hashtags: metadata.hashtags || [],
+        category: metadata.category || 'geral',
+        shapes: 0, boosts: 0, gym_bag_saves: 0,
+        comments: 0, shares: 0, views: 0,
+        hasShaped: false, hasBoosted: false, inGymBag: false,
+        createdAt: new Date(),
+      };
+
+      // Clear banner after 1.5s so user sees the "100%" completion
+      setTimeout(() => {
+        set((state) => ({
+          videos: [newVideo, ...state.videos],
+          uploadingPost: null,
+          currentIndex: 0,
+        }));
+      }, 1500);
 
       return { success: true, videoId: insertedPost.id };
     } catch (error) {
-      console.error('[Feed] createPost error:', error.message);
-      set({ isLoading: false });
+      console.error('[Feed] createPost failed:', error.message);
+      set({ uploadingPost: null, uploadError: error.message });
       return { success: false, error: error.message };
     }
   },

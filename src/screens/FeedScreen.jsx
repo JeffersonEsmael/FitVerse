@@ -1,13 +1,17 @@
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlusCircle, Video } from 'lucide-react';
+import { PlusCircle, Video, AlertCircle, X } from 'lucide-react';
 import VideoCard from '../components/feed/VideoCard';
 import StoreView from '../components/store/StoreView';
 import { useFeedStore } from '../stores/feedStore';
 import { useNavigationStore } from '../stores/navigationStore';
 
 export default function FeedScreen() {
-  const { videos, currentIndex, setCurrentIndex, activeTab, setActiveTab, fetchVideos, isLoading } = useFeedStore();
+  const {
+    videos, currentIndex, setCurrentIndex,
+    activeTab, setActiveTab, fetchVideos,
+    uploadingPost, uploadError, clearUploadError,
+  } = useFeedStore();
   const navigate = useNavigationStore((s) => s.navigate);
   const containerRef = useRef(null);
   const [touchStart, setTouchStart] = useState(null);
@@ -31,10 +35,7 @@ export default function FeedScreen() {
     setTimeout(() => setIsTransitioning(false), 300);
   }, [videos.length, isTransitioning, currentIndex, setCurrentIndex]);
 
-  // Touch handlers for swipe
-  const handleTouchStart = (e) => {
-    setTouchStart(e.touches[0].clientY);
-  };
+  const handleTouchStart = (e) => setTouchStart(e.touches[0].clientY);
 
   const handleTouchEnd = (e) => {
     if (touchStart === null) return;
@@ -46,7 +47,6 @@ export default function FeedScreen() {
     setTouchStart(null);
   };
 
-  // Wheel handler for desktop
   const handleWheel = useCallback((e) => {
     e.preventDefault();
     if (e.deltaY > 30) goToVideo(currentIndex + 1);
@@ -61,7 +61,6 @@ export default function FeedScreen() {
     }
   }, [handleWheel]);
 
-  // Keyboard nav
   useEffect(() => {
     const handleKey = (e) => {
       if (e.key === 'ArrowDown') goToVideo(currentIndex + 1);
@@ -78,7 +77,58 @@ export default function FeedScreen() {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Top tabs */}
+      {/* ── Upload progress banner ─────────────────────────── */}
+      <AnimatePresence>
+        {uploadingPost && (
+          <motion.div
+            style={styles.uploadBanner}
+            initial={{ y: -80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -80, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          >
+            <div style={styles.uploadBannerContent}>
+              <div style={styles.uploadBannerLeft}>
+                <div style={styles.uploadSpinner} />
+                <div>
+                  <span style={styles.uploadBannerTitle}>
+                    {uploadingPost.mediaType === 'video' ? '🎥 Enviando vídeo...' : '📷 Enviando foto...'}
+                  </span>
+                  <span style={styles.uploadBannerSub}>
+                    {uploadingPost.progress}% concluído
+                  </span>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div style={styles.uploadProgressTrack}>
+                <motion.div
+                  style={styles.uploadProgressFill}
+                  animate={{ width: `${uploadingPost.progress}%` }}
+                  transition={{ duration: 0.4 }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── Upload error banner ──────────────────────────── */}
+        {uploadError && (
+          <motion.div
+            style={styles.errorBanner}
+            initial={{ y: -80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -80, opacity: 0 }}
+          >
+            <AlertCircle size={18} color="#FF2D55" />
+            <span style={styles.errorBannerText}>Falha no upload: {uploadError}</span>
+            <button style={styles.errorClose} onClick={clearUploadError}>
+              <X size={16} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Top tabs ──────────────────────────────────────── */}
       <div style={styles.topBar}>
         <button style={styles.createBtnTop} onClick={() => navigate('create')}>
           <PlusCircle size={28} color="#00D4FF" />
@@ -108,7 +158,7 @@ export default function FeedScreen() {
         </div>
       </div>
 
-      {/* Content Area */}
+      {/* ── Content Area ─────────────────────────────────── */}
       <AnimatePresence mode="wait">
         {activeTab === 'store' ? (
           <motion.div
@@ -129,15 +179,21 @@ export default function FeedScreen() {
             style={styles.emptyFeed}
           >
             <Video size={48} color="#6C6C88" />
-            <span style={styles.emptyTitle}>Nenhum post ainda</span>
-            <span style={styles.emptySubtitle}>Seja o primeiro a postar!</span>
-            <motion.button
-              style={styles.emptyBtn}
-              onClick={() => navigate('create')}
-              whileTap={{ scale: 0.95 }}
-            >
-              <PlusCircle size={18} /> Criar Post
-            </motion.button>
+            <span style={styles.emptyTitle}>
+              {uploadingPost ? 'Publicando seu post...' : 'Nenhum post ainda'}
+            </span>
+            <span style={styles.emptySubtitle}>
+              {uploadingPost ? 'Aguarde um momento' : 'Seja o primeiro a postar!'}
+            </span>
+            {!uploadingPost && (
+              <motion.button
+                style={styles.emptyBtn}
+                onClick={() => navigate('create')}
+                whileTap={{ scale: 0.95 }}
+              >
+                <PlusCircle size={18} /> Criar Post
+              </motion.button>
+            )}
           </motion.div>
         ) : (
           videos.map((video, index) => (
@@ -173,115 +229,130 @@ export default function FeedScreen() {
 
 const styles = {
   container: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: '#000',
-    overflow: 'hidden',
-    touchAction: 'none',
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    background: '#000', overflow: 'hidden', touchAction: 'none',
   },
+  // ── Upload banner ──────────────────────────────────────────
+  uploadBanner: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    zIndex: 100,
+    background: 'rgba(10,10,15,0.96)',
+    borderBottom: '1px solid rgba(0,212,255,0.2)',
+    backdropFilter: 'blur(12px)',
+    padding: '12px 16px',
+  },
+  uploadBannerContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  uploadBannerLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  uploadSpinner: {
+    width: '20px',
+    height: '20px',
+    borderRadius: '50%',
+    border: '2px solid rgba(0,212,255,0.3)',
+    borderTopColor: '#00D4FF',
+    animation: 'spin 0.8s linear infinite',
+    flexShrink: 0,
+  },
+  uploadBannerTitle: {
+    display: 'block',
+    fontSize: '13px',
+    fontWeight: 600,
+    color: '#fff',
+    fontFamily: "'Inter', sans-serif",
+  },
+  uploadBannerSub: {
+    display: 'block',
+    fontSize: '11px',
+    color: '#6C6C88',
+    fontFamily: "'Inter', sans-serif",
+  },
+  uploadProgressTrack: {
+    height: '3px',
+    background: 'rgba(255,255,255,0.08)',
+    borderRadius: '9999px',
+    overflow: 'hidden',
+  },
+  uploadProgressFill: {
+    height: '100%',
+    background: 'linear-gradient(90deg, #00D4FF, #39FF14)',
+    borderRadius: '9999px',
+  },
+  // ── Error banner ───────────────────────────────────────────
+  errorBanner: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    zIndex: 100,
+    background: 'rgba(255,45,85,0.12)',
+    borderBottom: '1px solid rgba(255,45,85,0.3)',
+    backdropFilter: 'blur(12px)',
+    padding: '12px 16px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: '13px',
+    color: '#FF2D55',
+    fontFamily: "'Inter', sans-serif",
+    fontWeight: 500,
+  },
+  errorClose: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: '#FF2D55',
+    padding: '2px',
+    display: 'flex',
+  },
+  // ── Existing styles ────────────────────────────────────────
   topBar: {
     position: 'absolute',
     top: 'max(env(safe-area-inset-top, 0px), 12px)',
-    left: '16px',
-    right: '16px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 20,
-    padding: '8px 0',
+    left: '16px', right: '16px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 20, padding: '8px 0',
   },
   createBtnTop: {
-    position: 'absolute',
-    left: 0,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '4px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: 'absolute', left: 0,
+    background: 'none', border: 'none', cursor: 'pointer', padding: '4px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  tabContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-  },
+  tabContainer: { display: 'flex', alignItems: 'center', gap: '16px' },
   tabBtn: {
-    background: 'none',
-    border: 'none',
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: '16px',
-    fontWeight: 600,
-    fontFamily: "'Inter', sans-serif",
-    cursor: 'pointer',
-    padding: '4px 0',
-    transition: 'color 0.2s',
+    background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)',
+    fontSize: '16px', fontWeight: 600, fontFamily: "'Inter', sans-serif",
+    cursor: 'pointer', padding: '4px 0', transition: 'color 0.2s',
     textShadow: '0 1px 3px rgba(0,0,0,0.5)',
   },
-  tabActive: {
-    color: '#fff',
-    borderBottom: '2px solid #fff',
-    paddingBottom: '2px',
-  },
-  tabDivider: {
-    width: '1px',
-    height: '16px',
-    background: 'rgba(255,255,255,0.3)',
-  },
-  videoSlide: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
+  tabActive: { color: '#fff', borderBottom: '2px solid #fff', paddingBottom: '2px' },
+  tabDivider: { width: '1px', height: '16px', background: 'rgba(255,255,255,0.3)' },
+  videoSlide: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   counter: {
-    position: 'absolute',
-    bottom: '80px',
-    right: '16px',
-    color: 'rgba(255,255,255,0.3)',
-    fontSize: '11px',
-    fontFamily: "'Inter', sans-serif",
-    zIndex: 5,
+    position: 'absolute', bottom: '80px', right: '16px',
+    color: 'rgba(255,255,255,0.3)', fontSize: '11px',
+    fontFamily: "'Inter', sans-serif", zIndex: 5,
   },
   emptyFeed: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '12px',
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    justifyContent: 'center', gap: '12px',
   },
-  emptyTitle: {
-    fontSize: '18px',
-    fontWeight: 700,
-    color: '#B0B0C8',
-    fontFamily: "'Outfit', sans-serif",
-  },
-  emptySubtitle: {
-    fontSize: '14px',
-    color: '#6C6C88',
-  },
+  emptyTitle: { fontSize: '18px', fontWeight: 700, color: '#B0B0C8', fontFamily: "'Outfit', sans-serif" },
+  emptySubtitle: { fontSize: '14px', color: '#6C6C88' },
   emptyBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '12px 24px',
-    borderRadius: '12px',
+    display: 'flex', alignItems: 'center', gap: '8px',
+    padding: '12px 24px', borderRadius: '12px',
     background: 'linear-gradient(135deg, #00D4FF, #0088CC)',
-    border: 'none',
-    color: '#fff',
-    fontSize: '15px',
-    fontWeight: 700,
-    cursor: 'pointer',
-    marginTop: '8px',
-    fontFamily: "'Inter', sans-serif",
+    border: 'none', color: '#fff', fontSize: '15px', fontWeight: 700,
+    cursor: 'pointer', marginTop: '8px', fontFamily: "'Inter', sans-serif",
   },
 };

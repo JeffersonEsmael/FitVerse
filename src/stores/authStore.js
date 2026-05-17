@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 import { supabase } from '../config/supabase';
 
+// Wraps any promise with a timeout — prevents infinite hangs on blocked Supabase queries
+const withTimeout = (promise, ms = 10000, label = 'query') =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`[Timeout] ${label} não respondeu em ${ms/1000}s. Verifique sua conexão e as políticas RLS no Supabase.`)), ms)
+    ),
+  ]);
+
 // Default profile shape matching Supabase columns exactly
 const defaultProfile = {
   display_name: '',
@@ -216,12 +225,18 @@ export const useAuthStore = create((set, get) => ({
 
     try {
       console.log('[Auth] Updating profile for', user.uid, updates);
-      const { error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', user.uid);
 
-      if (error) throw error;
+      // withTimeout prevents infinite hang when RLS blocks a query silently
+      const { error } = await withTimeout(
+        supabase.from('profiles').update(updates).eq('id', user.uid),
+        10000,
+        'updateProfile'
+      );
+
+      if (error) {
+        console.error('[Auth] updateProfile DB error:', error.code, error.message);
+        throw error;
+      }
 
       // Update local state immediately for instant UI feedback
       set((state) => ({
