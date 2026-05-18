@@ -106,11 +106,12 @@ export const useAuthStore = create((set, get) => ({
   // ─── Internal: fetch profile, create if missing ────────────
   _fetchOrCreateProfile: async (uid, email, metadata = {}) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', uid)
-        .single();
+      // Use withTimeout to prevent app hang if RLS/DB is locked
+      const { data, error } = await withTimeout(
+        supabase.from('profiles').select('*').eq('id', uid).single(),
+        10000,
+        'fetchProfile'
+      );
 
       if (error && error.code === 'PGRST116') {
         // Row not found — create it manually (trigger may not have run yet)
@@ -126,11 +127,11 @@ export const useAuthStore = create((set, get) => ({
           username,
         };
 
-        const { data: created, error: createError } = await supabase
-          .from('profiles')
-          .upsert(newProfile)
-          .select()
-          .single();
+        const { data: created, error: createError } = await withTimeout(
+          supabase.from('profiles').upsert(newProfile).select().single(),
+          10000,
+          'createProfile'
+        );
 
         if (createError) {
           console.error('[Auth] Failed to create profile:', createError.message);

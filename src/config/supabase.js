@@ -34,11 +34,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 // Results appear in the browser DevTools console.
 (async () => {
   try {
+    const withTimeout = (promise, ms) => Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout de diagnóstico')), ms))
+    ]);
+
     // Test 1: Can we reach the profiles table at all?
-    const { error: selectError } = await supabase
-      .from('profiles')
-      .select('id')
-      .limit(1);
+    const { error: selectError } = await withTimeout(
+      supabase.from('profiles').select('id').limit(1),
+      5000
+    );
 
     if (selectError) {
       if (selectError.code === '42P01') {
@@ -59,7 +64,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     }
 
     // Test 2: Can we read storage buckets?
-    const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+    const { data: buckets, error: bucketError } = await withTimeout(
+      supabase.storage.listBuckets(),
+      5000
+    );
+    
     if (bucketError) {
       console.error('[Supabase Diagnostic] ❌ Storage error:', bucketError.message);
     } else {
@@ -76,7 +85,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       }
     }
   } catch (err) {
-    console.error('[Supabase Diagnostic] ❌ Connection failed:', err.message);
+    console.error('[Supabase Diagnostic] ❌ Connection failed (or timed out):', err.message);
   }
 })();
 
