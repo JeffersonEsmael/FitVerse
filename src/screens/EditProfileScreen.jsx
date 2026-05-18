@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Camera, Save, Loader2, Globe, Lock, CheckCircle, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Camera, Save, Loader2, Globe, Lock, CheckCircle, AlertCircle, LogOut } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import { supabase } from '../config/supabase';
 
 export default function EditProfileScreen() {
-  const { user, profile, updateProfile } = useAuthStore();
+  const { user, profile, updateProfile, logout } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
 
   const [displayName, setDisplayName] = useState('');
@@ -131,6 +131,11 @@ export default function EditProfileScreen() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('auth');
   };
 
   return (
@@ -282,6 +287,16 @@ export default function EditProfileScreen() {
               : 'Salvar Alterações'
             }
           </motion.button>
+
+          <motion.button 
+            style={styles.logoutBtn} 
+            onClick={handleLogout} 
+            whileTap={{ scale: 0.97 }}
+            disabled={isSaving}
+          >
+            <LogOut size={18} color="#FF2D55" />
+            <span>Sair da conta</span>
+          </motion.button>
         </div>
       </div>
     </ScreenWrapper>
@@ -372,4 +387,11 @@ const styles = {
     fontFamily: "'Inter', sans-serif", boxShadow: '0 4px 15px rgba(0,212,255,0.3)',
     marginTop: 'auto',
   },
+  logoutBtn: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+    width: '100%', padding: '14px 16px', borderRadius: '12px',
+    background: 'rgba(255,45,85,0.06)', border: '1px solid rgba(255,45,85,0.1)',
+    color: '#FF2D55', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+    fontFamily: "'Inter', sans-serif", marginTop: '16px'
+  }
 };

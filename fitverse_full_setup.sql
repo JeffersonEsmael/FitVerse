@@ -276,3 +276,96 @@ CREATE POLICY "Allow authenticated deletes" ON storage.objects
 -- FINISHED! All tables, RLS, triggers,
 -- and storage buckets are ready.
 -- ============================================
+
+-- ============================================
+-- 7. VIDEO INTERACTIONS (Gym Bag, Shapes, Boosts)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS public.video_interactions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  video_id uuid references public.videos(id) on delete cascade not null,
+  interaction_type text not null check (interaction_type in ('shape', 'boost', 'gym_bag')),
+  created_at timestamptz default now(),
+  UNIQUE(user_id, video_id, interaction_type)
+);
+
+-- Enable RLS
+ALTER TABLE public.video_interactions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage their interactions" ON public.video_interactions;
+CREATE POLICY "Users can manage their interactions" 
+  ON public.video_interactions FOR ALL 
+  USING (auth.uid() = user_id) 
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Interactions are public read" ON public.video_interactions;
+CREATE POLICY "Interactions are public read" 
+  ON public.video_interactions FOR SELECT 
+  USING (true);
+
+-- RPC for toggling interaction generically
+CREATE OR REPLACE FUNCTION public.toggle_interaction(p_video_id uuid, p_type text)
+RETURNS void AS $$
+DECLARE
+  v_user_id uuid;
+  v_exists boolean;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  SELECT EXISTS(
+    SELECT 1 FROM public.video_interactions 
+    WHERE user_id = v_user_id AND video_id = p_video_id AND interaction_type = p_type
+  ) INTO v_exists;
+
+  IF v_exists THEN
+    -- Remove interaction
+    DELETE FROM public.video_interactions 
+    WHERE user_id = v_user_id AND video_id = p_video_id AND interaction_type = p_type;
+    
+    -- Decrement counter on video
+    IF p_type = 'shape' THEN
+      UPDATE public.videos SET shapes = GREATEST(shapes - 1, 0) WHERE id = p_video_id;
+    ELSIF p_type = 'boost' THEN
+      UPDATE public.videos SET boosts = GREATEST(boosts - 1, 0) WHERE id = p_video_id;
+    ELSIF p_type = 'gym_bag' THEN
+      UPDATE public.videos SET gym_bag_saves = GREATEST(gym_bag_saves - 1, 0) WHERE id = p_video_id;
+    END IF;
+  ELSE
+    -- Add interaction
+    INSERT INTO public.video_interactions (user_id, video_id, interaction_type) 
+    VALUES (v_user_id, p_video_id, p_type);
+    
+    -- Increment counter on video
+    IF p_type = 'shape' THEN
+      UPDATE public.videos SET shapes = shapes + 1 WHERE id = p_video_id;
+    ELSIF p_type = 'boost' THEN
+      UPDATE public.videos SET boosts = boosts + 1 WHERE id = p_video_id;
+    ELSIF p_type = 'gym_bag' THEN
+      UPDATE public.videos SET gym_bag_saves = gym_bag_saves + 1 WHERE id = p_video_id;
+    END IF;
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Specific RPC wrappers for the frontend
+CREATE OR REPLACE FUNCTION public.toggle_video_shape(p_video_id uuid) RETURNS void AS $$
+BEGIN
+  PERFORM public.toggle_interaction(p_video_id, 'shape');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.toggle_video_boost(p_video_id uuid) RETURNS void AS $$
+BEGIN
+  PERFORM public.toggle_interaction(p_video_id, 'boost');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.toggle_video_gym_bag(p_video_id uuid) RETURNS void AS $$
+BEGIN
+  PERFORM public.toggle_interaction(p_video_id, 'gym_bag');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

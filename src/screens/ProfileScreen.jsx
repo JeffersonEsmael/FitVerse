@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Settings, Grid3x3, Award, LogOut, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, X } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useFeedStore } from '../stores/feedStore';
-import { useChatStore } from '../stores/chatStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import GymBagIcon from '../components/icons/GymBagIcon';
 import ShapeIcon from '../components/icons/ShapeIcon';
+import VideoCard from '../components/feed/VideoCard';
 
 function StatBox({ label, value, icon: Icon, color, onClick }) {
   return (
@@ -20,17 +20,25 @@ function StatBox({ label, value, icon: Icon, color, onClick }) {
 }
 
 export default function ProfileScreen() {
-  const { user, profile, logout } = useAuthStore();
+  const { user, profile, isProfileLoading } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
-  const { fetchUserPosts } = useFeedStore();
-  const { getOrCreateConversation } = useChatStore();
+  const { fetchUserPosts, fetchGymBagVideos } = useFeedStore();
+  
   const [activeProfileTab, setActiveProfileTab] = useState('videos');
   const [userPosts, setUserPosts] = useState([]);
   const [postsLoaded, setPostsLoaded] = useState(false);
+  const [gymBagVideos, setGymBagVideos] = useState([]);
+  const [gymBagLoaded, setGymBagLoaded] = useState(false);
+  
+  // For full screen video viewing
+  const [selectedPost, setSelectedPost] = useState(null);
 
   const p = profile || {};
 
-  // Fetch user's posts when video tab is active
+  // Calculate total shapes dynamically
+  const totalShapes = userPosts.reduce((sum, post) => sum + (post.shapes || 0), 0);
+
+  // Fetch posts
   useEffect(() => {
     if (activeProfileTab === 'videos' && user?.uid && !postsLoaded) {
       fetchUserPosts(user.uid).then((posts) => {
@@ -40,23 +48,47 @@ export default function ProfileScreen() {
     }
   }, [activeProfileTab, user?.uid, postsLoaded, fetchUserPosts]);
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('auth');
-  };
+  // Fetch gym bag
+  useEffect(() => {
+    if (activeProfileTab === 'gymbag' && user?.uid && !gymBagLoaded) {
+      fetchGymBagVideos(user.uid).then((videos) => {
+        setGymBagVideos(videos);
+        setGymBagLoaded(true);
+      });
+    }
+  }, [activeProfileTab, user?.uid, gymBagLoaded, fetchGymBagVideos]);
 
-  const handleDM = async () => {
-    // For own profile, navigate to conversations list
+  const handleDM = () => {
     navigate('conversations');
   };
+
+  // Loading skeleton state
+  if (isProfileLoading && !profile) {
+    return (
+      <ScreenWrapper screenKey="profile">
+        <div style={styles.container}>
+          <div style={{...styles.header, justifyContent: 'center'}}>
+            <div style={{width: 100, height: 24, background: '#22223A', borderRadius: 12}} />
+          </div>
+          <div style={styles.profileCard}>
+             <div style={{width: 88, height: 88, borderRadius: '50%', background: '#22223A', marginBottom: 16}} />
+             <div style={{width: 150, height: 20, background: '#22223A', borderRadius: 10}} />
+          </div>
+        </div>
+      </ScreenWrapper>
+    );
+  }
 
   return (
     <ScreenWrapper screenKey="profile">
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
+          <button style={styles.headerBtnLeft} onClick={() => navigate('create_post')}>
+            <Plus size={24} color="#00D4FF" />
+          </button>
           <h2 style={styles.title}>Perfil</h2>
-          <button style={styles.settingsBtn} onClick={() => navigate('edit_profile')}>
+          <button style={styles.headerBtnRight} onClick={() => navigate('edit_profile')}>
             <Settings size={22} color="#B0B0C8" />
           </button>
         </div>
@@ -106,7 +138,7 @@ export default function ProfileScreen() {
 
         {/* Stats */}
         <div style={styles.statsGrid}>
-          <StatBox label="Shapes" value={p.total_likes || 0} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
+          <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
           <StatBox label="Ranking" value={`#${p.rank_position || '-'}`} icon={Award} color="#FFD700" onClick={() => navigate('ranking')} />
           <StatBox label="DM" value="Chat" icon={MessageCircle} color="#00D4FF" onClick={handleDM} />
         </div>
@@ -151,7 +183,7 @@ export default function ProfileScreen() {
           </button>
         </div>
 
-        {/* Content */}
+        {/* Content - Videos */}
         {activeProfileTab === 'videos' && (
           <div style={styles.videoGrid}>
             {userPosts.length === 0 && postsLoaded ? (
@@ -166,6 +198,7 @@ export default function ProfileScreen() {
                   style={styles.videoThumb}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
+                  onClick={() => setSelectedPost(post)}
                 >
                   {post.mediaType === 'image' ? (
                     <img src={post.videoUrl} alt="" style={styles.thumbMedia} />
@@ -173,9 +206,9 @@ export default function ProfileScreen() {
                     <video src={post.videoUrl} style={styles.thumbMedia} muted preload="metadata" />
                   )}
                   <div style={styles.videoOverlay}>
-                    <span style={styles.videoViews}>
+                    <div style={styles.viewsBadge}>
                       {post.mediaType === 'image' ? <ImageIcon size={10} /> : '▶'} {post.views || 0}
-                    </span>
+                    </div>
                   </div>
                 </motion.div>
               ))
@@ -183,36 +216,79 @@ export default function ProfileScreen() {
           </div>
         )}
 
+        {/* Content - Gym Bag */}
         {activeProfileTab === 'gymbag' && (
-          <div style={styles.emptyGrid}>
-            <GymBagIcon filled={false} size={32} color="#6C6C88" />
-            <span style={styles.emptyGridText}>Posts salvos aparecerão aqui</span>
+          <div style={styles.videoGrid}>
+            {gymBagVideos.length === 0 && gymBagLoaded ? (
+              <div style={styles.emptyGrid}>
+                <GymBagIcon filled={false} size={32} color="#6C6C88" />
+                <span style={styles.emptyGridText}>Posts salvos aparecerão aqui</span>
+              </div>
+            ) : (
+              gymBagVideos.map((post) => (
+                <motion.div
+                  key={post.id}
+                  style={styles.videoThumb}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  onClick={() => setSelectedPost(post)}
+                >
+                  {post.mediaType === 'image' ? (
+                    <img src={post.videoUrl} alt="" style={styles.thumbMedia} />
+                  ) : (
+                    <video src={post.videoUrl} style={styles.thumbMedia} muted preload="metadata" />
+                  )}
+                  <div style={styles.videoOverlay}>
+                    <div style={styles.viewsBadge}>
+                      {post.mediaType === 'image' ? <ImageIcon size={10} /> : '▶'} {post.views || 0}
+                    </div>
+                  </div>
+                </motion.div>
+              ))
+            )}
           </div>
         )}
 
+        {/* Content - Badges */}
         {activeProfileTab === 'badges' && (
           <div style={styles.emptyGrid}>
             <Award size={32} color="#6C6C88" />
             <span style={styles.emptyGridText}>Conquistas em breve 🏆</span>
           </div>
         )}
-
-        {/* Logout */}
-        <motion.button style={styles.logoutBtn} onClick={handleLogout} whileTap={{ scale: 0.97 }}>
-          <LogOut size={18} color="#FF2D55" />
-          <span>Sair da conta</span>
-          <ChevronRight size={16} color="#6C6C88" />
-        </motion.button>
       </div>
+
+      {/* Fullscreen Video Modal */}
+      <AnimatePresence>
+        {selectedPost && (
+          <motion.div
+            style={styles.fullScreenModal}
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+          >
+            <div style={styles.modalHeader}>
+              <button style={styles.modalCloseBtn} onClick={() => setSelectedPost(null)}>
+                <X size={28} color="#FFF" />
+              </button>
+            </div>
+            
+            <div style={styles.modalContent}>
+              <VideoCard video={selectedPost} isActive={true} index={0} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </ScreenWrapper>
   );
 }
 
 const styles = {
-  container: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)' },
+  container: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)', paddingBottom: '80px' },
   header: { display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '16px', position: 'relative' },
   title: { fontSize: '24px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0 },
-  settingsBtn: { position: 'absolute', right: 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px' },
+  headerBtnLeft: { position: 'absolute', left: 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px' },
+  headerBtnRight: { position: 'absolute', right: 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px' },
   profileCard: {
     padding: '0 0 16px 0',
     marginBottom: '16px',
@@ -275,13 +351,51 @@ const styles = {
   contentTab: { flex: 1, padding: '10px', borderRadius: '10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.06)', color: '#6C6C88', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontFamily: "'Inter', sans-serif" },
   contentTabActive: { background: 'rgba(0,212,255,0.1)', color: '#00D4FF', borderColor: 'rgba(0,212,255,0.2)' },
   videoGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', marginBottom: '20px' },
-  videoThumb: { aspectRatio: '9/16', borderRadius: '8px', background: 'linear-gradient(180deg, #1A1A2E, #22223A)', position: 'relative', overflow: 'hidden' },
+  videoThumb: { aspectRatio: '9/16', borderRadius: '8px', background: 'linear-gradient(180deg, #1A1A2E, #22223A)', position: 'relative', overflow: 'hidden', cursor: 'pointer' },
   thumbMedia: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
-  videoOverlay: { position: 'absolute', bottom: '6px', left: '6px' },
-  videoViews: { fontSize: '11px', color: '#fff', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: '3px' },
+  videoOverlay: { position: 'absolute', bottom: '0', left: '0', right: '0', padding: '16px 6px 6px', background: 'linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%)' },
+  viewsBadge: { display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#fff', fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.8)' },
   emptyGrid: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '40px 0', gridColumn: '1 / -1' },
   emptyGridText: { fontSize: '13px', color: '#6C6C88' },
-  logoutBtn: { display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '14px 16px', borderRadius: '12px', background: 'rgba(255,45,85,0.06)', border: '1px solid rgba(255,45,85,0.1)', color: '#FF2D55', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter', sans-serif", marginBottom: '32px' },
+  fullScreenModal: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: '#000',
+    zIndex: 9999,
+    display: 'flex',
+    flexDirection: 'column'
+  },
+  modalHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    padding: 'max(env(safe-area-inset-top, 0px), 16px) 16px 16px',
+    display: 'flex',
+    justifyContent: 'flex-start',
+    zIndex: 10,
+    background: 'linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%)'
+  },
+  modalCloseBtn: {
+    background: 'rgba(0,0,0,0.4)',
+    border: 'none',
+    borderRadius: '50%',
+    width: '40px',
+    height: '40px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    backdropFilter: 'blur(10px)'
+  },
+  modalContent: {
+    flex: 1,
+    height: '100%',
+    position: 'relative'
+  }
 };
 
 const statStyles = {

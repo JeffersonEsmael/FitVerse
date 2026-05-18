@@ -140,9 +140,61 @@ export const useFeedStore = create((set, get) => ({
         views: v.views || 0,
         shapes: v.shapes || 0,
         createdAt: new Date(v.created_at),
+        // include full post details for modal view
+        username: v.username,
+        userAvatar: v.user_avatar,
+        displayName: v.display_name,
+        hashtags: v.hashtags || [],
+        category: v.category || 'geral',
+        comments: v.comments || 0,
+        shares: v.shares || 0,
+        boosts: v.boosts || 0,
+        gym_bag_saves: v.gym_bag_saves || 0,
       }));
     } catch (error) {
       console.error('[Feed] fetchUserPosts error:', error.message);
+      return [];
+    }
+  },
+
+  // ─── Fetch Gym Bag saved videos ──────────────────────────
+  fetchGymBagVideos: async (userId) => {
+    try {
+      // Fetches video_interactions and the joined video
+      const { data, error } = await supabase
+        .from('video_interactions')
+        .select(`
+          created_at,
+          videos (*)
+        `)
+        .eq('user_id', userId)
+        .eq('interaction_type', 'gym_bag')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const validVideos = (data || []).map(i => i.videos).filter(Boolean);
+      return validVideos.map((v) => ({
+        id: v.id,
+        videoUrl: v.video_url,
+        mediaType: v.media_type || 'video',
+        caption: v.caption || '',
+        views: v.views || 0,
+        shapes: v.shapes || 0,
+        createdAt: new Date(v.created_at),
+        // full details for modal
+        username: v.username,
+        userAvatar: v.user_avatar,
+        displayName: v.display_name,
+        hashtags: v.hashtags || [],
+        category: v.category || 'geral',
+        comments: v.comments || 0,
+        shares: v.shares || 0,
+        boosts: v.boosts || 0,
+        gym_bag_saves: v.gym_bag_saves || 0,
+      }));
+    } catch (error) {
+      console.error('[Feed] fetchGymBagVideos error:', error.message);
       return [];
     }
   },
