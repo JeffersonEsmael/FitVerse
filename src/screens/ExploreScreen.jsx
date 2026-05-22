@@ -29,11 +29,23 @@ export default function ExploreScreen() {
 
   return (
     <ScreenWrapper screenKey="explore">
+      {/* Liquid Bubble Animated Backgrounds */}
+      <motion.div
+        style={styles.bgBlob1}
+        animate={{ x: [0, 50, -30, 0], y: [0, -30, 50, 0], scale: [1, 1.1, 0.9, 1] }}
+        transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        style={styles.bgBlob2}
+        animate={{ x: [0, -40, 40, 0], y: [0, 50, -40, 0], scale: [1, 0.9, 1.1, 1] }}
+        transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+      />
+
       <div style={styles.container}>
         {/* Header with Search Bar */}
         <div style={styles.header}>
           <div style={styles.searchBar}>
-            <Search size={20} color="#6C6C88" />
+            <Search size={20} color="rgba(255,255,255,0.6)" />
             <input
               style={styles.searchInput}
               placeholder="Pesquisar usuários..."
@@ -57,7 +69,7 @@ export default function ExploreScreen() {
                 <motion.div
                   key={u.id}
                   style={styles.userCard}
-                  whileTap={{ scale: 0.98 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => handleOpenProfile(u.id)}
                 >
                   <div style={styles.avatar}>
@@ -76,7 +88,7 @@ export default function ExploreScreen() {
                     <span style={styles.followers}>{u.followers || 0} seguidores</span>
                   </div>
 
-                  <ChevronRight size={20} color="#6C6C88" />
+                  <ChevronRight size={20} color="rgba(255,255,255,0.4)" />
                 </motion.div>
               ))}
             </div>
@@ -88,7 +100,17 @@ export default function ExploreScreen() {
 }
 
 const styles = {
-  container: { display: 'flex', flexDirection: 'column', height: '100%' },
+  container: { display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', zIndex: 1 },
+  bgBlob1: {
+    position: 'absolute', width: '60vw', height: '60vw', minWidth: '400px', minHeight: '400px',
+    background: 'radial-gradient(circle, rgba(0,212,255,0.15) 0%, rgba(0,0,0,0) 60%)',
+    filter: 'blur(80px)', top: '10%', left: '-20%', zIndex: 0, pointerEvents: 'none',
+  },
+  bgBlob2: {
+    position: 'absolute', width: '50vw', height: '50vw', minWidth: '350px', minHeight: '350px',
+    background: 'radial-gradient(circle, rgba(57,255,20,0.1) 0%, rgba(0,0,0,0) 60%)',
+    filter: 'blur(80px)', top: '50%', right: '-10%', zIndex: 0, pointerEvents: 'none',
+  },
   header: {
     padding: '16px',
     paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)',
@@ -98,9 +120,12 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     background: 'rgba(255,255,255,0.05)',
-    borderRadius: '12px',
+    borderRadius: '20px',
     padding: '12px 16px',
     gap: '12px',
+    backdropFilter: 'blur(20px)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2)',
   },
   searchInput: {
     flex: 1,
@@ -115,11 +140,11 @@ const styles = {
     flex: 1,
     overflowY: 'auto',
     padding: '16px',
-    paddingBottom: '80px',
+    paddingBottom: '100px',
   },
   centerMessage: {
     textAlign: 'center',
-    color: '#6C6C88',
+    color: 'rgba(255,255,255,0.5)',
     marginTop: '40px',
     fontSize: '14px',
   },
@@ -132,11 +157,13 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '16px',
-    padding: '12px',
-    background: 'rgba(255,255,255,0.02)',
-    borderRadius: '16px',
+    padding: '16px',
+    background: 'rgba(255,255,255,0.05)',
+    borderRadius: '24px',
     cursor: 'pointer',
-    border: '1px solid rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    backdropFilter: 'blur(30px)',
+    boxShadow: '0 10px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1)',
   },
   avatar: {
     width: '56px',
@@ -144,6 +171,7 @@ const styles = {
     borderRadius: '50%',
     overflow: 'hidden',
     flexShrink: 0,
+    border: '2px solid rgba(255,255,255,0.2)',
   },
   avatarImg: {
     width: '100%',
@@ -153,7 +181,7 @@ const styles = {
   avatarPlaceholder: {
     width: '100%',
     height: '100%',
-    background: 'linear-gradient(135deg, #00D4FF, #A855F7)',
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -168,16 +196,17 @@ const styles = {
   },
   displayName: {
     fontSize: '16px',
-    fontWeight: 600,
+    fontWeight: 700,
     color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
   },
   username: {
     fontSize: '13px',
-    color: '#B0B0C8',
+    color: 'rgba(255,255,255,0.6)',
   },
   followers: {
     fontSize: '12px',
-    color: '#6C6C88',
+    color: 'rgba(255,255,255,0.4)',
     marginTop: '4px',
   },
 };

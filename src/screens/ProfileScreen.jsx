@@ -12,7 +12,7 @@ import VideoCard from '../components/feed/VideoCard';
 function StatBox({ label, value, icon: Icon, color, onClick }) {
   return (
     <motion.div style={{...statStyles.box, cursor: onClick ? 'pointer' : 'default'}} whileTap={{ scale: 0.95 }} onClick={onClick}>
-      <Icon size={16} color={color} />
+      <Icon size={18} color={color} />
       <span style={{ ...statStyles.value, color }}>{value}</span>
       <span style={statStyles.label}>{label}</span>
     </motion.div>
@@ -68,11 +68,11 @@ export default function ProfileScreen() {
       <ScreenWrapper screenKey="profile">
         <div style={styles.container}>
           <div style={{...styles.header, justifyContent: 'center'}}>
-            <div style={{width: 100, height: 24, background: '#22223A', borderRadius: 12}} />
+            <div style={{width: 100, height: 24, background: 'rgba(255,255,255,0.1)', borderRadius: 12}} />
           </div>
           <div style={styles.profileCard}>
-             <div style={{width: 88, height: 88, borderRadius: '50%', background: '#22223A', marginBottom: 16}} />
-             <div style={{width: 150, height: 20, background: '#22223A', borderRadius: 10}} />
+             <div style={{width: 88, height: 88, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', marginBottom: 16}} />
+             <div style={{width: 150, height: 20, background: 'rgba(255,255,255,0.1)', borderRadius: 10}} />
           </div>
         </div>
       </ScreenWrapper>
@@ -81,19 +81,31 @@ export default function ProfileScreen() {
 
   return (
     <ScreenWrapper screenKey="profile">
+      {/* Liquid Bubble Animated Backgrounds */}
+      <motion.div
+        style={styles.bgBlob1}
+        animate={{ x: [0, 50, -30, 0], y: [0, -30, 50, 0], scale: [1, 1.1, 0.9, 1] }}
+        transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        style={styles.bgBlob2}
+        animate={{ x: [0, -40, 40, 0], y: [0, 50, -40, 0], scale: [1, 0.9, 1.1, 1] }}
+        transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+      />
+
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
           <button style={styles.headerBtnLeft} onClick={() => navigate('create_post')}>
-            <Plus size={24} color="#00D4FF" />
+            <Plus size={24} color="#fff" />
           </button>
           <h2 style={styles.title}>Perfil</h2>
           <button style={styles.headerBtnRight} onClick={() => navigate('edit_profile')}>
-            <Settings size={22} color="#B0B0C8" />
+            <Settings size={22} color="#fff" />
           </button>
         </div>
 
-        {/* Profile card */}
+        {/* Profile card - Glassmorphism */}
         <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
           <h3 style={styles.usernameCenter}>@{p.username || 'user'}</h3>
           <span style={styles.displayNameCenter}>{p.display_name || 'Usuário'}</span>
@@ -150,14 +162,14 @@ export default function ProfileScreen() {
             onClick={() => navigate('nutriscan')}
             whileTap={{ scale: 0.97 }}
           >
-            <div style={{ ...styles.quickIcon, background: 'rgba(57,255,20,0.12)' }}>
-              <ScanLine size={20} color="#39FF14" />
+            <div style={{ ...styles.quickIcon, background: 'rgba(255,255,255,0.1)' }}>
+              <ScanLine size={20} color="#fff" />
             </div>
             <div style={styles.quickInfo}>
               <span style={styles.quickTitle}>NutriScan</span>
               <span style={styles.quickDesc}>Escanear refeição com IA</span>
             </div>
-            <ChevronRight size={16} color="#6C6C88" />
+            <ChevronRight size={18} color="rgba(255,255,255,0.6)" />
           </motion.button>
         </div>
 
@@ -173,7 +185,7 @@ export default function ProfileScreen() {
             style={{ ...styles.contentTab, ...(activeProfileTab === 'gymbag' ? styles.contentTabActive : {}) }}
             onClick={() => setActiveProfileTab('gymbag')}
           >
-            <GymBagIcon filled={false} size={18} color={activeProfileTab === 'gymbag' ? '#00D4FF' : '#6C6C88'} /> Gym Bag
+            <GymBagIcon filled={false} size={18} color={activeProfileTab === 'gymbag' ? '#fff' : 'rgba(255,255,255,0.6)'} /> Gym Bag
           </button>
           <button
             style={{ ...styles.contentTab, ...(activeProfileTab === 'badges' ? styles.contentTabActive : {}) }}
@@ -188,7 +200,7 @@ export default function ProfileScreen() {
           <div style={styles.videoGrid}>
             {userPosts.length === 0 && postsLoaded ? (
               <div style={styles.emptyGrid}>
-                <Video size={32} color="#6C6C88" />
+                <Video size={32} color="rgba(255,255,255,0.4)" />
                 <span style={styles.emptyGridText}>Nenhum post ainda</span>
               </div>
             ) : (
@@ -221,7 +233,7 @@ export default function ProfileScreen() {
           <div style={styles.videoGrid}>
             {gymBagVideos.length === 0 && gymBagLoaded ? (
               <div style={styles.emptyGrid}>
-                <GymBagIcon filled={false} size={32} color="#6C6C88" />
+                <GymBagIcon filled={false} size={32} color="rgba(255,255,255,0.4)" />
                 <span style={styles.emptyGridText}>Posts salvos aparecerão aqui</span>
               </div>
             ) : (
@@ -252,7 +264,7 @@ export default function ProfileScreen() {
         {/* Content - Badges */}
         {activeProfileTab === 'badges' && (
           <div style={styles.emptyGrid}>
-            <Award size={32} color="#6C6C88" />
+            <Award size={32} color="rgba(255,255,255,0.4)" />
             <span style={styles.emptyGridText}>Conquistas em breve 🏆</span>
           </div>
         )}
@@ -284,79 +296,95 @@ export default function ProfileScreen() {
 }
 
 const styles = {
-  container: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)', paddingBottom: '80px' },
-  header: { display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '16px', position: 'relative' },
-  title: { fontSize: '24px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0 },
-  headerBtnLeft: { position: 'absolute', left: 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px' },
-  headerBtnRight: { position: 'absolute', right: 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px' },
+  container: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)', paddingBottom: '100px', position: 'relative', zIndex: 1 },
+  bgBlob1: {
+    position: 'absolute', width: '60vw', height: '60vw', minWidth: '400px', minHeight: '400px',
+    background: 'radial-gradient(circle, rgba(0,122,255,0.2) 0%, rgba(0,0,0,0) 60%)',
+    filter: 'blur(80px)', top: '-5%', left: '-10%', zIndex: 0,
+  },
+  bgBlob2: {
+    position: 'absolute', width: '50vw', height: '50vw', minWidth: '350px', minHeight: '350px',
+    background: 'radial-gradient(circle, rgba(88,86,214,0.15) 0%, rgba(0,0,0,0) 60%)',
+    filter: 'blur(80px)', top: '30%', right: '-10%', zIndex: 0,
+  },
+  header: { display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '24px', position: 'relative' },
+  title: { fontSize: '20px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0, letterSpacing: '-0.5px' },
+  headerBtnLeft: { position: 'absolute', left: 0, background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+  headerBtnRight: { position: 'absolute', right: 0, background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
   profileCard: {
-    padding: '0 0 16px 0',
+    padding: '24px',
     marginBottom: '16px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
+    background: 'rgba(255, 255, 255, 0.05)',
+    backdropFilter: 'blur(40px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+    border: '1px solid rgba(255,255,255,0.15)',
+    borderRadius: '32px',
+    boxShadow: '0 20px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)',
   },
-  usernameCenter: { fontSize: '20px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: '0 0 4px', textAlign: 'center' },
-  displayNameCenter: { fontSize: '14px', color: '#fff', marginBottom: '16px', textAlign: 'center' },
+  usernameCenter: { fontSize: '22px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: '0 0 4px', textAlign: 'center', letterSpacing: '-0.5px' },
+  displayNameCenter: { fontSize: '15px', color: 'rgba(255,255,255,0.7)', marginBottom: '20px', textAlign: 'center' },
   statsAvatarRow: {
     display: 'flex',
     width: '100%',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: '24px',
-    marginBottom: '16px'
+    gap: '32px',
+    marginBottom: '20px'
   },
   statsRightAligned: {
     display: 'flex',
-    gap: '16px',
-    justifyContent: 'flex-end',
+    gap: '20px',
   },
   statItemInline: {
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
-    gap: '4px'
   },
   statValueInline: {
-    fontSize: '16px',
-    fontWeight: 700,
+    fontSize: '20px',
+    fontWeight: 800,
     color: '#fff',
     fontFamily: "'Outfit', sans-serif"
   },
   statLabelInline: {
-    fontSize: '14px',
-    color: '#B0B0C8',
+    fontSize: '13px',
+    color: 'rgba(255,255,255,0.6)',
   },
   avatarSection: { position: 'relative', flexShrink: 0 },
-  avatar: { width: '88px', height: '88px', borderRadius: '50%', border: '3px solid #00D4FF', overflow: 'hidden', boxShadow: '0 0 20px rgba(0,212,255,0.3)' },
+  avatar: { width: '100px', height: '100px', borderRadius: '32px', border: '2px solid rgba(255,255,255,0.2)', overflow: 'hidden', boxShadow: '0 10px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  avatarPlaceholder: { width: '100%', height: '100%', background: 'linear-gradient(135deg, #00D4FF, #A855F7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '32px', fontFamily: "'Outfit', sans-serif" },
-  levelBadge: { position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', padding: '2px 10px', borderRadius: '9999px', background: 'linear-gradient(135deg, #00D4FF, #0088CC)', color: '#fff', fontSize: '11px', fontWeight: 700, border: '2px solid #0A0A0F' },
+  avatarPlaceholder: { width: '100%', height: '100%', background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '36px', fontFamily: "'Outfit', sans-serif" },
+  levelBadge: { position: 'absolute', bottom: '-8px', left: '50%', transform: 'translateX(-50%)', padding: '4px 12px', borderRadius: '16px', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', fontSize: '12px', fontWeight: 700, boxShadow: '0 4px 10px rgba(0,0,0,0.3)' },
   bioContainer: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     width: '100%',
+    marginTop: '8px'
   },
-  bioCenter: { fontSize: '14px', color: '#B0B0C8', textAlign: 'center', lineHeight: '1.4', margin: '0 0 10px', maxWidth: '80%' },
-  goalsCenter: { display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center' },
-  goalChip: { padding: '4px 10px', borderRadius: '9999px', background: 'rgba(0,212,255,0.1)', color: '#00D4FF', fontSize: '12px', fontWeight: 600 },
-  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '16px' },
-  quickAccess: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' },
-  quickBtn: { display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 14px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', fontFamily: "'Inter', sans-serif" },
-  quickIcon: { width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  quickInfo: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' },
-  quickTitle: { fontSize: '14px', fontWeight: 600, color: '#fff' },
-  quickDesc: { fontSize: '12px', color: '#6C6C88' },
-  contentTabs: { display: 'flex', gap: '4px', marginBottom: '12px' },
-  contentTab: { flex: 1, padding: '10px', borderRadius: '10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.06)', color: '#6C6C88', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontFamily: "'Inter', sans-serif" },
-  contentTabActive: { background: 'rgba(0,212,255,0.1)', color: '#00D4FF', borderColor: 'rgba(0,212,255,0.2)' },
-  videoGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', marginBottom: '20px' },
-  videoThumb: { aspectRatio: '9/16', borderRadius: '8px', background: 'linear-gradient(180deg, #1A1A2E, #22223A)', position: 'relative', overflow: 'hidden', cursor: 'pointer' },
+  bioCenter: { fontSize: '15px', color: 'rgba(255,255,255,0.8)', textAlign: 'center', lineHeight: '1.5', margin: '0 0 16px', maxWidth: '90%' },
+  goalsCenter: { display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' },
+  goalChip: { padding: '6px 14px', borderRadius: '20px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', fontSize: '13px', fontWeight: 600, backdropFilter: 'blur(10px)' },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' },
+  quickAccess: { display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' },
+  quickBtn: { display: 'flex', alignItems: 'center', gap: '14px', width: '100%', padding: '16px', borderRadius: '24px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', fontFamily: "'Inter', sans-serif", backdropFilter: 'blur(30px)', boxShadow: '0 10px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)' },
+  quickIcon: { width: '48px', height: '48px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' },
+  quickInfo: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' },
+  quickTitle: { fontSize: '16px', fontWeight: 700, color: '#fff' },
+  quickDesc: { fontSize: '13px', color: 'rgba(255,255,255,0.6)' },
+  contentTabs: { display: 'flex', gap: '8px', marginBottom: '16px' },
+  contentTab: { flex: 1, padding: '14px', borderRadius: '20px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontFamily: "'Inter', sans-serif", backdropFilter: 'blur(20px)' },
+  contentTabActive: { background: 'rgba(255,255,255,0.15)', color: '#fff', borderColor: 'rgba(255,255,255,0.3)', boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.4)' },
+  videoGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '20px' },
+  videoThumb: { aspectRatio: '9/16', borderRadius: '16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', position: 'relative', overflow: 'hidden', cursor: 'pointer' },
   thumbMedia: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
-  videoOverlay: { position: 'absolute', bottom: '0', left: '0', right: '0', padding: '16px 6px 6px', background: 'linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%)' },
-  viewsBadge: { display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#fff', fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.8)' },
-  emptyGrid: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '40px 0', gridColumn: '1 / -1' },
-  emptyGridText: { fontSize: '13px', color: '#6C6C88' },
+  videoOverlay: { position: 'absolute', bottom: '0', left: '0', right: '0', padding: '24px 10px 10px', background: 'linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%)' },
+  viewsBadge: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#fff', fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.8)' },
+  emptyGrid: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '60px 0', gridColumn: '1 / -1', background: 'rgba(255,255,255,0.02)', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)' },
+  emptyGridText: { fontSize: '14px', color: 'rgba(255,255,255,0.5)' },
   fullScreenModal: {
     position: 'fixed',
     top: 0,
@@ -380,16 +408,16 @@ const styles = {
     background: 'linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%)'
   },
   modalCloseBtn: {
-    background: 'rgba(0,0,0,0.4)',
-    border: 'none',
+    background: 'rgba(255,255,255,0.1)',
+    border: '1px solid rgba(255,255,255,0.2)',
     borderRadius: '50%',
-    width: '40px',
-    height: '40px',
+    width: '48px',
+    height: '48px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
-    backdropFilter: 'blur(10px)'
+    backdropFilter: 'blur(20px)'
   },
   modalContent: {
     flex: 1,
@@ -399,7 +427,7 @@ const styles = {
 };
 
 const statStyles = {
-  box: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '12px 8px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' },
-  value: { fontSize: '18px', fontWeight: 800, fontFamily: "'Outfit', sans-serif" },
-  label: { fontSize: '11px', color: '#6C6C88', fontWeight: 500 },
+  box: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px 8px', borderRadius: '24px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(30px)', boxShadow: '0 10px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)' },
+  value: { fontSize: '20px', fontWeight: 800, fontFamily: "'Outfit', sans-serif" },
+  label: { fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontWeight: 600 },
 };

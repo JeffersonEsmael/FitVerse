@@ -68,8 +68,9 @@ export const useAuthStore = create(
           const email = session.user.email;
 
           // ── STEP 1: Immediately mark auth as resolved so SplashScreen can navigate ──
-          // We use a placeholder profile until the real one loads from DB.
-          const placeholderProfile = {
+          // Use the cached profile if it belongs to the current user, otherwise use a placeholder.
+          const currentProfile = get().profile;
+          const placeholderProfile = currentProfile?.id === uid ? currentProfile : {
             ...defaultProfile,
             display_name: session.user.user_metadata?.display_name || email?.split('@')[0] || 'Usuário',
             username: email?.split('@')[0] || 'user',
