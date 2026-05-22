@@ -1,120 +1,86 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, TrendingUp, Hash, X } from 'lucide-react';
+import { Search, UserPlus, ChevronRight } from 'lucide-react';
+import { useSocialStore } from '../stores/socialStore';
+import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 
-const trendingTags = [
-  { tag: 'treino', count: '125K', color: '#00D4FF' },
-  { tag: 'dieta', count: '98K', color: '#39FF14' },
-  { tag: 'evolução', count: '87K', color: '#FF6B35' },
-  { tag: 'legday', count: '72K', color: '#A855F7' },
-  { tag: 'motivação', count: '65K', color: '#FFD700' },
-  { tag: 'cardio', count: '54K', color: '#FF2D55' },
-  { tag: 'prétreino', count: '43K', color: '#00D4FF' },
-  { tag: 'definição', count: '38K', color: '#39FF14' },
-];
-
-const categories = [
-  { name: 'Treino', icon: '🏋️', color: '#00D4FF' },
-  { name: 'Dieta', icon: '🥗', color: '#39FF14' },
-  { name: 'Cardio', icon: '🏃', color: '#FF6B35' },
-  { name: 'Evolução', icon: '📈', color: '#A855F7' },
-  { name: 'Humor', icon: '😂', color: '#FFD700' },
-  { name: 'Rotina', icon: '⏰', color: '#FF2D55' },
-  { name: 'Desafio', icon: '🏆', color: '#00D4FF' },
-  { name: 'Dicas', icon: '💡', color: '#39FF14' },
-];
-
 export default function ExploreScreen() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCat, setSelectedCat] = useState(null);
+  const [query, setQuery] = useState('');
+  const { searchUsers, searchResults, isSearching, clearSearch } = useSocialStore();
+  const navigate = useNavigationStore((s) => s.navigate);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      searchUsers(query);
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [query, searchUsers]);
+
+  // Limpar busca ao sair
+  useEffect(() => {
+    return () => clearSearch();
+  }, [clearSearch]);
+
+  const handleOpenProfile = (userId) => {
+    navigate('public_profile', { userId });
+  };
 
   return (
     <ScreenWrapper screenKey="explore">
       <div style={styles.container}>
-        {/* Search bar */}
-        <div style={styles.searchWrap}>
-          <Search size={18} color="#6C6C88" />
-          <input
-            style={styles.searchInput}
-            placeholder="Buscar vídeos, pessoas, hashtags..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button style={styles.clearBtn} onClick={() => setSearchQuery('')}>
-              <X size={16} color="#6C6C88" />
-            </button>
+        {/* Header with Search Bar */}
+        <div style={styles.header}>
+          <div style={styles.searchBar}>
+            <Search size={20} color="#6C6C88" />
+            <input
+              style={styles.searchInput}
+              placeholder="Pesquisar usuários..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Content */}
+        <div style={styles.content}>
+          {isSearching ? (
+            <div style={styles.centerMessage}>Buscando...</div>
+          ) : query.length >= 2 && searchResults.length === 0 ? (
+            <div style={styles.centerMessage}>Nenhum usuário encontrado.</div>
+          ) : query.length < 2 ? (
+            <div style={styles.centerMessage}>Digite pelo menos 2 caracteres para buscar.</div>
+          ) : (
+            <div style={styles.resultsList}>
+              {searchResults.map((u) => (
+                <motion.div
+                  key={u.id}
+                  style={styles.userCard}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleOpenProfile(u.id)}
+                >
+                  <div style={styles.avatar}>
+                    {u.avatar_url ? (
+                      <img src={u.avatar_url} alt={u.username} style={styles.avatarImg} />
+                    ) : (
+                      <div style={styles.avatarPlaceholder}>
+                        {u.display_name?.charAt(0) || u.username?.charAt(0) || '?'}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div style={styles.userInfo}>
+                    <span style={styles.displayName}>{u.display_name || u.username}</span>
+                    <span style={styles.username}>@{u.username}</span>
+                    <span style={styles.followers}>{u.followers || 0} seguidores</span>
+                  </div>
+
+                  <ChevronRight size={20} color="#6C6C88" />
+                </motion.div>
+              ))}
+            </div>
           )}
-        </div>
-
-        {/* Categories */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>🔥 Categorias</h3>
-          <div style={styles.catGrid}>
-            {categories.map((cat, i) => (
-              <motion.button
-                key={cat.name}
-                style={{
-                  ...styles.catCard,
-                  borderColor: selectedCat === cat.name ? cat.color : 'rgba(255,255,255,0.06)',
-                  background: selectedCat === cat.name ? `${cat.color}15` : 'rgba(255,255,255,0.03)',
-                }}
-                onClick={() => setSelectedCat(selectedCat === cat.name ? null : cat.name)}
-                whileTap={{ scale: 0.95 }}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-              >
-                <span style={styles.catIcon}>{cat.icon}</span>
-                <span style={{ ...styles.catName, color: selectedCat === cat.name ? cat.color : '#B0B0C8' }}>{cat.name}</span>
-              </motion.button>
-            ))}
-          </div>
-        </div>
-
-        {/* Trending hashtags */}
-        <div style={styles.section}>
-          <div style={styles.sectionHeader}>
-            <TrendingUp size={18} color="#FF6B35" />
-            <h3 style={styles.sectionTitle}>Trending</h3>
-          </div>
-          {trendingTags.map((t, i) => (
-            <motion.div
-              key={t.tag}
-              style={styles.tagRow}
-              initial={{ x: -15, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: i * 0.05 }}
-              whileHover={{ background: 'rgba(255,255,255,0.04)' }}
-            >
-              <div style={styles.tagLeft}>
-                <span style={styles.tagNum}>#{i + 1}</span>
-                <Hash size={16} color={t.color} />
-                <span style={styles.tagName}>{t.tag}</span>
-              </div>
-              <span style={{ ...styles.tagCount, color: t.color }}>{t.count} posts</span>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Content grid placeholder */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>✨ Descubra</h3>
-          <div style={styles.discoverGrid}>
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
-              <motion.div
-                key={i}
-                style={{
-                  ...styles.gridItem,
-                  ...(i === 1 ? styles.gridItemLarge : {}),
-                }}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.04 }}
-              />
-            ))}
-          </div>
         </div>
       </div>
     </ScreenWrapper>
@@ -122,28 +88,96 @@ export default function ExploreScreen() {
 }
 
 const styles = {
-  container: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)' },
-  searchWrap: {
-    display: 'flex', alignItems: 'center', gap: '10px',
-    padding: '12px 16px', background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px',
-    marginBottom: '20px',
+  container: { display: 'flex', flexDirection: 'column', height: '100%' },
+  header: {
+    padding: '16px',
+    paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)',
+    borderBottom: '1px solid rgba(255,255,255,0.05)',
   },
-  searchInput: { flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: '15px', fontFamily: "'Inter', sans-serif" },
-  clearBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 },
-  section: { marginBottom: '24px' },
-  sectionHeader: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' },
-  sectionTitle: { fontSize: '18px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0 },
-  catGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' },
-  catCard: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '14px 8px', borderRadius: '12px', border: '1px solid', cursor: 'pointer', transition: 'all 0.2s' },
-  catIcon: { fontSize: '24px' },
-  catName: { fontSize: '11px', fontWeight: 600, fontFamily: "'Inter', sans-serif" },
-  tagRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderRadius: '10px', marginBottom: '4px', cursor: 'pointer', transition: 'background 0.2s' },
-  tagLeft: { display: 'flex', alignItems: 'center', gap: '8px' },
-  tagNum: { fontSize: '13px', color: '#6C6C88', fontWeight: 700, width: '24px' },
-  tagName: { fontSize: '15px', color: '#fff', fontWeight: 600, fontFamily: "'Inter', sans-serif" },
-  tagCount: { fontSize: '12px', fontWeight: 600 },
-  discoverGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' },
-  gridItem: { aspectRatio: '1', borderRadius: '8px', background: 'linear-gradient(145deg, #1A1A2E, #22223A)' },
-  gridItemLarge: { gridColumn: 'span 2', gridRow: 'span 2' },
+  searchBar: {
+    display: 'flex',
+    alignItems: 'center',
+    background: 'rgba(255,255,255,0.05)',
+    borderRadius: '12px',
+    padding: '12px 16px',
+    gap: '12px',
+  },
+  searchInput: {
+    flex: 1,
+    background: 'transparent',
+    border: 'none',
+    color: '#fff',
+    fontSize: '16px',
+    outline: 'none',
+    fontFamily: "'Inter', sans-serif",
+  },
+  content: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '16px',
+    paddingBottom: '80px',
+  },
+  centerMessage: {
+    textAlign: 'center',
+    color: '#6C6C88',
+    marginTop: '40px',
+    fontSize: '14px',
+  },
+  resultsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  userCard: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    padding: '12px',
+    background: 'rgba(255,255,255,0.02)',
+    borderRadius: '16px',
+    cursor: 'pointer',
+    border: '1px solid rgba(255,255,255,0.05)',
+  },
+  avatar: {
+    width: '56px',
+    height: '56px',
+    borderRadius: '50%',
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  avatarImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(135deg, #00D4FF, #A855F7)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: '20px',
+  },
+  userInfo: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  displayName: {
+    fontSize: '16px',
+    fontWeight: 600,
+    color: '#fff',
+  },
+  username: {
+    fontSize: '13px',
+    color: '#B0B0C8',
+  },
+  followers: {
+    fontSize: '12px',
+    color: '#6C6C88',
+    marginTop: '4px',
+  },
 };

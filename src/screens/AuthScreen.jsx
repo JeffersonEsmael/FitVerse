@@ -21,9 +21,8 @@ export default function AuthScreen() {
     setInfoMessage('');
     setIsSubmitting(true);
 
-    // Validation
     if (!email.trim() || !email.includes('@')) {
-      alert('Por favor, insira um email válido (ex: seuemail@gmail.com).');
+      alert('Por favor, insira um email válido.');
       setIsSubmitting(false);
       return;
     }
@@ -43,11 +42,9 @@ export default function AuthScreen() {
       if (mode === 'login') {
         result = await login(email.trim(), password);
         if (result?.success) {
-          // onAuthStateChange will trigger navigation via SplashScreen logic.
-          // But since we're already on AuthScreen, navigate manually.
           navigate('feed');
         } else {
-          alert('Erro ao entrar: ' + (result?.error || 'Verifique seu email e senha.'));
+          alert('Erro ao entrar: ' + (result?.error || 'Verifique suas credenciais.'));
         }
       } else {
         result = await register(email.trim(), password, name.trim());
@@ -72,33 +69,54 @@ export default function AuthScreen() {
 
   return (
     <div style={styles.container}>
-      {/* Background effects */}
-      <div style={styles.bgGlow1} />
-      <div style={styles.bgGlow2} />
+      <style>{`
+        .liquid-input::placeholder {
+          color: rgba(255, 255, 255, 0.4);
+        }
+        .liquid-input:focus {
+          outline: none;
+        }
+      `}</style>
+
+      {/* Background Liquid Blobs */}
+      <motion.div
+        style={styles.bgBlob1}
+        animate={{ x: [0, 40, -20, 0], y: [0, -40, 20, 0], scale: [1, 1.05, 0.95, 1] }}
+        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        style={styles.bgBlob2}
+        animate={{ x: [0, -30, 30, 0], y: [0, 40, -20, 0], scale: [1, 0.95, 1.05, 1] }}
+        transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        style={styles.bgBlob3}
+        animate={{ x: [0, 50, -30, 0], y: [0, 20, -50, 0], scale: [1, 1.1, 0.9, 1] }}
+        transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+      />
 
       <motion.div
         style={styles.card}
-        initial={{ y: 30, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        initial={{ y: 40, opacity: 0, scale: 0.95 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       >
-        {/* Logo */}
         <div style={styles.logoSection}>
-          <span style={{ fontSize: '36px' }}>🏋️</span>
+          <div style={styles.logoIconContainer}>
+            <span style={{ fontSize: '32px' }}>✨</span>
+          </div>
           <h1 style={styles.logo}>FitVerse</h1>
           <p style={styles.tagline}>
             {mode === 'login' ? 'Bem-vindo de volta!' : 'Crie sua conta fitness'}
           </p>
         </div>
 
-        {/* Info message (e.g. email confirmation) */}
         {infoMessage && (
           <div style={styles.infoBox}>
             <p style={styles.infoText}>{infoMessage}</p>
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} style={styles.form} autoComplete="off">
           <AnimatePresence mode="wait">
             {mode === 'register' && (
@@ -110,8 +128,9 @@ export default function AuthScreen() {
                 style={{ overflow: 'hidden' }}
               >
                 <div style={styles.inputWrap}>
-                  <User size={18} color="#6C6C88" />
+                  <User size={20} color="rgba(255,255,255,0.7)" />
                   <input
+                    className="liquid-input"
                     style={styles.input}
                     type="text"
                     placeholder="Nome completo"
@@ -125,8 +144,9 @@ export default function AuthScreen() {
           </AnimatePresence>
 
           <div style={styles.inputWrap}>
-            <Mail size={18} color="#6C6C88" />
+            <Mail size={20} color="rgba(255,255,255,0.7)" />
             <input
+              className="liquid-input"
               style={styles.input}
               type="email"
               placeholder="Email"
@@ -137,8 +157,9 @@ export default function AuthScreen() {
           </div>
 
           <div style={styles.inputWrap}>
-            <Lock size={18} color="#6C6C88" />
+            <Lock size={20} color="rgba(255,255,255,0.7)" />
             <input
+              className="liquid-input"
               style={styles.input}
               type={showPass ? 'text' : 'password'}
               placeholder="Senha (mín. 6 caracteres)"
@@ -147,7 +168,7 @@ export default function AuthScreen() {
               autoComplete="new-password"
             />
             <button type="button" onClick={() => setShowPass(!showPass)} style={styles.eyeBtn}>
-              {showPass ? <EyeOff size={18} color="#6C6C88" /> : <Eye size={18} color="#6C6C88" />}
+              {showPass ? <EyeOff size={20} color="rgba(255,255,255,0.7)" /> : <Eye size={20} color="rgba(255,255,255,0.7)" />}
             </button>
           </div>
 
@@ -156,7 +177,8 @@ export default function AuthScreen() {
           <motion.button
             type="submit"
             style={styles.submitBtn}
-            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             disabled={isSubmitting}
           >
             {isSubmitting ? (
@@ -168,13 +190,12 @@ export default function AuthScreen() {
             ) : (
               <>
                 {mode === 'login' ? 'Entrar' : 'Criar Conta'}
-                <ArrowRight size={18} />
+                <ArrowRight size={20} />
               </>
             )}
           </motion.button>
         </form>
 
-        {/* Toggle mode */}
         <p style={styles.toggleText}>
           {mode === 'login' ? 'Não tem conta? ' : 'Já tem conta? '}
           <span
@@ -185,7 +206,7 @@ export default function AuthScreen() {
               setInfoMessage('');
             }}
           >
-            {mode === 'login' ? 'Criar conta' : 'Fazer login'}
+            {mode === 'login' ? 'Criar agora' : 'Fazer login'}
           </span>
         </p>
       </motion.div>
@@ -196,72 +217,87 @@ export default function AuthScreen() {
 const styles = {
   container: {
     position: 'absolute', inset: 0,
-    background: '#0A0A0F',
+    backgroundColor: '#000000',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     padding: '20px', overflow: 'hidden',
   },
-  bgGlow1: {
-    position: 'absolute', top: '-20%', right: '-10%', width: '300px', height: '300px',
-    borderRadius: '50%', background: 'rgba(0,212,255,0.08)', filter: 'blur(80px)',
+  bgBlob1: {
+    position: 'absolute', width: '50vw', height: '50vw', minWidth: '400px', minHeight: '400px',
+    background: 'radial-gradient(circle, rgba(0,122,255,0.3) 0%, rgba(0,0,0,0) 60%)',
+    filter: 'blur(60px)', top: '-10%', left: '-10%', zIndex: 0,
   },
-  bgGlow2: {
-    position: 'absolute', bottom: '-15%', left: '-10%', width: '250px', height: '250px',
-    borderRadius: '50%', background: 'rgba(57,255,20,0.06)', filter: 'blur(80px)',
+  bgBlob2: {
+    position: 'absolute', width: '50vw', height: '50vw', minWidth: '400px', minHeight: '400px',
+    background: 'radial-gradient(circle, rgba(255,45,85,0.2) 0%, rgba(0,0,0,0) 60%)',
+    filter: 'blur(60px)', bottom: '-10%', right: '-10%', zIndex: 0,
+  },
+  bgBlob3: {
+    position: 'absolute', width: '60vw', height: '60vw', minWidth: '500px', minHeight: '500px',
+    background: 'radial-gradient(circle, rgba(88,86,214,0.25) 0%, rgba(0,0,0,0) 60%)',
+    filter: 'blur(80px)', top: '20%', left: '20%', zIndex: 0,
   },
   card: {
     width: '100%', maxWidth: '400px',
-    background: 'rgba(255,255,255,0.04)',
-    backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: '24px', padding: '32px 24px',
-    position: 'relative', zIndex: 1,
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.02) 100%)',
+    backdropFilter: 'blur(40px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+    border: '1px solid rgba(255,255,255,0.2)',
+    boxShadow: '0 30px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3)',
+    borderRadius: '40px', padding: '40px 24px',
+    position: 'relative', zIndex: 10,
+    display: 'flex', flexDirection: 'column',
   },
-  logoSection: { textAlign: 'center', marginBottom: '28px' },
+  logoSection: { textAlign: 'center', marginBottom: '32px' },
+  logoIconContainer: {
+    width: '64px', height: '64px', margin: '0 auto 16px',
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))',
+    borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    border: '1px solid rgba(255,255,255,0.3)',
+    boxShadow: '0 10px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.5)',
+  },
   logo: {
-    fontSize: '32px', fontWeight: 900, margin: '8px 0 4px',
+    fontSize: '28px', fontWeight: 800, margin: '0 0 8px',
     fontFamily: "'Outfit', sans-serif",
-    background: 'linear-gradient(135deg, #00D4FF, #39FF14)',
-    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+    color: '#ffffff', letterSpacing: '-0.5px'
   },
-  tagline: { fontSize: '14px', color: '#6C6C88', fontFamily: "'Inter', sans-serif" },
+  tagline: { fontSize: '15px', color: 'rgba(255,255,255,0.7)', fontFamily: "'Inter', sans-serif" },
   infoBox: {
-    background: 'rgba(0,212,255,0.08)',
-    border: '1px solid rgba(0,212,255,0.2)',
-    borderRadius: '12px',
-    padding: '12px 16px',
-    marginBottom: '16px',
+    background: 'rgba(255,255,255,0.1)',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255,255,255,0.2)',
+    borderRadius: '16px',
+    padding: '16px',
+    marginBottom: '20px',
   },
   infoText: {
-    fontSize: '13px',
-    color: '#00D4FF',
-    fontFamily: "'Inter', sans-serif",
-    margin: 0,
-    lineHeight: 1.5,
+    fontSize: '14px', color: '#fff', fontFamily: "'Inter', sans-serif", margin: 0, lineHeight: 1.5,
   },
-  form: { display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' },
+  form: { display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' },
   inputWrap: {
-    display: 'flex', alignItems: 'center', gap: '10px',
-    padding: '12px 16px', background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px',
+    display: 'flex', alignItems: 'center', gap: '12px',
+    padding: '16px 20px', background: 'rgba(255,255,255,0.06)',
+    border: '1px solid rgba(255,255,255,0.15)', borderRadius: '24px',
+    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)',
   },
   input: {
     flex: 1, background: 'none', border: 'none', outline: 'none',
-    color: '#fff', fontSize: '15px', fontFamily: "'Inter', sans-serif",
+    color: '#fff', fontSize: '16px', fontFamily: "'Inter', sans-serif",
   },
-  eyeBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 },
-  error: { fontSize: '13px', color: '#FF2D55', fontFamily: "'Inter', sans-serif", textAlign: 'center' },
+  eyeBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' },
+  error: { fontSize: '14px', color: '#FF3B30', fontFamily: "'Inter', sans-serif", textAlign: 'center', background: 'rgba(255,59,48,0.1)', padding: '10px', borderRadius: '12px', border: '1px solid rgba(255,59,48,0.2)' },
   submitBtn: {
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-    padding: '14px', borderRadius: '12px', border: 'none', cursor: 'pointer',
-    background: 'linear-gradient(135deg, #00D4FF, #0088CC)', color: '#fff',
-    fontSize: '16px', fontWeight: 700, fontFamily: "'Inter', sans-serif",
-    boxShadow: '0 0 20px rgba(0,212,255,0.3)', marginTop: '4px',
+    padding: '16px', borderRadius: '24px', border: 'none', cursor: 'pointer',
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
+    color: '#000', fontSize: '16px', fontWeight: 700, fontFamily: "'Inter', sans-serif",
+    boxShadow: '0 8px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,1)', 
+    marginTop: '8px',
   },
   spinner: {
     width: '20px', height: '20px',
-    border: '2px solid rgba(255,255,255,0.3)',
-    borderTopColor: '#fff', borderRadius: '50%',
+    border: '2px solid rgba(0,0,0,0.2)',
+    borderTopColor: '#000', borderRadius: '50%',
   },
-  toggleText: { textAlign: 'center', fontSize: '14px', color: '#6C6C88', fontFamily: "'Inter', sans-serif" },
-  toggleLink: { color: '#00D4FF', fontWeight: 600, cursor: 'pointer' },
+  toggleText: { textAlign: 'center', fontSize: '15px', color: 'rgba(255,255,255,0.6)', fontFamily: "'Inter', sans-serif" },
+  toggleLink: { color: '#fff', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' },
 };

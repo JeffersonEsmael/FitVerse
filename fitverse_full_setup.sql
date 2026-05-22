@@ -369,3 +369,85 @@ BEGIN
   PERFORM public.toggle_interaction(p_video_id, 'gym_bag');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================
+-- 8. FOLLOWERS & NOTIFICATIONS
+-- ============================================
+
+-- FOLLOWERS
+CREATE TABLE IF NOT EXISTS public.followers (
+  id uuid default gen_random_uuid() primary key,
+  follower_id uuid references auth.users(id) on delete cascade not null,
+  following_id uuid references auth.users(id) on delete cascade not null,
+  created_at timestamptz default now(),
+  UNIQUE(follower_id, following_id)
+);
+
+ALTER TABLE public.followers ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Followers are public read" ON public.followers;
+CREATE POLICY "Followers are public read" ON public.followers FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users can manage their follows" ON public.followers;
+CREATE POLICY "Users can manage their follows" ON public.followers FOR ALL USING (auth.uid() = follower_id) WITH CHECK (auth.uid() = follower_id);
+
+-- NOTIFICATIONS
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  sender_id uuid references auth.users(id) on delete cascade,
+  type text not null, -- 'follow', 'message', 'save', 'shape', 'comment'
+  reference_id uuid, -- could be a video_id, message_id, etc.
+  read boolean default false,
+  created_at timestamptz default now()
+);
+
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can read their own notifications" ON public.notifications;
+CREATE POLICY "Users can read their own notifications" ON public.notifications FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own notifications" ON public.notifications;
+CREATE POLICY "Users can update their own notifications" ON public.notifications FOR UPDATE USING (auth.uid() = user_id);
+
+-- Anyone can insert a notification (e.g., when they follow someone or shape a video)
+DROP POLICY IF EXISTS "Users can insert notifications" ON public.notifications;
+CREATE POLICY "Users can insert notifications" ON public.notifications FOR INSERT WITH CHECK (true);
+
+-- RPC for incrementing and decrementing followers
+CREATE OR REPLACE FUNCTION public.increment_follower_count(user_id uuid) RETURNS void AS $$
+BEGIN
+  UPDATE public.profiles SET followers = followers + 1 WHERE id = user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.decrement_follower_count(user_id uuid) RETURNS void AS $$
+BEGIN
+  UPDATE public.profiles SET followers = GREATEST(followers - 1, 0) WHERE id = user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.increment_following_count(user_id uuid) RETURNS void AS $$
+BEGIN
+  UPDATE public.profiles SET following = following + 1 WHERE id = user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.decrement_following_count(user_id uuid) RETURNS void AS $$
+BEGIN
+  UPDATE public.profiles SET following = GREATEST(following - 1, 0) WHERE id = user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================
+-- 9. PERFORMANCE INDEXES
+-- ============================================
+
+CREATE INDEX IF NOT EXISTS idx_videos_user_id ON public.videos(user_id);
+CREATE INDEX IF NOT EXISTS idx_videos_created_at ON public.videos(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_profiles_username ON public.profiles(username);
+CREATE INDEX IF NOT EXISTS idx_profiles_display_name ON public.profiles(display_name);
+CREATE INDEX IF NOT EXISTS idx_followers_follower_id ON public.followers(follower_id);
+CREATE INDEX IF NOT EXISTS idx_followers_following_id ON public.followers(following_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON public.messages(conversation_id);

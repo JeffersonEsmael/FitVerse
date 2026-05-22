@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { supabase } from '../config/supabase';
 
 // Wraps any promise with a timeout — prevents infinite hangs on blocked Supabase queries
@@ -30,14 +31,16 @@ const defaultProfile = {
   is_public: true,
 };
 
-export const useAuthStore = create((set, get) => ({
-  // State — single source of truth
-  user: null,          // { uid, email } — minimal auth identity
-  profile: null,       // full profile from Supabase profiles table
-  isAuthenticated: false,
-  isLoading: true,     // true until the FIRST auth event arrives from Supabase
-  isProfileLoading: false, // true while fetching profile from DB (separate from auth)
-  error: null,
+export const useAuthStore = create(
+  persist(
+    (set, get) => ({
+      // State — single source of truth
+      user: null,          // { uid, email } — minimal auth identity
+      profile: null,       // full profile from Supabase profiles table
+      isAuthenticated: false,
+      isLoading: true,     // true until the FIRST auth event arrives from Supabase (unless cached)
+      isProfileLoading: false, // true while fetching profile from DB (separate from auth)
+      error: null,
 
   // ─── Initialize Auth ───────────────────────────────────────
   // IMPORTANT: Returns the unsubscribe function — App.jsx calls it on unmount.
@@ -263,4 +266,21 @@ export const useAuthStore = create((set, get) => ({
 
   // ─── Clear error ───────────────────────────────────────────
   clearError: () => set({ error: null }),
-}));
+    }),
+    {
+      name: 'fitverse-auth-cache', // unique name for localStorage
+      partialize: (state) => ({ 
+        user: state.user, 
+        profile: state.profile, 
+        isAuthenticated: state.isAuthenticated 
+      }),
+      // On rehydration, if we have a user in cache, immediately unset isLoading
+      // so the UI renders instantly. Supabase auth listener will confirm or log out in background.
+      onRehydrateStorage: () => (state) => {
+        if (state && state.isAuthenticated) {
+          state.isLoading = false;
+        }
+      }
+    }
+  )
+);

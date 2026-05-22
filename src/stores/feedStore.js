@@ -1,20 +1,23 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { supabase } from '../config/supabase';
 
-export const useFeedStore = create((set, get) => ({
-  videos: [],
-  currentIndex: 0,
-  isLoading: false,
-  hasMore: true,
-  activeTab: 'forYou',
+export const useFeedStore = create(
+  persist(
+    (set, get) => ({
+      videos: [],
+      currentIndex: 0,
+      isLoading: false,
+      hasMore: true,
+      activeTab: 'forYou',
 
-  // ─── Global upload state (shown in FeedScreen while uploading) ──
-  uploadingPost: null,   // null = idle | { progress: 0-100, mediaType, caption }
-  uploadError: null,     // string | null
+      // ─── Global upload state (shown in FeedScreen while uploading) ──
+      uploadingPost: null,   // null = idle | { progress: 0-100, mediaType, caption }
+      uploadError: null,     // string | null
 
-  setCurrentIndex: (index) => set({ currentIndex: index }),
-  setActiveTab: (tab) => set({ activeTab: tab }),
-  clearUploadError: () => set({ uploadError: null }),
+      setCurrentIndex: (index) => set({ currentIndex: index }),
+      setActiveTab: (tab) => set({ activeTab: tab }),
+      clearUploadError: () => set({ uploadError: null }),
 
   // ─── Toggle interactions ─────────────────────────────────
   toggleShape: (videoId) => {
@@ -320,4 +323,12 @@ export const useFeedStore = create((set, get) => ({
       return { success: false, error: error.message };
     }
   },
-}));
+    }),
+    {
+      name: 'fitverse-feed-cache',
+      partialize: (state) => ({ 
+        videos: state.videos.slice(0, 20), // only cache the first 20 videos to save storage
+      }),
+    }
+  )
+);

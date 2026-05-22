@@ -19,6 +19,8 @@ import ConversationsListScreen from './screens/ConversationsListScreen';
 import MessagesScreen from './screens/MessagesScreen';
 import ProductDetailsScreen from './screens/ProductDetailsScreen';
 
+import PublicProfileScreen from './screens/PublicProfileScreen';
+
 // Screens that show the bottom nav
 const NAV_SCREENS = ['feed', 'explore', 'conversations', 'notifications', 'profile'];
 
@@ -31,6 +33,7 @@ const SCREENS = {
   create: CreatePostScreen,
   ranking: RankingScreen,
   profile: ProfileScreen,
+  public_profile: PublicProfileScreen,
   edit_profile: EditProfileScreen,
   nutriscan: NutriScanScreen,
   notifications: NotificationsScreen,
