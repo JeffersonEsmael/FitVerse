@@ -103,9 +103,8 @@ const styles = {
   },
   indicator: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
+    top: 'calc(50% - 24px)',
+    left: 'calc(50% - 24px)',
     width: '48px',
     height: '48px',
     borderRadius: '24px',

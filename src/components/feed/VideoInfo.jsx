@@ -1,20 +1,36 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigationStore } from '../../stores/navigationStore';
 
-export default function VideoInfo({ video }) {
+export default function VideoInfo({ video, isFollowing, isSelf, onFollowToggle }) {
   const [expanded, setExpanded] = useState(false);
+  const navigate = useNavigationStore((s) => s.navigate);
+
+  const handleUserClick = (e) => {
+    e.stopPropagation();
+    if (video.userId) {
+      navigate('public_profile', { params: { userId: video.userId } });
+    }
+  };
 
   return (
     <div style={styles.container} onClick={(e) => e.stopPropagation()}>
       {/* Username */}
       <div style={styles.userRow}>
-        <span style={styles.username}>@{video.username}</span>
-        <motion.button
-          style={styles.followBtn}
-          whileTap={{ scale: 0.9 }}
-        >
-          Seguir
-        </motion.button>
+        <span style={{ ...styles.username, cursor: 'pointer' }} onClick={handleUserClick}>@{video.username}</span>
+        {!isSelf && (
+          <motion.button
+            style={{
+              ...styles.followBtn,
+              background: isFollowing ? 'rgba(255,255,255,0.1)' : 'transparent',
+              borderColor: isFollowing ? 'transparent' : 'rgba(255,255,255,0.3)',
+            }}
+            whileTap={{ scale: 0.9 }}
+            onClick={onFollowToggle}
+          >
+            {isFollowing ? 'Seguindo' : 'Seguir'}
+          </motion.button>
+        )}
       </div>
 
       {/* Caption */}

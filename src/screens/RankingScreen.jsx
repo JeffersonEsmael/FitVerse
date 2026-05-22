@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Flame, TrendingUp, TrendingDown, Minus, Star, Users } from 'lucide-react';
+import { Trophy, Flame, TrendingUp, TrendingDown, Minus, Star, Users, ArrowLeft } from 'lucide-react';
 import { useRankingStore } from '../stores/rankingStore';
+import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 
 function formatNum(n) {
@@ -112,6 +113,7 @@ function ChallengeCard({ challenge }) {
 
 export default function RankingScreen() {
   const { leaderboard, challenges, period, setPeriod, userRank, userPoints } = useRankingStore();
+  const { goBack } = useNavigationStore();
   const top3 = leaderboard.slice(0, 3);
   const rest = leaderboard.slice(3);
 
@@ -121,6 +123,9 @@ export default function RankingScreen() {
         {/* Header */}
         <div style={styles.header}>
           <div style={styles.headerTop}>
+            <button style={styles.backBtn} onClick={goBack}>
+              <ArrowLeft size={20} color="#fff" />
+            </button>
             <Trophy size={24} color="#FFD700" />
             <h2 style={styles.title}>FriendRanking</h2>
           </div>
@@ -178,6 +183,17 @@ const styles = {
   container: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)' },
   header: { marginBottom: '16px' },
   headerTop: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' },
+  backBtn: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px',
+    marginRight: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '50%',
+  },
   title: { fontSize: '24px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0 },
   tabs: { display: 'flex', gap: '8px' },
   tab: { flex: 1, padding: '8px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#6C6C88', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter', sans-serif", transition: 'all 0.2s' },

@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Play, Volume2, VolumeX } from 'lucide-react';
 import VideoActions from './VideoActions';
 import VideoInfo from './VideoInfo';
+import { useAuthStore } from '../../stores/authStore';
+import { useSocialStore } from '../../stores/socialStore';
 
 export default function VideoCard({ video, isActive, index }) {
   const videoRef = useRef(null);
@@ -10,7 +12,44 @@ export default function VideoCard({ video, isActive, index }) {
   const [isMuted, setIsMuted] = useState(true);
   const [showPlayIcon, setShowPlayIcon] = useState(false);
 
+  const { user } = useAuthStore();
+  const { checkIfFollowing, followUser, unfollowUser } = useSocialStore();
+  const [isFollowing, setIsFollowing] = useState(false);
+
+  const isSelf = user?.uid === video.userId;
   const isVideo = video.mediaType !== 'image';
+
+  useEffect(() => {
+    if (user?.uid && video.userId) {
+      if (isSelf) {
+        setIsFollowing(true);
+      } else {
+        checkIfFollowing(user.uid, video.userId).then(res => {
+          setIsFollowing(res);
+        });
+      }
+    }
+  }, [user?.uid, video.userId, checkIfFollowing, isSelf]);
+
+  const handleFollowToggle = async (e) => {
+    if (e) e.stopPropagation();
+    if (!user?.uid || !video.userId || isSelf) return;
+
+    const previousState = isFollowing;
+    setIsFollowing(!previousState);
+
+    if (previousState) {
+      const res = await unfollowUser(user.uid, video.userId);
+      if (!res.success) {
+        setIsFollowing(previousState);
+      }
+    } else {
+      const res = await followUser(user.uid, video.userId);
+      if (!res.success) {
+        setIsFollowing(previousState);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!isVideo) return;
@@ -96,10 +135,10 @@ export default function VideoCard({ video, isActive, index }) {
       )}
 
       {/* Video info (bottom-left) */}
-      <VideoInfo video={video} />
+      <VideoInfo video={video} isFollowing={isFollowing} isSelf={isSelf} onFollowToggle={handleFollowToggle} />
 
       {/* Action buttons (right side) */}
-      <VideoActions video={video} />
+      <VideoActions video={video} isFollowing={isFollowing} isSelf={isSelf} onFollowToggle={handleFollowToggle} />
     </div>
   );
 }

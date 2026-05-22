@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, Forward, Music, FileText } from 'lucide-react';
 import { useFeedStore } from '../../stores/feedStore';
+import { useNavigationStore } from '../../stores/navigationStore';
 
 // Custom Icons
 import ShapeIcon from '../icons/ShapeIcon';
@@ -58,8 +59,9 @@ const InteractionBtn = ({ icon, label, onClick, isActive, activeColor, type }) =
   );
 };
 
-export default function VideoActions({ video }) {
+export default function VideoActions({ video, isFollowing, isSelf, onFollowToggle }) {
   const { toggleShape, toggleBoost, toggleGymBag } = useFeedStore();
+  const navigate = useNavigationStore((s) => s.navigate);
 
   const handleShape = (e) => {
     toggleShape(video.id);
@@ -81,10 +83,17 @@ export default function VideoActions({ video }) {
     e.stopPropagation();
   };
 
+  const handleAvatarClick = (e) => {
+    e.stopPropagation();
+    if (video.userId) {
+      navigate('public_profile', { params: { userId: video.userId } });
+    }
+  };
+
   return (
     <div style={styles.container}>
       {/* Avatar */}
-      <motion.div style={styles.avatarWrap} whileTap={{ scale: 0.9 }}>
+      <motion.div style={styles.avatarWrap} whileTap={{ scale: 0.9 }} onClick={handleAvatarClick}>
         <div style={styles.avatar}>
           {video.userAvatar ? (
             <img src={video.userAvatar} alt="" style={styles.avatarImg} />
@@ -94,7 +103,9 @@ export default function VideoActions({ video }) {
             </div>
           )}
         </div>
-        <div style={styles.followBadge}>+</div>
+        {!isSelf && !isFollowing && (
+          <div style={styles.followBadge} onClick={(e) => { e.stopPropagation(); onFollowToggle(e); }}>+</div>
+        )}
       </motion.div>
 
       {/* Shape (Replaces Like) */}

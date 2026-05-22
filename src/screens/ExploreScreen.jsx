@@ -24,7 +24,7 @@ export default function ExploreScreen() {
   }, [clearSearch]);
 
   const handleOpenProfile = (userId) => {
-    navigate('public_profile', { userId });
+    navigate('public_profile', { params: { userId } });
   };
 
   return (

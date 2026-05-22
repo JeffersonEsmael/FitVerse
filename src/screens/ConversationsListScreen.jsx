@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, MessageCircle } from 'lucide-react';
+import { Search, MessageCircle, ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -9,7 +9,7 @@ import ScreenWrapper from '../components/layout/ScreenWrapper';
 export default function ConversationsListScreen() {
   const { user } = useAuthStore();
   const { conversations, fetchConversations, isLoading } = useChatStore();
-  const navigate = useNavigationStore((s) => s.navigate);
+  const { navigate, goBack } = useNavigationStore();
 
   useEffect(() => {
     if (user?.uid) {
@@ -44,6 +44,9 @@ export default function ConversationsListScreen() {
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
+          <button style={styles.backBtn} onClick={goBack}>
+            <ArrowLeft size={24} color="#fff" />
+          </button>
           <h2 style={styles.title}>Mensagens</h2>
         </div>
 
@@ -118,8 +121,19 @@ const styles = {
   },
   header: {
     display: 'flex',
-    justifyContent: 'center',
+    alignItems: 'center',
+    gap: '10px',
     marginBottom: '16px',
+  },
+  backBtn: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '50%',
   },
   title: {
     fontSize: '24px',

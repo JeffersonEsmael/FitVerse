@@ -12,7 +12,7 @@ import VideoCard from '../components/feed/VideoCard';
 function StatBox({ label, value, icon: Icon, color, onClick }) {
   return (
     <motion.div style={{...statStyles.box, cursor: onClick ? 'pointer' : 'default'}} whileTap={{ scale: 0.95 }} onClick={onClick}>
-      <Icon size={18} color={color} />
+      <Icon size={14} color={color} />
       <span style={{ ...statStyles.value, color }}>{value}</span>
       <span style={statStyles.label}>{label}</span>
     </motion.div>
@@ -50,13 +50,14 @@ export default function ProfileScreen() {
 
   // Fetch gym bag
   useEffect(() => {
-    if (activeProfileTab === 'gymbag' && user?.uid && !gymBagLoaded) {
+    if (activeProfileTab === 'gymbag' && user?.uid) {
+      setGymBagLoaded(false);
       fetchGymBagVideos(user.uid).then((videos) => {
         setGymBagVideos(videos);
         setGymBagLoaded(true);
       });
     }
-  }, [activeProfileTab, user?.uid, gymBagLoaded, fetchGymBagVideos]);
+  }, [activeProfileTab, user?.uid, fetchGymBagVideos]);
 
   const handleDM = () => {
     navigate('conversations');
@@ -427,7 +428,7 @@ const styles = {
 };
 
 const statStyles = {
-  box: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px 8px', borderRadius: '24px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(30px)', boxShadow: '0 10px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)' },
-  value: { fontSize: '20px', fontWeight: 800, fontFamily: "'Outfit', sans-serif" },
-  label: { fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontWeight: 600 },
+  box: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '10px 4px', borderRadius: '16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(30px)', boxShadow: '0 8px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)' },
+  value: { fontSize: '15px', fontWeight: 800, fontFamily: "'Outfit', sans-serif" },
+  label: { fontSize: '11px', color: 'rgba(255,255,255,0.6)', fontWeight: 600 },
 };

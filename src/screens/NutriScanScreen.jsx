@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Zap, Clock, Target, ChevronRight, Utensils } from 'lucide-react';
+import { Camera, Zap, Clock, Target, ChevronRight, Utensils, ArrowLeft } from 'lucide-react';
 import { useNutriStore } from '../stores/nutriStore';
+import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 
 function MacroChart({ totals, goals }) {
@@ -125,6 +126,7 @@ function MealItem({ meal, index }) {
 
 export default function NutriScanScreen() {
   const { meals, dailyGoals, dailyTotals, lastScanResult, isScanning, simulateScan, clearScanResult } = useNutriStore();
+  const { goBack } = useNavigationStore();
 
   return (
     <ScreenWrapper screenKey="nutriscan">
@@ -132,6 +134,9 @@ export default function NutriScanScreen() {
         {/* Header */}
         <div style={styles.header}>
           <div style={styles.headerRow}>
+            <button style={styles.backBtn} onClick={goBack}>
+              <ArrowLeft size={20} color="#fff" />
+            </button>
             <Utensils size={22} color="#39FF14" />
             <h2 style={styles.title}>NutriScan</h2>
           </div>
@@ -199,6 +204,17 @@ const styles = {
   container: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)' },
   header: { marginBottom: '20px' },
   headerRow: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' },
+  backBtn: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px',
+    marginRight: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '50%',
+  },
   title: { fontSize: '24px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0 },
   subtitle: { fontSize: '14px', color: '#6C6C88', fontFamily: "'Inter', sans-serif" },
   scanSection: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '24px' },
