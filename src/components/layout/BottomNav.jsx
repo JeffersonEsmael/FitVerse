@@ -65,8 +65,10 @@ const styles = {
   nav: {
     position: 'fixed',
     bottom: 'max(env(safe-area-inset-bottom, 20px), 20px)',
-    left: '16px',
-    right: '16px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: 'calc(100% - 32px)',
+    maxWidth: '468px', // Restrict to mobile width
     zIndex: 50,
     background: 'rgba(255, 255, 255, 0.05)',
     backdropFilter: 'blur(40px) saturate(180%)',
@@ -80,9 +82,8 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'space-around',
     height: '64px',
-    maxWidth: '500px',
-    margin: '0 auto',
     padding: '0 8px',
+    position: 'relative',
   },
   tab: {
     display: 'flex',
@@ -94,11 +95,11 @@ const styles = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    position: 'relative',
+    position: 'relative', // this ensures the absolute indicator is positioned relative to the tab
     WebkitTapHighlightColor: 'transparent',
   },
   label: {
-    display: 'none', // Hide label for cleaner liquid look
+    display: 'none',
   },
   indicator: {
     position: 'absolute',
