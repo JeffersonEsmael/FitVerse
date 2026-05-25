@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../config/supabase';
+import { useAuthStore } from './authStore';
 
 export const useSocialStore = create((set, get) => ({
   searchResults: [],
@@ -14,12 +15,33 @@ export const useSocialStore = create((set, get) => ({
         
       if (error && error.code !== '23505') throw error; // Ignore unique violation if already following
       
-      // Increment follower count (RPC or trigger usually handles this, but we can do it client-side for optimism)
-      await supabase.rpc('increment_follower_count', { user_id: followingId });
-      await supabase.rpc('increment_following_count', { user_id: followerId });
+      // Update target user's followers count
+      const { count: followerCount } = await supabase
+        .from('followers')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', followingId);
+
+      await supabase
+        .from('profiles')
+        .update({ followers: followerCount || 0 })
+        .eq('id', followingId);
+
+      // Update current user's following count
+      const { count: followingCount } = await supabase
+        .from('followers')
+        .select('*', { count: 'exact', head: true })
+        .eq('follower_id', followerId);
+
+      await supabase
+        .from('profiles')
+        .update({ following: followingCount || 0 })
+        .eq('id', followerId);
       
       // Send notification
       await get().createNotification(followingId, followerId, 'follow');
+
+      // Refresh authStore profile to update the logged in user's profile
+      useAuthStore.getState().refreshProfile();
 
       return { success: true };
     } catch (error) {
@@ -38,8 +60,30 @@ export const useSocialStore = create((set, get) => ({
         
       if (error) throw error;
       
-      await supabase.rpc('decrement_follower_count', { user_id: followingId });
-      await supabase.rpc('decrement_following_count', { user_id: followerId });
+      // Update target user's followers count
+      const { count: followerCount } = await supabase
+        .from('followers')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', followingId);
+
+      await supabase
+        .from('profiles')
+        .update({ followers: followerCount || 0 })
+        .eq('id', followingId);
+
+      // Update current user's following count
+      const { count: followingCount } = await supabase
+        .from('followers')
+        .select('*', { count: 'exact', head: true })
+        .eq('follower_id', followerId);
+
+      await supabase
+        .from('profiles')
+        .update({ following: followingCount || 0 })
+        .eq('id', followerId);
+      
+      // Refresh authStore profile to update the logged in user's profile
+      useAuthStore.getState().refreshProfile();
       
       return { success: true };
     } catch (error) {

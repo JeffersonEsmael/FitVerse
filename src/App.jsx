@@ -13,6 +13,8 @@ import CreatePostScreen from './screens/CreatePostScreen';
 import RankingScreen from './screens/RankingScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
+import SettingsScreen from './screens/SettingsScreen';
+import PrivacySettingsScreen from './screens/PrivacySettingsScreen';
 import NutriScanScreen from './screens/NutriScanScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import ConversationsListScreen from './screens/ConversationsListScreen';
@@ -35,6 +37,8 @@ const SCREENS = {
   profile: ProfileScreen,
   public_profile: PublicProfileScreen,
   edit_profile: EditProfileScreen,
+  settings: SettingsScreen,
+  privacy_settings: PrivacySettingsScreen,
   nutriscan: NutriScanScreen,
   notifications: NotificationsScreen,
   conversations: ConversationsListScreen,

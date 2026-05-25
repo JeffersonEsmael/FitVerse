@@ -21,6 +21,7 @@ export default function CreatePostScreen() {
   const { createPost } = useFeedStore();
   const { user, profile } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
+  const goBack = useNavigationStore((s) => s.goBack);
   const setActiveTab = useNavigationStore((s) => s.setActiveTab);
 
   const handleFileSelect = (e) => {
@@ -79,7 +80,7 @@ export default function CreatePostScreen() {
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
-          <button style={styles.backBtn} onClick={() => navigate('feed')}>
+          <button style={styles.backBtn} onClick={() => goBack()}>
             <ChevronLeft size={24} color="#fff" />
           </button>
           <h2 style={styles.title}>Novo Post</h2>

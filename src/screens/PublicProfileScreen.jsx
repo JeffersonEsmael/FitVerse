@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, X } from 'lucide-react';
+import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, X, Plus, Check } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useFeedStore } from '../stores/feedStore';
@@ -10,13 +10,17 @@ import ScreenWrapper from '../components/layout/ScreenWrapper';
 import ShapeIcon from '../components/icons/ShapeIcon';
 import VideoCard from '../components/feed/VideoCard';
 
-function StatBox({ label, value, icon: Icon, color }) {
+function StatBox({ label, value, icon: Icon, color, onClick }) {
   return (
-    <div style={statStyles.box}>
+    <motion.div 
+      style={{ ...statStyles.box, cursor: onClick ? 'pointer' : 'default' }}
+      whileTap={onClick ? { scale: 0.95 } : {}}
+      onClick={onClick}
+    >
       <Icon size={16} color={color} />
       <span style={{ ...statStyles.value, color }}>{value}</span>
       <span style={statStyles.label}>{label}</span>
-    </div>
+    </motion.div>
   );
 }
 
@@ -171,7 +175,22 @@ export default function PublicProfileScreen() {
                   <div style={styles.avatarPlaceholder}>{profile.display_name?.charAt(0) || '?'}</div>
                 )}
               </div>
-              <div style={styles.levelBadge}>Lv.{profile.level || 1}</div>
+              <div style={{ ...styles.levelBadge, right: '-8px', bottom: '-4px', left: 'auto', transform: 'none' }}>Lv.{profile.level || 1}</div>
+              
+              {/* Follow button below avatar picture */}
+              {user?.uid !== profile.id && (
+                <motion.button
+                  style={{
+                    ...styles.followPlusBtn,
+                    background: isFollowing ? 'rgba(255, 255, 255, 0.1)' : '#39FF14',
+                    boxShadow: isFollowing ? 'none' : '0 4px 12px rgba(57, 255, 20, 0.4)',
+                  }}
+                  onClick={handleFollowToggle}
+                  whileTap={{ scale: 0.85 }}
+                >
+                  {isFollowing ? <Check size={14} color="#fff" /> : <Plus size={14} color="#0A0A0F" />}
+                </motion.button>
+              )}
             </div>
           </div>
 
@@ -179,31 +198,13 @@ export default function PublicProfileScreen() {
             {profile.bio && <p style={styles.bioCenter}>{profile.bio}</p>}
           </div>
 
-          {/* Action Buttons */}
-          <div style={styles.actionRow}>
-            <motion.button 
-              style={{...styles.followBtn, background: isFollowing ? 'rgba(255,255,255,0.1)' : '#00D4FF', color: isFollowing ? '#fff' : '#0A0A0F'}}
-              onClick={handleFollowToggle}
-              whileTap={{ scale: 0.95 }}
-            >
-              {isFollowing ? 'Seguindo' : 'Seguir'}
-            </motion.button>
-            <motion.button 
-              style={styles.messageBtn}
-              onClick={handleMessage}
-              whileTap={{ scale: 0.95 }}
-            >
-              <MessageCircle size={18} />
-              Mensagem
-            </motion.button>
+          {/* Stats inside profile card */}
+          <div style={{ ...styles.statsGrid, width: '100%', marginTop: '24px', marginBottom: 0 }}>
+            <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
+            <StatBox label="Ranking" value={`#${profile.rank_position || '-'}`} icon={Award} color="#FFD700" />
+            <StatBox label="Mensagem" value="Chat" icon={MessageCircle} color="#00D4FF" onClick={handleMessage} />
           </div>
         </motion.div>
-
-        {/* Stats */}
-        <div style={styles.statsGrid}>
-          <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
-          <StatBox label="Ranking" value={`#${profile.rank_position || '-'}`} icon={Award} color="#FFD700" />
-        </div>
 
         {/* Content tabs */}
         <div style={styles.contentTabs}>
@@ -333,7 +334,23 @@ const styles = {
   actionRow: { display: 'flex', gap: '12px', width: '100%' },
   followBtn: { flex: 1, padding: '16px', borderRadius: '24px', fontWeight: 700, fontSize: '15px', border: 'none', cursor: 'pointer', fontFamily: "'Inter', sans-serif", backdropFilter: 'blur(30px)', boxShadow: '0 10px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)' },
   messageBtn: { flex: 1, padding: '16px', borderRadius: '24px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontWeight: 600, fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', fontFamily: "'Inter', sans-serif", backdropFilter: 'blur(30px)', boxShadow: '0 10px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)' },
-  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '16px' },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' },
+  followPlusBtn: {
+    position: 'absolute',
+    bottom: '-12px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: '28px',
+    height: '28px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    border: '2.5px solid #0A0A0F',
+    zIndex: 10,
+    transition: 'all 0.2s ease',
+  },
   contentTabs: { display: 'flex', gap: '8px', marginBottom: '16px' },
   contentTab: { flex: 1, padding: '14px', borderRadius: '20px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontFamily: "'Inter', sans-serif", backdropFilter: 'blur(20px)' },
   contentTabActive: { background: 'rgba(255,255,255,0.15)', color: '#fff', borderColor: 'rgba(255,255,255,0.3)', boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.4)' },

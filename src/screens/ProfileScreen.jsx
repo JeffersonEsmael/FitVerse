@@ -20,7 +20,7 @@ function StatBox({ label, value, icon: Icon, color, onClick }) {
 }
 
 export default function ProfileScreen() {
-  const { user, profile, isProfileLoading } = useAuthStore();
+  const { user, profile, isProfileLoading, refreshProfile } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
   const { fetchUserPosts, fetchGymBagVideos } = useFeedStore();
   
@@ -37,6 +37,17 @@ export default function ProfileScreen() {
 
   // Calculate total shapes dynamically
   const totalShapes = userPosts.reduce((sum, post) => sum + (post.shapes || 0), 0);
+
+  // Refresh profile on mount to ensure real-time data
+  useEffect(() => {
+    if (user?.uid) {
+      refreshProfile();
+      fetchUserPosts(user.uid).then((posts) => {
+        setUserPosts(posts);
+        setPostsLoaded(true);
+      });
+    }
+  }, [user?.uid, refreshProfile, fetchUserPosts]);
 
   // Fetch posts
   useEffect(() => {
@@ -97,11 +108,11 @@ export default function ProfileScreen() {
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
-          <button style={styles.headerBtnLeft} onClick={() => navigate('create_post')}>
+          <button style={styles.headerBtnLeft} onClick={() => navigate('create')}>
             <Plus size={24} color="#fff" />
           </button>
           <h2 style={styles.title}>Perfil</h2>
-          <button style={styles.headerBtnRight} onClick={() => navigate('edit_profile')}>
+          <button style={styles.headerBtnRight} onClick={() => navigate('settings')}>
             <Settings size={22} color="#fff" />
           </button>
         </div>
@@ -147,14 +158,14 @@ export default function ProfileScreen() {
               </div>
             )}
           </div>
-        </motion.div>
 
-        {/* Stats */}
-        <div style={styles.statsGrid}>
-          <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
-          <StatBox label="Ranking" value={`#${p.rank_position || '-'}`} icon={Award} color="#FFD700" onClick={() => navigate('ranking')} />
-          <StatBox label="DM" value="Chat" icon={MessageCircle} color="#00D4FF" onClick={handleDM} />
-        </div>
+          {/* Stats inside profile card */}
+          <div style={{ ...styles.statsGrid, width: '100%', marginTop: '24px', marginBottom: 0 }}>
+            <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
+            <StatBox label="Ranking" value={`#${p.rank_position || '-'}`} icon={Award} color="#FFD700" onClick={() => navigate('ranking')} />
+            <StatBox label="Mensagem" value="Chat" icon={MessageCircle} color="#00D4FF" onClick={handleDM} />
+          </div>
+        </motion.div>
 
         {/* Quick access */}
         <div style={styles.quickAccess}>

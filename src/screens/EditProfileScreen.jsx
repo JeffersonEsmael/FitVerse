@@ -1,19 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Camera, Save, Loader2, Globe, Lock, CheckCircle, AlertCircle, LogOut } from 'lucide-react';
+import { ChevronLeft, Camera, Save, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import { supabase } from '../config/supabase';
 
 export default function EditProfileScreen() {
-  const { user, profile, updateProfile, logout } = useAuthStore();
+  const { user, profile, updateProfile } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
 
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
-  const [isPublic, setIsPublic] = useState(true);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -27,7 +26,6 @@ export default function EditProfileScreen() {
       setDisplayName(profile.display_name || '');
       setUsername(profile.username || '');
       setBio(profile.bio || '');
-      setIsPublic(profile.is_public !== false);
       setPhotoPreview(profile.avatar_url || '');
     }
   }, [profile]);
@@ -107,7 +105,6 @@ export default function EditProfileScreen() {
         username: username.trim().toLowerCase() || profile?.username || 'user',
         bio: bio.trim(),
         avatar_url: avatarUrl,
-        is_public: isPublic,
         updated_at: new Date().toISOString(),
       };
 
@@ -133,10 +130,7 @@ export default function EditProfileScreen() {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('auth');
-  };
+
 
   return (
     <ScreenWrapper screenKey="edit_profile">
@@ -254,26 +248,6 @@ export default function EditProfileScreen() {
               />
               <span style={styles.charCount}>{bio.length}/150</span>
             </div>
-
-            <div style={styles.field}>
-              <label style={styles.label}>Visibilidade da conta</label>
-              <div style={styles.toggleRow}>
-                <button
-                  style={{ ...styles.toggleBtn, ...(isPublic ? styles.toggleActive : {}) }}
-                  onClick={() => setIsPublic(true)}
-                  disabled={isSaving}
-                >
-                  <Globe size={16} /> Pública
-                </button>
-                <button
-                  style={{ ...styles.toggleBtn, ...(!isPublic ? styles.toggleActive : {}) }}
-                  onClick={() => setIsPublic(false)}
-                  disabled={isSaving}
-                >
-                  <Lock size={16} /> Privada
-                </button>
-              </div>
-            </div>
           </div>
 
           <motion.button
@@ -286,16 +260,6 @@ export default function EditProfileScreen() {
               ? (photoFile ? 'Enviando foto...' : 'Salvando...')
               : 'Salvar Alterações'
             }
-          </motion.button>
-
-          <motion.button 
-            style={styles.logoutBtn} 
-            onClick={handleLogout} 
-            whileTap={{ scale: 0.97 }}
-            disabled={isSaving}
-          >
-            <LogOut size={18} color="#FF2D55" />
-            <span>Sair da conta</span>
           </motion.button>
         </div>
       </div>
