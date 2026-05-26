@@ -15,12 +15,22 @@ export const useNavigationStore = create((set, get) => ({
   // Navigate to a screen with optional params
   navigate: (screen, options = {}) => {
     const { currentScreen } = get();
+    const tabScreenMapReversed = {
+      feed: 'feed',
+      explore: 'explore',
+      conversations: 'messages',
+      notifications: 'notifications',
+      profile: 'profile',
+    };
+    const nextTab = tabScreenMapReversed[screen];
+
     set({
       previousScreen: currentScreen,
       currentScreen: screen,
       transitionDirection: options.direction || 'forward',
       history: [...get().history, currentScreen],
       screenParams: options.params || {},
+      activeTab: nextTab || get().activeTab,
     });
   },
 
@@ -28,12 +38,22 @@ export const useNavigationStore = create((set, get) => ({
     const { history } = get();
     if (history.length > 0) {
       const previousScreen = history[history.length - 1];
+      const tabScreenMapReversed = {
+        feed: 'feed',
+        explore: 'explore',
+        conversations: 'messages',
+        notifications: 'notifications',
+        profile: 'profile',
+      };
+      const nextTab = tabScreenMapReversed[previousScreen];
+
       set({
         currentScreen: previousScreen,
         previousScreen: get().currentScreen,
         transitionDirection: 'back',
         history: history.slice(0, -1),
         screenParams: {},
+        activeTab: nextTab || get().activeTab,
       });
     }
   },

@@ -29,7 +29,7 @@ export default function NotificationsScreen() {
 
   const handleNotifClick = (notif) => {
     if (notif.type === 'follow' && notif.sender_id) {
-      navigate('public_profile', { userId: notif.sender_id });
+      navigate('public_profile', { params: { userId: notif.sender_id } });
     }
   };
 

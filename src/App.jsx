@@ -24,7 +24,7 @@ import ProductDetailsScreen from './screens/ProductDetailsScreen';
 import PublicProfileScreen from './screens/PublicProfileScreen';
 
 // Screens that show the bottom nav
-const NAV_SCREENS = ['feed', 'explore', 'conversations', 'notifications', 'profile'];
+const NAV_SCREENS = ['feed', 'explore', 'conversations', 'notifications', 'profile', 'public_profile'];
 
 // Screen components map
 const SCREENS = {

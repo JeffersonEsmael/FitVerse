@@ -20,7 +20,8 @@ export const useFeedStore = create(
       clearUploadError: () => set({ uploadError: null }),
 
   // ─── Toggle interactions ─────────────────────────────────
-  toggleShape: (videoId) => {
+  toggleShape: async (videoId) => {
+    // Optimistic update
     set((state) => ({
       videos: state.videos.map((v) =>
         v.id === videoId
@@ -28,18 +29,30 @@ export const useFeedStore = create(
           : v
       ),
     }));
-    supabase.rpc('toggle_video_shape', { p_video_id: videoId })
-      .then(() => {
-        import('./authStore').then(({ useAuthStore }) => {
-          useAuthStore.getState().refreshProfile();
-        });
-      })
-      .catch((err) => {
-        console.warn('[Feed] toggleShape RPC error:', err.message);
-      });
+
+    try {
+      const { error } = await supabase.rpc('toggle_video_shape', { p_video_id: videoId });
+      if (error) {
+        console.error('[Feed] toggleShape RPC error:', error.message, error.details);
+        // Revert local state on error
+        set((state) => ({
+          videos: state.videos.map((v) =>
+            v.id === videoId
+              ? { ...v, hasShaped: !v.hasShaped, shapes: v.hasShaped ? v.shapes + 1 : Math.max(v.shapes - 1, 0) }
+              : v
+          ),
+        }));
+      } else {
+        const { useAuthStore } = await import('./authStore');
+        useAuthStore.getState().refreshProfile();
+      }
+    } catch (err) {
+      console.error('[Feed] toggleShape exception:', err.message);
+    }
   },
 
-  toggleBoost: (videoId) => {
+  toggleBoost: async (videoId) => {
+    // Optimistic update
     set((state) => ({
       videos: state.videos.map((v) =>
         v.id === videoId
@@ -47,12 +60,27 @@ export const useFeedStore = create(
           : v
       ),
     }));
-    supabase.rpc('toggle_video_boost', { p_video_id: videoId }).catch((err) => {
-      console.warn('[Feed] toggleBoost RPC error:', err.message);
-    });
+
+    try {
+      const { error } = await supabase.rpc('toggle_video_boost', { p_video_id: videoId });
+      if (error) {
+        console.error('[Feed] toggleBoost RPC error:', error.message, error.details);
+        // Revert local state on error
+        set((state) => ({
+          videos: state.videos.map((v) =>
+            v.id === videoId
+              ? { ...v, hasBoosted: !v.hasBoosted, boosts: v.hasBoosted ? v.boosts + 1 : Math.max(v.boosts - 1, 0) }
+              : v
+          ),
+        }));
+      }
+    } catch (err) {
+      console.error('[Feed] toggleBoost exception:', err.message);
+    }
   },
 
-  toggleGymBag: (videoId) => {
+  toggleGymBag: async (videoId) => {
+    // Optimistic update
     set((state) => ({
       videos: state.videos.map((v) =>
         v.id === videoId
@@ -60,9 +88,23 @@ export const useFeedStore = create(
           : v
       ),
     }));
-    supabase.rpc('toggle_video_gym_bag', { p_video_id: videoId }).catch((err) => {
-      console.warn('[Feed] toggleGymBag RPC error:', err.message);
-    });
+
+    try {
+      const { error } = await supabase.rpc('toggle_video_gym_bag', { p_video_id: videoId });
+      if (error) {
+        console.error('[Feed] toggleGymBag RPC error:', error.message, error.details);
+        // Revert local state on error
+        set((state) => ({
+          videos: state.videos.map((v) =>
+            v.id === videoId
+              ? { ...v, inGymBag: !v.inGymBag, gym_bag_saves: v.inGymBag ? v.gym_bag_saves + 1 : Math.max(v.gym_bag_saves - 1, 0) }
+              : v
+          ),
+        }));
+      }
+    } catch (err) {
+      console.error('[Feed] toggleGymBag exception:', err.message);
+    }
   },
 
   incrementViews: (videoId) => {
@@ -171,25 +213,60 @@ export const useFeedStore = create(
 
       if (error) throw error;
 
-      return (data || []).map((v) => ({
-        id: v.id,
-        videoUrl: v.video_url,
-        mediaType: v.media_type || 'video',
-        caption: v.caption || '',
-        views: v.views || 0,
-        shapes: v.shapes || 0,
-        createdAt: new Date(v.created_at),
-        // include full post details for modal view
-        username: v.username,
-        userAvatar: v.user_avatar,
-        displayName: v.display_name,
-        hashtags: v.hashtags || [],
-        category: v.category || 'geral',
-        comments: v.comments || 0,
-        shares: v.shares || 0,
-        boosts: v.boosts || 0,
-        gym_bag_saves: v.gym_bag_saves || 0,
-      }));
+      if (!data || data.length === 0) return [];
+
+      // Query actual user interactions to set active visual states
+      let userInteractions = [];
+      try {
+        const { useAuthStore } = await import('./authStore');
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser?.uid) {
+          const videoIds = data.map((v) => v.id);
+          const { data: interactions } = await supabase
+            .from('video_interactions')
+            .select('video_id, interaction_type')
+            .eq('user_id', currentUser.uid)
+            .in('video_id', videoIds);
+          if (interactions) userInteractions = interactions;
+        }
+      } catch (authErr) {
+        console.warn('[Feed] Error getting active user interactions:', authErr.message);
+      }
+
+      return data.map((v) => {
+        const hasShaped = userInteractions.some(
+          (i) => i.video_id === v.id && i.interaction_type === 'shape'
+        );
+        const hasBoosted = userInteractions.some(
+          (i) => i.video_id === v.id && i.interaction_type === 'boost'
+        );
+        const inGymBag = userInteractions.some(
+          (i) => i.video_id === v.id && i.interaction_type === 'gym_bag'
+        );
+
+        return {
+          id: v.id,
+          videoUrl: v.video_url,
+          mediaType: v.media_type || 'video',
+          userId: v.user_id,
+          username: v.username,
+          userAvatar: v.user_avatar || '',
+          displayName: v.display_name,
+          caption: v.caption || '',
+          hashtags: v.hashtags || [],
+          category: v.category || 'geral',
+          shapes: v.shapes || 0,
+          boosts: v.boosts || 0,
+          gym_bag_saves: v.gym_bag_saves || 0,
+          comments: v.comments || 0,
+          shares: v.shares || 0,
+          views: v.views || 0,
+          hasShaped,
+          hasBoosted,
+          inGymBag,
+          createdAt: new Date(v.created_at),
+        };
+      });
     } catch (error) {
       console.error('[Feed] fetchUserPosts error:', error.message);
       return [];
@@ -213,25 +290,60 @@ export const useFeedStore = create(
       if (error) throw error;
 
       const validVideos = (data || []).map(i => i.videos).filter(Boolean);
-      return validVideos.map((v) => ({
-        id: v.id,
-        videoUrl: v.video_url,
-        mediaType: v.media_type || 'video',
-        caption: v.caption || '',
-        views: v.views || 0,
-        shapes: v.shapes || 0,
-        createdAt: new Date(v.created_at),
-        // full details for modal
-        username: v.username,
-        userAvatar: v.user_avatar,
-        displayName: v.display_name,
-        hashtags: v.hashtags || [],
-        category: v.category || 'geral',
-        comments: v.comments || 0,
-        shares: v.shares || 0,
-        boosts: v.boosts || 0,
-        gym_bag_saves: v.gym_bag_saves || 0,
-      }));
+      if (validVideos.length === 0) return [];
+
+      // Query actual user interactions to set active visual states
+      let userInteractions = [];
+      try {
+        const { useAuthStore } = await import('./authStore');
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser?.uid) {
+          const videoIds = validVideos.map((v) => v.id);
+          const { data: interactions } = await supabase
+            .from('video_interactions')
+            .select('video_id, interaction_type')
+            .eq('user_id', currentUser.uid)
+            .in('video_id', videoIds);
+          if (interactions) userInteractions = interactions;
+        }
+      } catch (authErr) {
+        console.warn('[Feed] Error getting active user interactions:', authErr.message);
+      }
+
+      return validVideos.map((v) => {
+        const hasShaped = userInteractions.some(
+          (i) => i.video_id === v.id && i.interaction_type === 'shape'
+        );
+        const hasBoosted = userInteractions.some(
+          (i) => i.video_id === v.id && i.interaction_type === 'boost'
+        );
+        const inGymBag = userInteractions.some(
+          (i) => i.video_id === v.id && i.interaction_type === 'gym_bag'
+        );
+
+        return {
+          id: v.id,
+          videoUrl: v.video_url,
+          mediaType: v.media_type || 'video',
+          userId: v.user_id,
+          username: v.username,
+          userAvatar: v.user_avatar || '',
+          displayName: v.display_name,
+          caption: v.caption || '',
+          hashtags: v.hashtags || [],
+          category: v.category || 'geral',
+          shapes: v.shapes || 0,
+          boosts: v.boosts || 0,
+          gym_bag_saves: v.gym_bag_saves || 0,
+          comments: v.comments || 0,
+          shares: v.shares || 0,
+          views: v.views || 0,
+          hasShaped,
+          hasBoosted,
+          inGymBag,
+          createdAt: new Date(v.created_at),
+        };
+      });
     } catch (error) {
       console.error('[Feed] fetchGymBagVideos error:', error.message);
       return [];
