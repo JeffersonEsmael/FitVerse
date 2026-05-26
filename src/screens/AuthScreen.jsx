@@ -103,9 +103,12 @@ export default function AuthScreen() {
       >
         <div style={styles.logoSection}>
           <div style={styles.logoIconContainer}>
-            <span style={{ fontSize: '32px' }}>✨</span>
+            <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M92,38 C80,38 52,44 14,64 C50,56 78,48 92,38 Z" fill="white" />
+              <path d="M8,62 C20,62 48,56 86,36 C50,44 22,52 8,62 Z" fill="white" />
+            </svg>
           </div>
-          <h1 style={styles.logo}>FitVerse</h1>
+          <h1 style={styles.logo}>Myora</h1>
           <p style={styles.tagline}>
             {mode === 'login' ? 'Bem-vindo de volta!' : 'Crie sua conta fitness'}
           </p>

@@ -60,9 +60,9 @@ export default function SplashScreen() {
         transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }}
       >
         <div style={styles.logoIcon}>
-          <svg width="60" height="30" viewBox="0 0 120 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 40 C 25 10, 35 10, 50 25 S 75 45, 90 25 S 105 5, 115 10" stroke="white" strokeWidth="6" strokeLinecap="round" fill="none" />
-            <path d="M5 35 C 20 5, 30 5, 45 20 S 70 40, 85 20 S 100 0, 110 5" stroke="rgba(255,255,255,0.4)" strokeWidth="4" strokeLinecap="round" fill="none" />
+          <svg width="60" height="60" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M92,38 C80,38 52,44 14,64 C50,56 78,48 92,38 Z" fill="white" />
+            <path d="M8,62 C20,62 48,56 86,36 C50,44 22,52 8,62 Z" fill="white" />
           </svg>
         </div>
       </motion.div>
