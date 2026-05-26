@@ -19,16 +19,19 @@ CREATE TABLE IF NOT EXISTS public.video_comments (
 ALTER TABLE public.video_comments ENABLE ROW LEVEL SECURITY;
 
 -- Select policy: public read
+DROP POLICY IF EXISTS "Comments are publicly readable" ON public.video_comments;
 CREATE POLICY "Comments are publicly readable"
   ON public.video_comments FOR SELECT
   USING (true);
 
 -- Insert policy: authenticated users
+DROP POLICY IF EXISTS "Authenticated users can post comments" ON public.video_comments;
 CREATE POLICY "Authenticated users can post comments"
   ON public.video_comments FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 -- Delete policy: users can delete their own comments
+DROP POLICY IF EXISTS "Users can delete their own comments" ON public.video_comments;
 CREATE POLICY "Users can delete their own comments"
   ON public.video_comments FOR DELETE
   USING (auth.uid() = user_id);
@@ -134,16 +137,19 @@ CREATE TABLE IF NOT EXISTS public.comment_likes (
 ALTER TABLE public.comment_likes ENABLE ROW LEVEL SECURITY;
 
 -- Select policy: public read
+DROP POLICY IF EXISTS "Comment likes are publicly readable" ON public.comment_likes;
 CREATE POLICY "Comment likes are publicly readable"
   ON public.comment_likes FOR SELECT
   USING (true);
 
 -- Insert policy: authenticated users
+DROP POLICY IF EXISTS "Authenticated users can like comments" ON public.comment_likes;
 CREATE POLICY "Authenticated users can like comments"
   ON public.comment_likes FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 -- Delete policy: users can unlike comments
+DROP POLICY IF EXISTS "Users can unlike comments" ON public.comment_likes;
 CREATE POLICY "Users can unlike comments"
   ON public.comment_likes FOR DELETE
   USING (auth.uid() = user_id);
