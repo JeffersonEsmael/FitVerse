@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Play, Volume2, VolumeX } from 'lucide-react';
 import VideoActions from './VideoActions';
 import VideoInfo from './VideoInfo';
+import CommentsSheet from './CommentsSheet';
 import { useAuthStore } from '../../stores/authStore';
 import { useSocialStore } from '../../stores/socialStore';
 
@@ -15,6 +16,7 @@ export default function VideoCard({ video, isActive, index }) {
   const { user } = useAuthStore();
   const { checkIfFollowing, followUser, unfollowUser } = useSocialStore();
   const [isFollowing, setIsFollowing] = useState(false);
+  const [showComments, setShowComments] = useState(false);
 
   const isSelf = user?.uid === video.userId;
   const isVideo = video.mediaType !== 'image';
@@ -138,7 +140,20 @@ export default function VideoCard({ video, isActive, index }) {
       <VideoInfo video={video} isFollowing={isFollowing} isSelf={isSelf} onFollowToggle={handleFollowToggle} />
 
       {/* Action buttons (right side) */}
-      <VideoActions video={video} isFollowing={isFollowing} isSelf={isSelf} onFollowToggle={handleFollowToggle} />
+      <VideoActions 
+        video={video} 
+        isFollowing={isFollowing} 
+        isSelf={isSelf} 
+        onFollowToggle={handleFollowToggle} 
+        onCommentClick={() => setShowComments(true)}
+      />
+
+      {/* Comments Drawer */}
+      <CommentsSheet 
+        isOpen={showComments} 
+        onClose={() => setShowComments(false)} 
+        videoId={video.id}
+      />
     </div>
   );
 }

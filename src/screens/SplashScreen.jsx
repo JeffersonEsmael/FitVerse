@@ -60,7 +60,10 @@ export default function SplashScreen() {
         transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }}
       >
         <div style={styles.logoIcon}>
-          <span style={styles.logoEmoji}>🏋️</span>
+          <svg width="60" height="30" viewBox="0 0 120 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 40 C 25 10, 35 10, 50 25 S 75 45, 90 25 S 105 5, 115 10" stroke="white" strokeWidth="6" strokeLinecap="round" fill="none" />
+            <path d="M5 35 C 20 5, 30 5, 45 20 S 70 40, 85 20 S 100 0, 110 5" stroke="rgba(255,255,255,0.4)" strokeWidth="4" strokeLinecap="round" fill="none" />
+          </svg>
         </div>
       </motion.div>
 
@@ -71,7 +74,7 @@ export default function SplashScreen() {
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.6, duration: 0.6 }}
       >
-        FitVerse
+        Myora
       </motion.h1>
 
       <motion.p
@@ -80,7 +83,7 @@ export default function SplashScreen() {
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.9, duration: 0.5 }}
       >
-        Treino. Competição. Comunidade.
+        Sua jornada começa aqui.
       </motion.p>
 
       {/* Loading bar */}
@@ -119,7 +122,7 @@ const styles = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     boxShadow: '0 0 40px rgba(0,212,255,0.4), 0 0 80px rgba(0,212,255,0.15)',
   },
-  logoEmoji: { fontSize: '48px' },
+
   appName: {
     fontSize: '42px', fontWeight: 900, color: '#fff',
     fontFamily: "'Outfit', sans-serif", letterSpacing: '-0.03em', margin: 0,

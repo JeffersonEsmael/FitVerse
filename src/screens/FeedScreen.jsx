@@ -15,6 +15,7 @@ export default function FeedScreen() {
   const navigate = useNavigationStore((s) => s.navigate);
   const containerRef = useRef(null);
   const [touchStart, setTouchStart] = useState(null);
+  const [dragOffset, setDragOffset] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [direction, setDirection] = useState(1);
   const [hasFetched, setHasFetched] = useState(false);
@@ -35,14 +36,47 @@ export default function FeedScreen() {
     setTimeout(() => setIsTransitioning(false), 300);
   }, [videos.length, isTransitioning, currentIndex, setCurrentIndex]);
 
-  const handleTouchStart = (e) => setTouchStart(e.touches[0].clientY);
+  const handleTouchStart = (e) => {
+    setTouchStart(e.touches[0].clientY);
+    setDragOffset(0);
+  };
+
+  const handleTouchMove = (e) => {
+    if (touchStart === null) return;
+    const currentY = e.touches[0].clientY;
+    const diff = touchStart - currentY;
+    
+    // Apply rubber band effect at borders
+    if (currentIndex === 0 && diff < 0) {
+      setDragOffset(-diff * 0.3); // Dragging down on first video
+    } else if (currentIndex === videos.length - 1 && diff > 0) {
+      setDragOffset(-diff * 0.3); // Dragging up on last video
+    } else {
+      setDragOffset(-diff);
+    }
+  };
 
   const handleTouchEnd = (e) => {
     if (touchStart === null) return;
     const diff = touchStart - e.changedTouches[0].clientY;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) goToVideo(currentIndex + 1);
-      else goToVideo(currentIndex - 1);
+    
+    const threshold = 80; // 80px threshold to trigger transition
+    if (Math.abs(diff) > threshold) {
+      if (diff > 0) {
+        if (currentIndex < videos.length - 1) {
+          goToVideo(currentIndex + 1);
+        } else {
+          setDragOffset(0);
+        }
+      } else {
+        if (currentIndex > 0) {
+          goToVideo(currentIndex - 1);
+        } else {
+          setDragOffset(0);
+        }
+      }
+    } else {
+      setDragOffset(0);
     }
     setTouchStart(null);
   };
@@ -75,6 +109,7 @@ export default function FeedScreen() {
       ref={containerRef}
       style={styles.container}
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
       {/* ── Upload progress banner ─────────────────────────── */}
@@ -200,11 +235,14 @@ export default function FeedScreen() {
             index === currentIndex && (
               <motion.div
                 key={video.id}
-                style={styles.videoSlide}
+                style={{
+                  ...styles.videoSlide,
+                  y: dragOffset,
+                }}
                 initial={{ y: direction > 0 ? '100%' : '-100%', opacity: 0.5 }}
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: direction > 0 ? '-30%' : '30%', opacity: 0 }}
-                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               >
                 <VideoCard
                   video={video}

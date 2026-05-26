@@ -17,17 +17,18 @@ function StatBox({ label, value, icon: Icon, color, onClick }) {
       whileTap={onClick ? { scale: 0.95 } : {}}
       onClick={onClick}
     >
-      <Icon size={16} color={color} />
-      <span style={{ ...statStyles.value, color }}>{value}</span>
-      <span style={statStyles.label}>{label}</span>
+      <Icon size={14} color={color} />
+      <div style={statStyles.textContainer}>
+        <span style={statStyles.label}>{label}</span>
+        <span style={{ ...statStyles.value, color }}>{value}</span>
+      </div>
     </motion.div>
   );
 }
 
 export default function PublicProfileScreen() {
   const { user } = useAuthStore();
-  const navigate = useNavigationStore((s) => s.navigate);
-  const { screenParams } = useNavigationStore((s) => s);
+  const { navigate, goBack, screenParams } = useNavigationStore();
   const { fetchUserPosts } = useFeedStore();
   const { fetchPublicProfile, followUser, unfollowUser, checkIfFollowing } = useSocialStore();
   const { getOrCreateConversation } = useChatStore();
@@ -142,7 +143,7 @@ export default function PublicProfileScreen() {
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
-          <button style={styles.headerBtnLeft} onClick={() => navigate('explore')}>
+          <button style={styles.headerBtnLeft} onClick={() => goBack()}>
             <ChevronLeft size={28} color="#fff" />
           </button>
           <h2 style={styles.title}>{profile.username}</h2>
@@ -175,7 +176,6 @@ export default function PublicProfileScreen() {
                   <div style={styles.avatarPlaceholder}>{profile.display_name?.charAt(0) || '?'}</div>
                 )}
               </div>
-              <div style={{ ...styles.levelBadge, right: '-8px', bottom: '-4px', left: 'auto', transform: 'none' }}>Lv.{profile.level || 1}</div>
               
               {/* Follow button below avatar picture */}
               {user?.uid !== profile.id && (
@@ -218,7 +218,7 @@ export default function PublicProfileScreen() {
             style={{ ...styles.contentTab, ...(activeTab === 'badges' ? styles.contentTabActive : {}) }}
             onClick={() => setActiveTab('badges')}
           >
-            <Award size={18} /> Badges
+            <Award size={18} /> Medalhas
           </button>
         </div>
 
@@ -328,7 +328,6 @@ const styles = {
   avatar: { width: '100px', height: '100px', borderRadius: '32px', border: '2px solid rgba(255,255,255,0.2)', overflow: 'hidden', boxShadow: '0 10px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
   avatarPlaceholder: { width: '100%', height: '100%', background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '36px', fontFamily: "'Outfit', sans-serif" },
-  levelBadge: { position: 'absolute', bottom: '-8px', left: '50%', transform: 'translateX(-50%)', padding: '4px 12px', borderRadius: '16px', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', fontSize: '12px', fontWeight: 700, boxShadow: '0 4px 10px rgba(0,0,0,0.3)' },
   bioContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '16px' },
   bioCenter: { fontSize: '15px', color: 'rgba(255,255,255,0.8)', textAlign: 'center', lineHeight: '1.5', margin: '0 0 16px', maxWidth: '90%' },
   actionRow: { display: 'flex', gap: '12px', width: '100%' },
@@ -368,7 +367,35 @@ const styles = {
 };
 
 const statStyles = {
-  box: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px 8px', borderRadius: '24px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(30px)', boxShadow: '0 10px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)' },
-  value: { fontSize: '20px', fontWeight: 800, fontFamily: "'Outfit', sans-serif" },
-  label: { fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontWeight: 600 },
+  box: { 
+    display: 'flex', 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: '8px', 
+    padding: '10px 8px', 
+    borderRadius: '20px', 
+    background: 'rgba(255,255,255,0.03)', 
+    border: '1px solid rgba(255,255,255,0.08)', 
+    backdropFilter: 'blur(20px)', 
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    flex: 1
+  },
+  textContainer: { 
+    display: 'flex', 
+    flexDirection: 'column', 
+    alignItems: 'flex-start', 
+    gap: '1px' 
+  },
+  value: { 
+    fontSize: '13px', 
+    fontWeight: 800, 
+    fontFamily: "'Outfit', sans-serif" 
+  },
+  label: { 
+    fontSize: '10px', 
+    color: 'rgba(255,255,255,0.5)', 
+    fontWeight: 600,
+    fontFamily: "'Inter', sans-serif"
+  },
 };

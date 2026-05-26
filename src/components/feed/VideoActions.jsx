@@ -59,7 +59,7 @@ const InteractionBtn = ({ icon, label, onClick, isActive, activeColor, type }) =
   );
 };
 
-export default function VideoActions({ video, isFollowing, isSelf, onFollowToggle }) {
+export default function VideoActions({ video, isFollowing, isSelf, onFollowToggle, onCommentClick }) {
   const { toggleShape, toggleBoost, toggleGymBag } = useFeedStore();
   const navigate = useNavigationStore((s) => s.navigate);
 
@@ -81,6 +81,9 @@ export default function VideoActions({ video, isFollowing, isSelf, onFollowToggl
 
   const handleComment = (e) => {
     e.stopPropagation();
+    if (onCommentClick) {
+      onCommentClick();
+    }
   };
 
   const handleAvatarClick = (e) => {

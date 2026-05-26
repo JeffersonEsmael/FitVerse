@@ -11,10 +11,12 @@ import VideoCard from '../components/feed/VideoCard';
 
 function StatBox({ label, value, icon: Icon, color, onClick }) {
   return (
-    <motion.div style={{...statStyles.box, cursor: onClick ? 'pointer' : 'default'}} whileTap={{ scale: 0.95 }} onClick={onClick}>
+    <motion.div style={{...statStyles.box, cursor: onClick ? 'pointer' : 'default'}} whileTap={onClick ? { scale: 0.95 } : {}} onClick={onClick}>
       <Icon size={14} color={color} />
-      <span style={{ ...statStyles.value, color }}>{value}</span>
-      <span style={statStyles.label}>{label}</span>
+      <div style={statStyles.textContainer}>
+        <span style={statStyles.label}>{label}</span>
+        <span style={{ ...statStyles.value, color }}>{value}</span>
+      </div>
     </motion.div>
   );
 }
@@ -144,7 +146,6 @@ export default function ProfileScreen() {
                   <div style={styles.avatarPlaceholder}>{p.display_name?.charAt(0) || '?'}</div>
                 )}
               </div>
-              <div style={styles.levelBadge}>Lv.{p.level || 1}</div>
             </div>
           </div>
 
@@ -203,7 +204,7 @@ export default function ProfileScreen() {
             style={{ ...styles.contentTab, ...(activeProfileTab === 'badges' ? styles.contentTabActive : {}) }}
             onClick={() => setActiveProfileTab('badges')}
           >
-            <Award size={18} /> Badges
+            <Award size={18} /> Medalhas
           </button>
         </div>
 
@@ -369,7 +370,6 @@ const styles = {
   avatar: { width: '100px', height: '100px', borderRadius: '32px', border: '2px solid rgba(255,255,255,0.2)', overflow: 'hidden', boxShadow: '0 10px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
   avatarPlaceholder: { width: '100%', height: '100%', background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '36px', fontFamily: "'Outfit', sans-serif" },
-  levelBadge: { position: 'absolute', bottom: '-8px', left: '50%', transform: 'translateX(-50%)', padding: '4px 12px', borderRadius: '16px', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', fontSize: '12px', fontWeight: 700, boxShadow: '0 4px 10px rgba(0,0,0,0.3)' },
   bioContainer: {
     display: 'flex',
     flexDirection: 'column',
@@ -439,7 +439,35 @@ const styles = {
 };
 
 const statStyles = {
-  box: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '10px 4px', borderRadius: '16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(30px)', boxShadow: '0 8px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)' },
-  value: { fontSize: '15px', fontWeight: 800, fontFamily: "'Outfit', sans-serif" },
-  label: { fontSize: '11px', color: 'rgba(255,255,255,0.6)', fontWeight: 600 },
+  box: { 
+    display: 'flex', 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: '8px', 
+    padding: '10px 8px', 
+    borderRadius: '20px', 
+    background: 'rgba(255,255,255,0.03)', 
+    border: '1px solid rgba(255,255,255,0.08)', 
+    backdropFilter: 'blur(20px)', 
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    flex: 1
+  },
+  textContainer: { 
+    display: 'flex', 
+    flexDirection: 'column', 
+    alignItems: 'flex-start', 
+    gap: '1px' 
+  },
+  value: { 
+    fontSize: '13px', 
+    fontWeight: 800, 
+    fontFamily: "'Outfit', sans-serif" 
+  },
+  label: { 
+    fontSize: '10px', 
+    color: 'rgba(255,255,255,0.5)', 
+    fontWeight: 600,
+    fontFamily: "'Inter', sans-serif"
+  },
 };

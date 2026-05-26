@@ -287,6 +287,26 @@ export const useFeedStore = create(
       }
 
       console.log('[Feed] Post created with ID:', insertedPost.id);
+      
+      // Update user's total_videos in profiles table
+      try {
+        const { count: videoCount } = await supabase
+          .from('videos')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', metadata.userId);
+
+        await supabase
+          .from('profiles')
+          .update({ total_videos: videoCount || 0 })
+          .eq('id', metadata.userId);
+
+        // Dynamically import useAuthStore to prevent circular dependency
+        const { useAuthStore } = await import('./authStore');
+        useAuthStore.getState().refreshProfile();
+      } catch (profileErr) {
+        console.warn('[Feed] Error updating total_videos profile count:', profileErr.message);
+      }
+
       set((s) => ({ uploadingPost: { ...s.uploadingPost, progress: 100 } }));
 
       // Add to top of feed
@@ -321,6 +341,81 @@ export const useFeedStore = create(
       console.error('[Feed] createPost failed:', error.message);
       set({ uploadingPost: null, uploadError: error.message });
       return { success: false, error: error.message };
+    }
+  },
+
+  fetchComments: async (videoId) => {
+    try {
+      const { data, error } = await supabase
+        .from('video_comments')
+        .select('*')
+        .eq('video_id', videoId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('[Feed] fetchComments error:', err.message);
+      return [];
+    }
+  },
+
+  addComment: async (videoId, content) => {
+    try {
+      const { useAuthStore } = await import('./authStore');
+      const authState = useAuthStore.getState();
+      const user = authState.user;
+      const profile = authState.profile;
+
+      if (!user) throw new Error('Usuário não autenticado.');
+
+      const commentData = {
+        video_id: videoId,
+        user_id: user.uid,
+        username: profile?.username || 'user',
+        avatar_url: profile?.avatar_url || '',
+        content: content,
+      };
+
+      const { data: insertedComment, error: insertErr } = await supabase
+        .from('video_comments')
+        .insert(commentData)
+        .select()
+        .single();
+
+      if (insertErr) throw insertErr;
+
+      // Update comments count in videos table
+      const { data: videoData } = await supabase
+        .from('videos')
+        .select('comments, user_id')
+        .eq('id', videoId)
+        .single();
+
+      const newCommentsCount = (videoData?.comments || 0) + 1;
+
+      await supabase
+        .from('videos')
+        .update({ comments: newCommentsCount })
+        .eq('id', videoId);
+
+      // Increment comments count locally in state
+      set((state) => ({
+        videos: state.videos.map((v) =>
+          v.id === videoId ? { ...v, comments: newCommentsCount } : v
+        ),
+      }));
+
+      // Create notification for the video owner
+      if (videoData && videoData.user_id !== user.uid) {
+        const { useSocialStore } = await import('./socialStore');
+        useSocialStore.getState().createNotification(videoData.user_id, user.uid, 'comment', videoId);
+      }
+
+      return { success: true, comment: insertedComment };
+    } catch (err) {
+      console.error('[Feed] addComment error:', err.message);
+      return { success: false, error: err.message };
     }
   },
     }),

@@ -2,6 +2,9 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Home, Search, MessageCircle, Bell, User } from 'lucide-react';
 import { useNavigationStore } from '../../stores/navigationStore';
+import { useAuthStore } from '../../stores/authStore';
+import { useChatStore } from '../../stores/chatStore';
+import { useSocialStore } from '../../stores/socialStore';
 
 const tabs = [
   { id: 'feed', icon: Home, label: 'Feed' },
@@ -13,6 +16,39 @@ const tabs = [
 
 export default function BottomNav() {
   const { activeTab, setActiveTab } = useNavigationStore();
+  const { user } = useAuthStore();
+  const { conversations, fetchConversations } = useChatStore();
+  const { notifications, fetchNotifications, markNotificationsRead } = useSocialStore();
+
+  React.useEffect(() => {
+    if (user?.uid) {
+      fetchConversations(user.uid);
+      fetchNotifications(user.uid);
+
+      // Periodically refresh notifications/messages (every 10s)
+      const interval = setInterval(() => {
+        fetchConversations(user.uid);
+        fetchNotifications(user.uid);
+      }, 10000);
+
+      return () => clearInterval(interval);
+    }
+  }, [user?.uid]);
+
+  const totalUnreadMessages = conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
+  const unreadNotifsCount = notifications.filter((n) => !n.read).length;
+
+  const handleTabClick = (tabId) => {
+    setActiveTab(tabId);
+    if (tabId === 'notifications' && user?.uid) {
+      markNotificationsRead(user.uid);
+    }
+  };
+
+  const formatBadge = (count) => {
+    if (count <= 0) return null;
+    return count > 9 ? '+9' : `+${count}`;
+  };
 
   return (
     <nav style={styles.nav}>
@@ -24,7 +60,7 @@ export default function BottomNav() {
           return (
             <motion.button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabClick(tab.id)}
               style={styles.tab}
               whileTap={{ scale: 0.9 }}
             >
@@ -34,8 +70,15 @@ export default function BottomNav() {
                   color: isActive ? '#00D4FF' : '#6C6C88',
                 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                style={{ position: 'relative', display: 'inline-flex', padding: '4px' }}
               >
                 <Icon size={24} />
+                {tab.id === 'messages' && totalUnreadMessages > 0 && (
+                  <div style={styles.badge}>{formatBadge(totalUnreadMessages)}</div>
+                )}
+                {tab.id === 'notifications' && unreadNotifsCount > 0 && (
+                  <div style={styles.badge}>{formatBadge(unreadNotifsCount)}</div>
+                )}
               </motion.div>
               <motion.span
                 style={{
@@ -111,5 +154,24 @@ const styles = {
     background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))',
     boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.4), 0 4px 12px rgba(0,0,0,0.2)',
     zIndex: -1,
+  },
+  badge: {
+    position: 'absolute',
+    top: '-2px',
+    right: '-2px',
+    backgroundColor: '#FF2D55',
+    color: '#fff',
+    borderRadius: '10px',
+    minWidth: '16px',
+    height: '16px',
+    padding: '0 4px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '9px',
+    fontWeight: 'bold',
+    fontFamily: "'Inter', sans-serif",
+    border: '1.5px solid #0A0A0F',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
   },
 };
