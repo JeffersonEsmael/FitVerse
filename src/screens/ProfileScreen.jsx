@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, X } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
+import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useFeedStore } from '../stores/feedStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
@@ -36,6 +37,38 @@ export default function ProfileScreen() {
   const [selectedPost, setSelectedPost] = useState(null);
 
   const p = profile || {};
+
+  const [followersCount, setFollowersCount] = useState(p.followers || 0);
+  const [followingCount, setFollowingCount] = useState(p.following || 0);
+
+  // Sync state with profile updates
+  useEffect(() => {
+    if (profile) {
+      setFollowersCount(profile.followers || 0);
+      setFollowingCount(profile.following || 0);
+    }
+  }, [profile]);
+
+  // Fetch real-time count from DB directly (bypassing RLS update latency)
+  useEffect(() => {
+    if (user?.uid) {
+      supabase
+        .from('followers')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', user.uid)
+        .then(({ count }) => {
+          if (count !== null) setFollowersCount(count);
+        });
+
+      supabase
+        .from('followers')
+        .select('*', { count: 'exact', head: true })
+        .eq('follower_id', user.uid)
+        .then(({ count }) => {
+          if (count !== null) setFollowingCount(count);
+        });
+    }
+  }, [user?.uid]);
 
   // Calculate total shapes dynamically
   const totalShapes = userPosts.reduce((sum, post) => sum + (post.shapes || 0), 0);
@@ -131,11 +164,11 @@ export default function ProfileScreen() {
                 <span style={styles.statLabelInline}>posts</span>
               </div>
               <div style={styles.statItemInline}>
-                <span style={styles.statValueInline}>{p.followers || 0}</span>
+                <span style={styles.statValueInline}>{followersCount}</span>
                 <span style={styles.statLabelInline}>seguidores</span>
               </div>
               <div style={styles.statItemInline}>
-                <span style={styles.statValueInline}>{p.following || 0}</span>
+                <span style={styles.statValueInline}>{followingCount}</span>
                 <span style={styles.statLabelInline}>seguindo</span>
               </div>
             </div>

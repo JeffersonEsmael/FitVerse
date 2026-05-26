@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, X, Plus, Check } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
+import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useFeedStore } from '../stores/feedStore';
 import { useSocialStore } from '../stores/socialStore';
@@ -62,7 +63,31 @@ export default function PublicProfileScreen() {
         checkIfFollowing(user?.uid, userId)
       ]);
       
-      setProfile(profData);
+      // Secondary dynamic counts fetch to bypass RLS column update lags
+      let followersCount = profData?.followers || 0;
+      let followingCount = profData?.following || 0;
+      
+      try {
+        const { count: fCount } = await supabase
+          .from('followers')
+          .select('*', { count: 'exact', head: true })
+          .eq('following_id', userId);
+        if (fCount !== null) followersCount = fCount;
+
+        const { count: fingCount } = await supabase
+          .from('followers')
+          .select('*', { count: 'exact', head: true })
+          .eq('follower_id', userId);
+        if (fingCount !== null) followingCount = fingCount;
+      } catch (err) {
+        console.warn('Error fetching dynamic followers/following counts:', err);
+      }
+
+      setProfile({
+        ...profData,
+        followers: followersCount,
+        following: followingCount
+      });
       setUserPosts(postsData);
       setIsFollowing(followingStatus);
       setIsLoading(false);

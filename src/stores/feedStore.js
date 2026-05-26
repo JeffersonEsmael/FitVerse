@@ -28,9 +28,15 @@ export const useFeedStore = create(
           : v
       ),
     }));
-    supabase.rpc('toggle_video_shape', { p_video_id: videoId }).catch((err) => {
-      console.warn('[Feed] toggleShape RPC error:', err.message);
-    });
+    supabase.rpc('toggle_video_shape', { p_video_id: videoId })
+      .then(() => {
+        import('./authStore').then(({ useAuthStore }) => {
+          useAuthStore.getState().refreshProfile();
+        });
+      })
+      .catch((err) => {
+        console.warn('[Feed] toggleShape RPC error:', err.message);
+      });
   },
 
   toggleBoost: (videoId) => {
@@ -90,28 +96,58 @@ export const useFeedStore = create(
         return;
       }
 
-      const newVideos = data.map((v) => ({
-        id: v.id,
-        videoUrl: v.video_url,
-        mediaType: v.media_type || 'video',
-        userId: v.user_id,
-        username: v.username,
-        userAvatar: v.user_avatar || '',
-        displayName: v.display_name,
-        caption: v.caption || '',
-        hashtags: v.hashtags || [],
-        category: v.category || 'geral',
-        shapes: v.shapes || 0,
-        boosts: v.boosts || 0,
-        gym_bag_saves: v.gym_bag_saves || 0,
-        comments: v.comments || 0,
-        shares: v.shares || 0,
-        views: v.views || 0,
-        hasShaped: false,
-        hasBoosted: false,
-        inGymBag: false,
-        createdAt: new Date(v.created_at),
-      }));
+      // Query actual user interactions to set active visual states
+      let userInteractions = [];
+      try {
+        const { useAuthStore } = await import('./authStore');
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser?.uid) {
+          const videoIds = data.map((v) => v.id);
+          const { data: interactions } = await supabase
+            .from('video_interactions')
+            .select('video_id, interaction_type')
+            .eq('user_id', currentUser.uid)
+            .in('video_id', videoIds);
+          if (interactions) userInteractions = interactions;
+        }
+      } catch (authErr) {
+        console.warn('[Feed] Error getting active user interactions:', authErr.message);
+      }
+
+      const newVideos = data.map((v) => {
+        const hasShaped = userInteractions.some(
+          (i) => i.video_id === v.id && i.interaction_type === 'shape'
+        );
+        const hasBoosted = userInteractions.some(
+          (i) => i.video_id === v.id && i.interaction_type === 'boost'
+        );
+        const inGymBag = userInteractions.some(
+          (i) => i.video_id === v.id && i.interaction_type === 'gym_bag'
+        );
+
+        return {
+          id: v.id,
+          videoUrl: v.video_url,
+          mediaType: v.media_type || 'video',
+          userId: v.user_id,
+          username: v.username,
+          userAvatar: v.user_avatar || '',
+          displayName: v.display_name,
+          caption: v.caption || '',
+          hashtags: v.hashtags || [],
+          category: v.category || 'geral',
+          shapes: v.shapes || 0,
+          boosts: v.boosts || 0,
+          gym_bag_saves: v.gym_bag_saves || 0,
+          comments: v.comments || 0,
+          shares: v.shares || 0,
+          views: v.views || 0,
+          hasShaped,
+          hasBoosted,
+          inGymBag,
+          createdAt: new Date(v.created_at),
+        };
+      });
 
       set((state) => ({
         videos: loadMore ? [...state.videos, ...newVideos] : newVideos,
@@ -360,7 +396,7 @@ export const useFeedStore = create(
     }
   },
 
-  addComment: async (videoId, content) => {
+  addComment: async (videoId, content, parentId = null) => {
     try {
       const { useAuthStore } = await import('./authStore');
       const authState = useAuthStore.getState();
@@ -375,6 +411,7 @@ export const useFeedStore = create(
         username: profile?.username || 'user',
         avatar_url: profile?.avatar_url || '',
         content: content,
+        parent_id: parentId,
       };
 
       const { data: insertedComment, error: insertErr } = await supabase
@@ -385,24 +422,16 @@ export const useFeedStore = create(
 
       if (insertErr) throw insertErr;
 
-      // Update comments count in videos table
       const { data: videoData } = await supabase
         .from('videos')
         .select('comments, user_id')
         .eq('id', videoId)
         .single();
 
-      const newCommentsCount = (videoData?.comments || 0) + 1;
-
-      await supabase
-        .from('videos')
-        .update({ comments: newCommentsCount })
-        .eq('id', videoId);
-
       // Increment comments count locally in state
       set((state) => ({
         videos: state.videos.map((v) =>
-          v.id === videoId ? { ...v, comments: newCommentsCount } : v
+          v.id === videoId ? { ...v, comments: (v.comments || 0) + 1 } : v
         ),
       }));
 
@@ -415,6 +444,47 @@ export const useFeedStore = create(
       return { success: true, comment: insertedComment };
     } catch (err) {
       console.error('[Feed] addComment error:', err.message);
+      return { success: false, error: err.message };
+    }
+  },
+
+  toggleCommentLike: async (commentId) => {
+    try {
+      const { useAuthStore } = await import('./authStore');
+      const currentUser = useAuthStore.getState().user;
+      if (!currentUser) throw new Error('Usuário não autenticado.');
+
+      // Check if already liked
+      const { data: existingLike, error: selectErr } = await supabase
+        .from('comment_likes')
+        .select('*')
+        .eq('user_id', currentUser.uid)
+        .eq('comment_id', commentId)
+        .maybeSingle();
+
+      if (selectErr) throw selectErr;
+
+      if (existingLike) {
+        // Delete like
+        const { error: deleteErr } = await supabase
+          .from('comment_likes')
+          .delete()
+          .eq('id', existingLike.id);
+        if (deleteErr) throw deleteErr;
+        return { success: true, liked: false };
+      } else {
+        // Insert like
+        const { error: insertErr } = await supabase
+          .from('comment_likes')
+          .insert({
+            user_id: currentUser.uid,
+            comment_id: commentId
+          });
+        if (insertErr) throw insertErr;
+        return { success: true, liked: true };
+      }
+    } catch (err) {
+      console.error('[Feed] toggleCommentLike error:', err.message);
       return { success: false, error: err.message };
     }
   },
