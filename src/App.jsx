@@ -15,6 +15,9 @@ import ProfileScreen from './screens/ProfileScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import PrivacySettingsScreen from './screens/PrivacySettingsScreen';
+import SecuritySettingsScreen from './screens/SecuritySettingsScreen';
+import NotificationSettingsScreen from './screens/NotificationSettingsScreen';
+import BlockedUsersScreen from './screens/BlockedUsersScreen';
 import NutriScanScreen from './screens/NutriScanScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import ConversationsListScreen from './screens/ConversationsListScreen';
@@ -39,6 +42,9 @@ const SCREENS = {
   edit_profile: EditProfileScreen,
   settings: SettingsScreen,
   privacy_settings: PrivacySettingsScreen,
+  security_settings: SecuritySettingsScreen,
+  notification_settings: NotificationSettingsScreen,
+  blocked_users: BlockedUsersScreen,
   nutriscan: NutriScanScreen,
   notifications: NotificationsScreen,
   conversations: ConversationsListScreen,

@@ -133,6 +133,56 @@ export const useSocialStore = create((set, get) => ({
     }
   },
 
+  // Search videos
+  searchVideos: async (query) => {
+    if (!query || query.length < 2) {
+      set({ searchResults: [] });
+      return;
+    }
+    
+    set({ isSearching: true });
+    try {
+      const { data, error } = await supabase
+        .from('videos')
+        .select('*')
+        .or(`caption.ilike.%${query}%,category.ilike.%${query}%`)
+        .limit(20);
+        
+      if (error) throw error;
+      set({ searchResults: data || [] });
+    } catch (error) {
+      console.error('[SocialStore] searchVideos error:', error.message);
+      set({ searchResults: [] });
+    } finally {
+      set({ isSearching: false });
+    }
+  },
+
+  // Search sounds
+  searchSounds: async (query) => {
+    if (!query || query.length < 2) {
+      set({ searchResults: [] });
+      return;
+    }
+    
+    set({ isSearching: true });
+    try {
+      const { data, error } = await supabase
+        .from('videos')
+        .select('id, display_name, username, user_avatar, video_url, caption')
+        .or(`display_name.ilike.%${query}%,username.ilike.%${query}%`)
+        .limit(20);
+        
+      if (error) throw error;
+      set({ searchResults: data || [] });
+    } catch (error) {
+      console.error('[SocialStore] searchSounds error:', error.message);
+      set({ searchResults: [] });
+    } finally {
+      set({ isSearching: false });
+    }
+  },
+
   // Clear search
   clearSearch: () => set({ searchResults: [] }),
 
@@ -189,7 +239,46 @@ export const useSocialStore = create((set, get) => ({
         .limit(30);
 
       if (error) throw error;
-      set({ notifications: data || [] });
+      
+      const notificationsWithData = await Promise.all((data || []).map(async (notif) => {
+        let reference_data = null;
+        
+        if (['shape', 'comment', 'save', 'boost', 'mention'].includes(notif.type) && notif.reference_id) {
+          // Fetch video details
+          const { data: videoData } = await supabase
+            .from('videos')
+            .select('video_url, thumbnail_url, caption')
+            .eq('id', notif.reference_id)
+            .maybeSingle();
+            
+          if (videoData) {
+            reference_data = {
+              video_thumbnail: videoData.thumbnail_url || 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=150',
+            };
+            
+            if (notif.type === 'comment' || notif.type === 'mention') {
+              // Fetch the actual comment preview
+              const { data: commentData } = await supabase
+                .from('video_comments')
+                .select('content')
+                .eq('video_id', notif.reference_id)
+                .eq('user_id', notif.sender_id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+                
+              reference_data.preview = commentData?.content || videoData.caption || 'Comentário';
+            }
+          }
+        }
+        
+        return {
+          ...notif,
+          reference_data
+        };
+      }));
+
+      set({ notifications: notificationsWithData });
     } catch (error) {
       console.error('[SocialStore] fetch notifs error:', error.message);
     } finally {

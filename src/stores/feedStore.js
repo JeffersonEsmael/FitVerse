@@ -21,6 +21,9 @@ export const useFeedStore = create(
 
   // ─── Toggle interactions ─────────────────────────────────
   toggleShape: async (videoId) => {
+    const video = get().videos.find((v) => v.id === videoId);
+    const wasShaped = video ? video.hasShaped : false;
+
     // Optimistic update
     set((state) => ({
       videos: state.videos.map((v) =>
@@ -44,7 +47,14 @@ export const useFeedStore = create(
         }));
       } else {
         const { useAuthStore } = await import('./authStore');
-        useAuthStore.getState().refreshProfile();
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser) {
+          useAuthStore.getState().refreshProfile();
+          if (!wasShaped && video && video.userId && video.userId !== currentUser.uid) {
+            const { useSocialStore } = await import('./socialStore');
+            useSocialStore.getState().createNotification(video.userId, currentUser.uid, 'shape', videoId);
+          }
+        }
       }
     } catch (err) {
       console.error('[Feed] toggleShape exception:', err.message);
@@ -52,6 +62,9 @@ export const useFeedStore = create(
   },
 
   toggleBoost: async (videoId) => {
+    const video = get().videos.find((v) => v.id === videoId);
+    const wasBoosted = video ? video.hasBoosted : false;
+
     // Optimistic update
     set((state) => ({
       videos: state.videos.map((v) =>
@@ -73,6 +86,13 @@ export const useFeedStore = create(
               : v
           ),
         }));
+      } else {
+        const { useAuthStore } = await import('./authStore');
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser && !wasBoosted && video && video.userId && video.userId !== currentUser.uid) {
+          const { useSocialStore } = await import('./socialStore');
+          useSocialStore.getState().createNotification(video.userId, currentUser.uid, 'boost', videoId);
+        }
       }
     } catch (err) {
       console.error('[Feed] toggleBoost exception:', err.message);
@@ -551,6 +571,26 @@ export const useFeedStore = create(
       if (videoData && videoData.user_id !== user.uid) {
         const { useSocialStore } = await import('./socialStore');
         useSocialStore.getState().createNotification(videoData.user_id, user.uid, 'comment', videoId);
+      }
+
+      // Scan and create mention notifications
+      const mentionRegex = /@([a-zA-Z0-9_]+)/g;
+      const matches = [...content.matchAll(mentionRegex)];
+      if (matches.length > 0) {
+        const usernames = matches.map((m) => m[1].toLowerCase());
+        const { useSocialStore } = await import('./socialStore');
+        const socialStore = useSocialStore.getState();
+        for (const username of usernames) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('username', username)
+            .maybeSingle();
+
+          if (profileData && profileData.id !== user.uid) {
+            await socialStore.createNotification(profileData.id, user.uid, 'mention', videoId);
+          }
+        }
       }
 
       return { success: true, comment: insertedComment };

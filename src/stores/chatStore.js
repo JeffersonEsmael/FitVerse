@@ -219,4 +219,24 @@ export const useChatStore = create((set, get) => ({
 
   // ─── Clear messages ──────────────────────────────────────
   clearMessages: () => set({ messages: [], activeConversation: null }),
+
+  // ─── Delete a conversation ────────────────────────────────
+  deleteConversation: async (conversationId) => {
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('id', conversationId);
+      
+      if (error) throw error;
+      
+      set((state) => ({
+        conversations: state.conversations.filter((c) => c.id !== conversationId),
+      }));
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting conversation:', error.message);
+      return { success: false, error: error.message };
+    }
+  },
 }));

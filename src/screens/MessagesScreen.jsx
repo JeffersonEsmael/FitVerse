@@ -1,22 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Send, Image as ImageIcon } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Send, Image as ImageIcon, Mic, Smile, X } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 
+const FITNESS_EMOJIS = ['💪', '🏋️', '🥗', '🏆', '💧', '🧠', '🥇', '🥑', '🔥', '👟'];
+
 export default function MessagesScreen() {
   const { user } = useAuthStore();
   const { messages, fetchMessages, sendMessage, uploadChatImage, subscribeToMessages, unsubscribeFromMessages } = useChatStore();
   const { screenParams, goBack } = useNavigationStore();
+  
   const [text, setText] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [showEmojis, setShowEmojis] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const recordingInterval = useRef(null);
 
   const conversationId = screenParams?.conversationId;
   const otherUser = screenParams?.otherUser || { display_name: 'Usuário', avatar_url: '' };
+  
+  // Simulated deterministic online status based on contact's username / ID
+  const isOnline = (otherUser.id?.charCodeAt(0) || otherUser.username?.charCodeAt(0) || 0) % 2 === 0;
 
   // Load messages and subscribe to realtime
   useEffect(() => {
@@ -26,6 +37,29 @@ export default function MessagesScreen() {
     }
     return () => unsubscribeFromMessages();
   }, [conversationId, fetchMessages, subscribeToMessages, unsubscribeFromMessages]);
+
+  // Audio recording timer simulation
+  useEffect(() => {
+    if (isRecording) {
+      setRecordingTime(0);
+      recordingInterval.current = setInterval(() => {
+        setRecordingTime(prev => {
+          if (prev >= 9) {
+            handleStopRecording(true); // Auto send at 9s
+            return 9;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } else {
+      if (recordingInterval.current) {
+        clearInterval(recordingInterval.current);
+      }
+    }
+    return () => {
+      if (recordingInterval.current) clearInterval(recordingInterval.current);
+    };
+  }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -39,6 +73,7 @@ export default function MessagesScreen() {
     setText('');
     await sendMessage(conversationId, user.uid, trimmed);
     setIsSending(false);
+    setShowEmojis(false);
   };
 
   const handleKeyDown = (e) => {
@@ -59,6 +94,26 @@ export default function MessagesScreen() {
     setIsSending(false);
   };
 
+  const handleStartRecording = () => {
+    setIsRecording(true);
+  };
+
+  const handleStopRecording = async (shouldSend = true) => {
+    if (!isRecording) return;
+    setIsRecording(false);
+    if (shouldSend && conversationId && user?.uid) {
+      setIsSending(true);
+      const timeStr = recordingTime > 0 ? `0:${recordingTime < 10 ? '0' + recordingTime : recordingTime}` : '0:03';
+      await sendMessage(conversationId, user.uid, `🎙️ Mensagem de voz (${timeStr})`);
+      setIsSending(false);
+    }
+    setRecordingTime(0);
+  };
+
+  const handleAddEmoji = (emoji) => {
+    setText(prev => prev + emoji);
+  };
+
   const formatTime = (date) => {
     return new Date(date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   };
@@ -72,18 +127,12 @@ export default function MessagesScreen() {
             <ArrowLeft size={24} color="#fff" />
           </button>
           <div style={styles.headerUserInfo}>
-            <div style={styles.avatar}>
-              {otherUser.avatar_url ? (
-                <img src={otherUser.avatar_url} alt="" style={styles.avatarImg} />
-              ) : (
-                <div style={styles.avatarPlaceholder}>
-                  {otherUser.display_name?.charAt(0) || '?'}
-                </div>
-              )}
-            </div>
             <div style={styles.headerTitles}>
               <span style={styles.userName}>{otherUser.display_name}</span>
-              <span style={styles.userHandle}>@{otherUser.username || 'user'}</span>
+              <div style={styles.statusRow}>
+                <div style={{ ...styles.statusDot, background: isOnline ? '#39FF14' : '#6C6C88' }} />
+                <span style={styles.statusText}>{isOnline ? 'Online' : 'Offline'}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -128,13 +177,63 @@ export default function MessagesScreen() {
                     <img src={msg.imageUrl} alt="" style={styles.chatImage} />
                   )}
                   {msg.content && <p style={styles.messageText}>{msg.content}</p>}
-                  <span style={styles.messageTime}>{formatTime(msg.createdAt)}</span>
+                  <span style={styles.messageTime}>
+                    {formatTime(msg.createdAt)}
+                    {isSender && (
+                      <span style={{ ...styles.ticks, color: '#00D4FF' }}> ✓✓</span>
+                    )}
+                  </span>
                 </div>
               </motion.div>
             );
           })}
           <div ref={chatEndRef} />
         </div>
+
+        {/* Waveform mic animation popup if recording */}
+        <AnimatePresence>
+          {isRecording && (
+            <motion.div
+              style={styles.recordingOverlay}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+            >
+              <div style={styles.recordingWave}>
+                <motion.div animate={{ scaleY: [1, 2.5, 1] }} transition={{ repeat: Infinity, duration: 0.6 }} style={styles.waveBar} />
+                <motion.div animate={{ scaleY: [1, 3.2, 1] }} transition={{ repeat: Infinity, duration: 0.5, delay: 0.1 }} style={styles.waveBar} />
+                <motion.div animate={{ scaleY: [1, 1.8, 1] }} transition={{ repeat: Infinity, duration: 0.7, delay: 0.2 }} style={styles.waveBar} />
+                <motion.div animate={{ scaleY: [1, 2.8, 1] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.3 }} style={styles.waveBar} />
+              </div>
+              <span style={styles.recordingText}>Gravando... 0:0{recordingTime}</span>
+              <button style={styles.cancelRecordingBtn} onClick={() => handleStopRecording(false)}>
+                <X size={14} /> Cancelar
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Emojis selection drawer */}
+        <AnimatePresence>
+          {showEmojis && (
+            <motion.div
+              style={styles.emojisWrapper}
+              initial={{ height: 0 }}
+              animate={{ height: 'auto' }}
+              exit={{ height: 0 }}
+            >
+              {FITNESS_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  style={styles.emojiBtn}
+                  onClick={() => handleAddEmoji(emoji)}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Input Area */}
         <div style={styles.inputArea}>
@@ -148,6 +247,11 @@ export default function MessagesScreen() {
             onChange={handleImageUpload}
             style={{ display: 'none' }}
           />
+          
+          <button style={styles.actionBtn} onClick={() => setShowEmojis(!showEmojis)}>
+            <Smile size={22} color={showEmojis ? '#00D4FF' : '#6C6C88'} />
+          </button>
+          
           <div style={styles.inputWrapper}>
             <input
               type="text"
@@ -159,6 +263,21 @@ export default function MessagesScreen() {
               disabled={isSending}
             />
           </div>
+
+          <button
+            style={{
+              ...styles.actionBtn,
+              background: isRecording ? 'rgba(255,45,85,0.1)' : 'transparent',
+              borderRadius: '50%',
+            }}
+            onMouseDown={handleStartRecording}
+            onMouseUp={() => handleStopRecording(true)}
+            onTouchStart={handleStartRecording}
+            onTouchEnd={() => handleStopRecording(true)}
+          >
+            <Mic size={22} color={isRecording ? '#FF2D55' : '#6C6C88'} />
+          </button>
+
           <button style={styles.sendBtn} onClick={handleSend} disabled={isSending || !text.trim()}>
             <Send size={20} color="#fff" />
           </button>
@@ -233,10 +352,23 @@ const styles = {
     fontWeight: 600,
     fontFamily: "'Inter', sans-serif",
   },
-  userHandle: {
-    color: '#6C6C88',
-    fontSize: '12px',
+  statusRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    marginTop: '2px',
+  },
+  statusDot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    boxShadow: '0 0 6px rgba(57, 255, 20, 0.6)',
+  },
+  statusText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: '11px',
     fontWeight: 500,
+    fontFamily: "'Inter', sans-serif",
   },
   chatArea: {
     flex: 1,
@@ -312,11 +444,76 @@ const styles = {
     wordBreak: 'break-word',
   },
   messageTime: {
-    display: 'block',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
     fontSize: '10px',
     color: 'rgba(255,255,255,0.4)',
     marginTop: '4px',
     textAlign: 'right',
+  },
+  ticks: {
+    fontSize: '11px',
+    fontWeight: 'bold',
+    marginLeft: '4px',
+  },
+  recordingOverlay: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '12px 16px',
+    margin: '0 16px 12px 16px',
+    background: 'rgba(255,45,85,0.08)',
+    border: '1px solid rgba(255,45,85,0.2)',
+    borderRadius: '16px',
+    backdropFilter: 'blur(20px)',
+  },
+  recordingWave: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '3px',
+    height: '24px',
+  },
+  waveBar: {
+    width: '3px',
+    height: '6px',
+    background: '#FF2D55',
+    borderRadius: '1.5px',
+  },
+  recordingText: {
+    fontSize: '13px',
+    color: '#FF2D55',
+    fontWeight: 600,
+    fontFamily: "'Inter', sans-serif",
+  },
+  cancelRecordingBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    background: 'rgba(255,255,255,0.05)',
+    border: 'none',
+    color: '#fff',
+    padding: '6px 12px',
+    borderRadius: '8px',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: "'Inter', sans-serif",
+  },
+  emojisWrapper: {
+    display: 'flex',
+    gap: '12px',
+    padding: '12px 16px',
+    background: 'rgba(255,255,255,0.03)',
+    borderTop: '1px solid rgba(255,255,255,0.05)',
+    overflowX: 'auto',
+  },
+  emojiBtn: {
+    fontSize: '22px',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    flexShrink: 0,
   },
   inputArea: {
     padding: '12px 16px',

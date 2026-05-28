@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, X } from 'lucide-react';
+import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, X, Trophy, Flame, Target, Dumbbell, Zap, Star, Medal } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -10,6 +10,18 @@ import GymBagIcon from '../components/icons/GymBagIcon';
 import ShapeIcon from '../components/icons/ShapeIcon';
 import VideoCard from '../components/feed/VideoCard';
 
+// Badge definitions with unlock criteria
+const BADGE_DEFINITIONS = [
+  { id: 'first_post', name: 'Primeiro Post', description: 'Publicou o primeiro vídeo', icon: Video, color: '#00D4FF', gradient: 'linear-gradient(135deg, #00D4FF, #0088CC)', check: (p, posts) => posts.length >= 1 },
+  { id: 'five_posts', name: '5 Posts', description: 'Publicou 5 vídeos', icon: Flame, color: '#FF9500', gradient: 'linear-gradient(135deg, #FF9500, #FF6B00)', check: (p, posts) => posts.length >= 5 },
+  { id: 'ten_posts', name: '10 Posts', description: 'Publicou 10 vídeos', icon: Star, color: '#FFD700', gradient: 'linear-gradient(135deg, #FFD700, #FFA500)', check: (p, posts) => posts.length >= 10 },
+  { id: 'first_follower', name: 'Primeiro Seguidor', description: 'Conquistou o primeiro seguidor', icon: Target, color: '#A855F7', gradient: 'linear-gradient(135deg, #A855F7, #7C3AED)', check: (p) => (p.followers || 0) >= 1 },
+  { id: 'ten_followers', name: 'Popular', description: '10 seguidores alcançados', icon: Zap, color: '#39FF14', gradient: 'linear-gradient(135deg, #39FF14, #00CC00)', check: (p) => (p.followers || 0) >= 10 },
+  { id: 'hundred_followers', name: 'Influencer', description: '100 seguidores alcançados', icon: Trophy, color: '#FF2D55', gradient: 'linear-gradient(135deg, #FF2D55, #CC0033)', check: (p) => (p.followers || 0) >= 100 },
+  { id: 'shape_collector', name: 'Shape Master', description: 'Recebeu 50 shapes em seus vídeos', icon: (props) => <ShapeIcon filled={true} size={props.size} color={props.color} />, color: '#39FF14', gradient: 'linear-gradient(135deg, #39FF14, #00E676)', check: (p, posts) => posts.reduce((sum, post) => sum + (post.shapes || 0), 0) >= 50 },
+  { id: 'gym_rat', name: 'Gym Rat', description: 'Salvou 10 vídeos no Gym Bag', icon: Dumbbell, color: '#00D4FF', gradient: 'linear-gradient(135deg, #00D4FF, #00AAFF)', check: (p, posts, gymBag) => (gymBag || []).length >= 10 },
+];
+
 function StatBox({ label, value, icon: Icon, color, onClick }) {
   return (
     <motion.div style={{...statStyles.box, cursor: onClick ? 'pointer' : 'default'}} whileTap={onClick ? { scale: 0.95 } : {}} onClick={onClick}>
@@ -18,6 +30,48 @@ function StatBox({ label, value, icon: Icon, color, onClick }) {
         <span style={statStyles.label}>{label}</span>
         <span style={{ ...statStyles.value, color }}>{value}</span>
       </div>
+    </motion.div>
+  );
+}
+
+function BadgeCard({ badge, unlocked, index }) {
+  return (
+    <motion.div
+      style={{
+        ...badgeStyles.card,
+        opacity: unlocked ? 1 : 0.4,
+        border: unlocked ? `1px solid ${badge.color}30` : '1px solid rgba(255,255,255,0.05)',
+      }}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: unlocked ? 1 : 0.4, scale: 1 }}
+      transition={{ delay: index * 0.05 }}
+    >
+      <div style={{
+        ...badgeStyles.iconContainer,
+        background: unlocked ? badge.gradient : 'rgba(255,255,255,0.05)',
+        boxShadow: unlocked ? `0 4px 16px ${badge.color}30` : 'none',
+      }}>
+        {typeof badge.icon === 'function' ? (
+          <badge.icon size={24} color={unlocked ? '#fff' : '#6C6C88'} />
+        ) : (
+          React.createElement(badge.icon, { size: 24, color: unlocked ? '#fff' : '#6C6C88' })
+        )}
+      </div>
+      <span style={{
+        ...badgeStyles.name,
+        color: unlocked ? '#fff' : 'rgba(255,255,255,0.4)',
+      }}>{badge.name}</span>
+      <span style={badgeStyles.description}>{badge.description}</span>
+      {unlocked && (
+        <motion.div
+          style={badgeStyles.unlockedBadge}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+        >
+          ✓
+        </motion.div>
+      )}
     </motion.div>
   );
 }
@@ -73,6 +127,16 @@ export default function ProfileScreen() {
   // Calculate total shapes dynamically
   const totalShapes = userPosts.reduce((sum, post) => sum + (post.shapes || 0), 0);
 
+  // Compute badges
+  const badges = useMemo(() => {
+    return BADGE_DEFINITIONS.map((badge) => ({
+      ...badge,
+      unlocked: badge.check({ ...p, followers: followersCount }, userPosts, gymBagVideos),
+    }));
+  }, [p, followersCount, userPosts, gymBagVideos]);
+
+  const unlockedCount = badges.filter((b) => b.unlocked).length;
+
   // Refresh profile on mount to ensure real-time data
   useEffect(() => {
     if (user?.uid) {
@@ -81,8 +145,12 @@ export default function ProfileScreen() {
         setUserPosts(posts);
         setPostsLoaded(true);
       });
+      fetchGymBagVideos(user.uid).then((videos) => {
+        setGymBagVideos(videos);
+        setGymBagLoaded(true);
+      });
     }
-  }, [user?.uid, refreshProfile, fetchUserPosts]);
+  }, [user?.uid, refreshProfile, fetchUserPosts, fetchGymBagVideos]);
 
   // Fetch posts
   useEffect(() => {
@@ -96,14 +164,14 @@ export default function ProfileScreen() {
 
   // Fetch gym bag
   useEffect(() => {
-    if (activeProfileTab === 'gymbag' && user?.uid) {
+    if (activeProfileTab === 'gymbag' && user?.uid && !gymBagLoaded) {
       setGymBagLoaded(false);
       fetchGymBagVideos(user.uid).then((videos) => {
         setGymBagVideos(videos);
         setGymBagLoaded(true);
       });
     }
-  }, [activeProfileTab, user?.uid, fetchGymBagVideos]);
+  }, [activeProfileTab, user?.uid, gymBagLoaded, fetchGymBagVideos]);
 
   const handleDM = () => {
     navigate('conversations');
@@ -238,6 +306,7 @@ export default function ProfileScreen() {
             onClick={() => setActiveProfileTab('badges')}
           >
             <Award size={18} /> Medalhas
+            {unlockedCount > 0 && <span style={styles.badgeCountChip}>{unlockedCount}</span>}
           </button>
         </div>
 
@@ -309,9 +378,32 @@ export default function ProfileScreen() {
 
         {/* Content - Badges */}
         {activeProfileTab === 'badges' && (
-          <div style={styles.emptyGrid}>
-            <Award size={32} color="rgba(255,255,255,0.4)" />
-            <span style={styles.emptyGridText}>Conquistas em breve 🏆</span>
+          <div style={badgeStyles.grid}>
+            {/* Summary header */}
+            <div style={badgeStyles.summary}>
+              <div style={badgeStyles.summaryIcon}>
+                <Trophy size={24} color="#FFD700" />
+              </div>
+              <div style={badgeStyles.summaryInfo}>
+                <span style={badgeStyles.summaryTitle}>{unlockedCount} de {badges.length} medalhas</span>
+                <div style={badgeStyles.progressBar}>
+                  <motion.div
+                    style={{
+                      ...badgeStyles.progressFill,
+                      width: `${(unlockedCount / badges.length) * 100}%`,
+                    }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(unlockedCount / badges.length) * 100}%` }}
+                    transition={{ duration: 1, ease: 'easeOut' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Badge cards */}
+            {badges.map((badge, i) => (
+              <BadgeCard key={badge.id} badge={badge} unlocked={badge.unlocked} index={i} />
+            ))}
           </div>
         )}
       </div>
@@ -423,6 +515,15 @@ const styles = {
   contentTabs: { display: 'flex', gap: '8px', marginBottom: '16px' },
   contentTab: { flex: 1, padding: '14px', borderRadius: '20px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontFamily: "'Inter', sans-serif", backdropFilter: 'blur(20px)' },
   contentTabActive: { background: 'rgba(255,255,255,0.15)', color: '#fff', borderColor: 'rgba(255,255,255,0.3)', boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.4)' },
+  badgeCountChip: {
+    fontSize: '10px',
+    fontWeight: 800,
+    color: '#0A0A0F',
+    background: '#FFD700',
+    borderRadius: '10px',
+    padding: '2px 6px',
+    marginLeft: '2px',
+  },
   videoGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '20px' },
   videoThumb: { aspectRatio: '9/16', borderRadius: '16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', position: 'relative', overflow: 'hidden', cursor: 'pointer' },
   thumbMedia: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
@@ -433,9 +534,11 @@ const styles = {
   fullScreenModal: {
     position: 'fixed',
     top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: '100%',
+    maxWidth: '500px',
+    height: '100%',
     background: '#000',
     zIndex: 9999,
     display: 'flex',
@@ -502,5 +605,109 @@ const statStyles = {
     color: 'rgba(255,255,255,0.5)', 
     fontWeight: 600,
     fontFamily: "'Inter', sans-serif"
+  },
+};
+
+const badgeStyles = {
+  grid: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+    marginBottom: '20px',
+  },
+  summary: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    padding: '20px',
+    borderRadius: '24px',
+    background: 'rgba(255,215,0,0.05)',
+    border: '1px solid rgba(255,215,0,0.15)',
+    backdropFilter: 'blur(20px)',
+    marginBottom: '8px',
+  },
+  summaryIcon: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '16px',
+    background: 'rgba(255,215,0,0.1)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  summaryInfo: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  summaryTitle: {
+    fontSize: '15px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+  },
+  progressBar: {
+    width: '100%',
+    height: '6px',
+    borderRadius: '3px',
+    background: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: '3px',
+    background: 'linear-gradient(90deg, #FFD700, #FFA500)',
+    boxShadow: '0 0 8px rgba(255,215,0,0.4)',
+  },
+  card: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: '20px 16px',
+    borderRadius: '20px',
+    background: 'rgba(255,255,255,0.03)',
+    backdropFilter: 'blur(20px)',
+    gap: '8px',
+    position: 'relative',
+    transition: 'all 0.2s ease',
+  },
+  iconContainer: {
+    width: '56px',
+    height: '56px',
+    borderRadius: '18px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '4px',
+  },
+  name: {
+    fontSize: '14px',
+    fontWeight: 700,
+    fontFamily: "'Outfit', sans-serif",
+    textAlign: 'center',
+  },
+  description: {
+    fontSize: '12px',
+    color: 'rgba(255,255,255,0.4)',
+    textAlign: 'center',
+    fontFamily: "'Inter', sans-serif",
+  },
+  unlockedBadge: {
+    position: 'absolute',
+    top: '12px',
+    right: '12px',
+    width: '22px',
+    height: '22px',
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, #39FF14, #00CC00)',
+    color: '#0A0A0F',
+    fontSize: '12px',
+    fontWeight: 800,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 2px 8px rgba(57,255,20,0.4)',
   },
 };

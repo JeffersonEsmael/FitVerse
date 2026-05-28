@@ -103,9 +103,11 @@ export default function AuthScreen() {
       >
         <div style={styles.logoSection}>
           <div style={styles.logoIconContainer}>
-            <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M92,38 C80,38 52,44 14,64 C50,56 78,48 92,38 Z" fill="white" />
-              <path d="M8,62 C20,62 48,56 86,36 C50,44 22,52 8,62 Z" fill="white" />
+            <svg width="48" height="48" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* Asa superior direita */}
+              <path d="M 46 47 C 62 38, 79 32, 92 34 C 84 46, 68 56, 46 47 Z" fill="white" />
+              {/* Asa inferior esquerda */}
+              <path d="M 54 53 C 38 62, 21 68, 8 66 C 16 54, 32 44, 54 53 Z" fill="white" />
             </svg>
           </div>
           <h1 style={styles.logo}>Myora</h1>

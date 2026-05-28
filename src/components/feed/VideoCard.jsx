@@ -7,11 +7,21 @@ import CommentsSheet from './CommentsSheet';
 import { useAuthStore } from '../../stores/authStore';
 import { useSocialStore } from '../../stores/socialStore';
 
+import { useFeedStore } from '../../stores/feedStore';
+import { AnimatePresence } from 'framer-motion';
+
 export default function VideoCard({ video, isActive, index }) {
   const videoRef = useRef(null);
+  const longPressTimer = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [showPlayIcon, setShowPlayIcon] = useState(false);
+  
+  const [progress, setProgress] = useState(0);
+  const [showOptions, setShowOptions] = useState(false);
+  const [optionsActionFeedback, setOptionsActionFeedback] = useState(null);
+  const [reportingReason, setReportingReason] = useState(false);
+  const [isLongPressing, setIsLongPressing] = useState(false);
 
   const { user } = useAuthStore();
   const { checkIfFollowing, followUser, unfollowUser } = useSocialStore();
@@ -38,7 +48,7 @@ export default function VideoCard({ video, isActive, index }) {
     if (!user?.uid || !video.userId || isSelf) return;
 
     const previousState = isFollowing;
-    setIsFollowing(!previousState);
+    setIsFollowing(!isFollowing);
 
     if (previousState) {
       const res = await unfollowUser(user.uid, video.userId);
@@ -60,6 +70,7 @@ export default function VideoCard({ video, isActive, index }) {
 
     if (isActive) {
       el.currentTime = 0;
+      setProgress(0);
       el.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
     } else {
       el.pause();
@@ -67,8 +78,19 @@ export default function VideoCard({ video, isActive, index }) {
     }
   }, [isActive, isVideo]);
 
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      const current = videoRef.current.currentTime;
+      const duration = videoRef.current.duration;
+      if (duration > 0) {
+        setProgress((current / duration) * 100);
+      }
+    }
+  };
+
   const togglePlay = () => {
     if (!isVideo) return;
+    if (isLongPressing) return;
     const el = videoRef.current;
     if (!el) return;
     if (isPlaying) {
@@ -87,8 +109,35 @@ export default function VideoCard({ video, isActive, index }) {
     if (videoRef.current) videoRef.current.muted = !isMuted;
   };
 
+  const handleStartPress = (e) => {
+    setIsLongPressing(false);
+    longPressTimer.current = setTimeout(() => {
+      setIsLongPressing(true);
+      setShowOptions(true);
+    }, 600); // 600ms hold triggers options
+  };
+
+  const handleEndPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+    }
+    // Delay clearing long press state to prevent immediate click trigger
+    setTimeout(() => {
+      setIsLongPressing(false);
+    }, 50);
+  };
+
   return (
-    <div style={styles.container} onClick={isVideo ? togglePlay : undefined}>
+    <div
+      style={styles.container}
+      onClick={isVideo ? togglePlay : undefined}
+      onTouchStart={handleStartPress}
+      onTouchEnd={handleEndPress}
+      onTouchMove={handleEndPress}
+      onMouseDown={handleStartPress}
+      onMouseUp={handleEndPress}
+      onMouseLeave={handleEndPress}
+    >
       {/* Media element */}
       {isVideo ? (
         <video
@@ -99,6 +148,7 @@ export default function VideoCard({ video, isActive, index }) {
           muted={isMuted}
           playsInline
           preload={isActive ? 'auto' : 'metadata'}
+          onTimeUpdate={handleTimeUpdate}
         />
       ) : (
         <img
@@ -136,6 +186,13 @@ export default function VideoCard({ video, isActive, index }) {
         </motion.button>
       )}
 
+      {/* Fine progress bar at the bottom of the video */}
+      {isVideo && (
+        <div style={styles.progressContainer}>
+          <div style={{ ...styles.progressBar, width: `${progress}%` }} />
+        </div>
+      )}
+
       {/* Video info (bottom-left) */}
       <VideoInfo video={video} isFollowing={isFollowing} isSelf={isSelf} onFollowToggle={handleFollowToggle} />
 
@@ -146,6 +203,7 @@ export default function VideoCard({ video, isActive, index }) {
         isSelf={isSelf} 
         onFollowToggle={handleFollowToggle} 
         onCommentClick={() => setShowComments(true)}
+        onMoreClick={() => setShowOptions(true)}
       />
 
       {/* Comments Drawer */}
@@ -154,6 +212,104 @@ export default function VideoCard({ video, isActive, index }) {
         onClose={() => setShowComments(false)} 
         videoId={video.id}
       />
+
+      {/* Options Bottom Sheet Modal */}
+      <AnimatePresence>
+        {showOptions && (
+          <motion.div
+            style={styles.optionsOverlay}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => { setShowOptions(false); setReportingReason(false); setOptionsActionFeedback(null); }}
+          >
+            <motion.div
+              style={styles.optionsSheet}
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={styles.sheetHandle} />
+              
+              {optionsActionFeedback ? (
+                <div style={styles.feedbackContainer}>
+                  <div style={styles.feedbackIcon}>✓</div>
+                  <span style={styles.feedbackText}>{optionsActionFeedback}</span>
+                </div>
+              ) : reportingReason ? (
+                <div style={styles.reportingContainer}>
+                  <div style={styles.sheetHeader}>
+                    <button style={styles.sheetBackBtn} onClick={() => setReportingReason(false)}>←</button>
+                    <h4 style={styles.sheetTitle}>Denunciar Vídeo</h4>
+                  </div>
+                  <div style={styles.reasonsList}>
+                    {['Spam ou Enganoso', 'Nudez ou Atividade Sexual', 'Violência ou Conteúdo Gráfico', 'Discurso de Ódio', 'Bullying ou Assédio', 'Outros'].map((reason) => (
+                      <button
+                        key={reason}
+                        style={styles.reasonBtn}
+                        onClick={() => {
+                          setOptionsActionFeedback('Obrigado! Sua denúncia foi registrada e será analisada.');
+                          setTimeout(() => {
+                            setShowOptions(false);
+                            setReportingReason(false);
+                            setOptionsActionFeedback(null);
+                          }, 2500);
+                        }}
+                      >
+                        {reason}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div style={styles.optionsList}>
+                  <button
+                    style={styles.optionItem}
+                    onClick={() => {
+                      setOptionsActionFeedback('Obrigado! Vamos ocultar conteúdo semelhante para você.');
+                      setTimeout(() => {
+                        setShowOptions(false);
+                        setOptionsActionFeedback(null);
+                        const store = useFeedStore.getState();
+                        const nextIndex = store.currentIndex + 1;
+                        if (nextIndex < store.videos.length) {
+                          store.setCurrentIndex(nextIndex);
+                        }
+                      }, 2000);
+                    }}
+                  >
+                    <span style={styles.optionIcon}>👁️‍🗨️</span>
+                    <div style={styles.optionTextContainer}>
+                      <span style={styles.optionLabel}>Não tenho interesse</span>
+                      <span style={styles.optionSub}>Esconder este post e similares</span>
+                    </div>
+                  </button>
+                  
+                  <button
+                    style={styles.optionItemDanger}
+                    onClick={() => setReportingReason(true)}
+                  >
+                    <span style={styles.optionIconDanger}>🚩</span>
+                    <div style={styles.optionTextContainer}>
+                      <span style={styles.optionLabelDanger}>Denunciar Conteúdo</span>
+                      <span style={styles.optionSubDanger}>Reportar spam, abuso ou conteúdo impróprio</span>
+                    </div>
+                  </button>
+                  
+                  <button
+                    style={styles.cancelBtn}
+                    onClick={() => setShowOptions(false)}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -222,5 +378,193 @@ const styles = {
     justifyContent: 'center',
     cursor: 'pointer',
     backdropFilter: 'blur(8px)',
+  },
+  progressContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '4px',
+    background: 'rgba(255, 255, 255, 0.1)',
+    zIndex: 10,
+  },
+  progressBar: {
+    height: '100%',
+    background: 'linear-gradient(90deg, #00D4FF, #39FF14)',
+    boxShadow: '0 0 8px rgba(0, 212, 255, 0.8)',
+    transition: 'width 0.1s linear',
+  },
+  optionsOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0,0,0,0.5)',
+    zIndex: 100,
+    display: 'flex',
+    alignItems: 'flex-end',
+  },
+  optionsSheet: {
+    width: '100%',
+    background: 'rgba(10, 10, 15, 0.95)',
+    backdropFilter: 'blur(30px)',
+    borderTopLeftRadius: '24px',
+    borderTopRightRadius: '24px',
+    borderTop: '1px solid rgba(255,255,255,0.1)',
+    padding: '16px 20px 24px 20px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+    boxShadow: '0 -10px 40px rgba(0,0,0,0.5)',
+  },
+  sheetHandle: {
+    width: '40px',
+    height: '4px',
+    background: 'rgba(255,255,255,0.2)',
+    borderRadius: '2px',
+    alignSelf: 'center',
+    marginBottom: '8px',
+  },
+  optionsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  optionItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    padding: '14px 16px',
+    borderRadius: '16px',
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.05)',
+    cursor: 'pointer',
+    textAlign: 'left',
+  },
+  optionItemDanger: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    padding: '14px 16px',
+    borderRadius: '16px',
+    background: 'rgba(255,45,85,0.03)',
+    border: '1px solid rgba(255,45,85,0.1)',
+    cursor: 'pointer',
+    textAlign: 'left',
+  },
+  optionIcon: {
+    fontSize: '22px',
+  },
+  optionIconDanger: {
+    fontSize: '22px',
+  },
+  optionTextContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
+  },
+  optionLabel: {
+    fontSize: '15px',
+    fontWeight: 600,
+    color: '#fff',
+    fontFamily: "'Inter', sans-serif",
+  },
+  optionLabelDanger: {
+    fontSize: '15px',
+    fontWeight: 600,
+    color: '#FF2D55',
+    fontFamily: "'Inter', sans-serif",
+  },
+  optionSub: {
+    fontSize: '12px',
+    color: 'rgba(255,255,255,0.4)',
+    marginTop: '2px',
+    fontFamily: "'Inter', sans-serif",
+  },
+  optionSubDanger: {
+    fontSize: '12px',
+    color: 'rgba(255,45,85,0.5)',
+    marginTop: '2px',
+    fontFamily: "'Inter', sans-serif",
+  },
+  cancelBtn: {
+    padding: '16px',
+    borderRadius: '16px',
+    background: 'rgba(255,255,255,0.05)',
+    border: 'none',
+    color: '#fff',
+    fontSize: '15px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    textAlign: 'center',
+    fontFamily: "'Inter', sans-serif",
+    marginTop: '8px',
+  },
+  feedbackContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '24px 0',
+  },
+  feedbackIcon: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '50%',
+    background: 'rgba(57,255,20,0.1)',
+    border: '2px solid #39FF14',
+    color: '#39FF14',
+    fontSize: '24px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  feedbackText: {
+    fontSize: '14px',
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+    fontFamily: "'Inter', sans-serif",
+  },
+  reportingContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  sheetHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    marginBottom: '8px',
+  },
+  sheetBackBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#fff',
+    fontSize: '22px',
+    cursor: 'pointer',
+  },
+  sheetTitle: {
+    fontSize: '16px',
+    fontWeight: 700,
+    color: '#fff',
+    margin: 0,
+    fontFamily: "'Outfit', sans-serif",
+  },
+  reasonsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  reasonBtn: {
+    padding: '12px 16px',
+    borderRadius: '12px',
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    color: '#fff',
+    fontSize: '14px',
+    textAlign: 'left',
+    cursor: 'pointer',
+    fontFamily: "'Inter', sans-serif",
   },
 };

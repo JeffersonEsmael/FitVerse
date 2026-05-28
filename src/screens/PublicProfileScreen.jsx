@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, X, Plus, Check } from 'lucide-react';
+import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, X, UserPlus, UserCheck, Trophy, Flame, Target, Dumbbell, Zap, Star } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -10,6 +10,18 @@ import { useChatStore } from '../stores/chatStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import ShapeIcon from '../components/icons/ShapeIcon';
 import VideoCard from '../components/feed/VideoCard';
+
+// Badge definitions (same as own profile)
+const BADGE_DEFINITIONS = [
+  { id: 'first_post', name: 'Primeiro Post', description: 'Publicou o primeiro vídeo', icon: Video, color: '#00D4FF', gradient: 'linear-gradient(135deg, #00D4FF, #0088CC)', check: (p, posts) => posts.length >= 1 },
+  { id: 'five_posts', name: '5 Posts', description: 'Publicou 5 vídeos', icon: Flame, color: '#FF9500', gradient: 'linear-gradient(135deg, #FF9500, #FF6B00)', check: (p, posts) => posts.length >= 5 },
+  { id: 'ten_posts', name: '10 Posts', description: 'Publicou 10 vídeos', icon: Star, color: '#FFD700', gradient: 'linear-gradient(135deg, #FFD700, #FFA500)', check: (p, posts) => posts.length >= 10 },
+  { id: 'first_follower', name: 'Primeiro Seguidor', description: 'Conquistou o primeiro seguidor', icon: Target, color: '#A855F7', gradient: 'linear-gradient(135deg, #A855F7, #7C3AED)', check: (p) => (p.followers || 0) >= 1 },
+  { id: 'ten_followers', name: 'Popular', description: '10 seguidores alcançados', icon: Zap, color: '#39FF14', gradient: 'linear-gradient(135deg, #39FF14, #00CC00)', check: (p) => (p.followers || 0) >= 10 },
+  { id: 'hundred_followers', name: 'Influencer', description: '100 seguidores alcançados', icon: Trophy, color: '#FF2D55', gradient: 'linear-gradient(135deg, #FF2D55, #CC0033)', check: (p) => (p.followers || 0) >= 100 },
+  { id: 'shape_collector', name: 'Shape Master', description: 'Recebeu 50 shapes em seus vídeos', icon: (props) => <ShapeIcon filled={true} size={props.size} color={props.color} />, color: '#39FF14', gradient: 'linear-gradient(135deg, #39FF14, #00E676)', check: (p, posts) => posts.reduce((sum, post) => sum + (post.shapes || 0), 0) >= 50 },
+  { id: 'gym_rat', name: 'Gym Rat', description: 'Salvou 10 vídeos no Gym Bag', icon: Dumbbell, color: '#00D4FF', gradient: 'linear-gradient(135deg, #00D4FF, #00AAFF)', check: (p, posts, gymBag) => (gymBag || []).length >= 10 },
+];
 
 function StatBox({ label, value, icon: Icon, color, onClick }) {
   return (
@@ -23,6 +35,48 @@ function StatBox({ label, value, icon: Icon, color, onClick }) {
         <span style={statStyles.label}>{label}</span>
         <span style={{ ...statStyles.value, color }}>{value}</span>
       </div>
+    </motion.div>
+  );
+}
+
+function BadgeCard({ badge, unlocked, index }) {
+  return (
+    <motion.div
+      style={{
+        ...badgeStyles.card,
+        opacity: unlocked ? 1 : 0.35,
+        border: unlocked ? `1px solid ${badge.color}30` : '1px solid rgba(255,255,255,0.05)',
+      }}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: unlocked ? 1 : 0.35, scale: 1 }}
+      transition={{ delay: index * 0.05 }}
+    >
+      <div style={{
+        ...badgeStyles.iconContainer,
+        background: unlocked ? badge.gradient : 'rgba(255,255,255,0.05)',
+        boxShadow: unlocked ? `0 4px 16px ${badge.color}30` : 'none',
+      }}>
+        {typeof badge.icon === 'function' ? (
+          <badge.icon size={22} color={unlocked ? '#fff' : '#6C6C88'} />
+        ) : (
+          React.createElement(badge.icon, { size: 22, color: unlocked ? '#fff' : '#6C6C88' })
+        )}
+      </div>
+      <span style={{
+        ...badgeStyles.name,
+        color: unlocked ? '#fff' : 'rgba(255,255,255,0.4)',
+      }}>{badge.name}</span>
+      <span style={badgeStyles.description}>{badge.description}</span>
+      {unlocked && (
+        <motion.div
+          style={badgeStyles.unlockedBadge}
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+        >
+          ✓
+        </motion.div>
+      )}
     </motion.div>
   );
 }
@@ -41,6 +95,7 @@ export default function PublicProfileScreen() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [gymBagVideos, setGymBagVideos] = useState([]);
 
   const userId = screenParams?.userId;
 
@@ -83,12 +138,26 @@ export default function PublicProfileScreen() {
         console.warn('Error fetching dynamic followers/following counts:', err);
       }
 
+      // Fetch public gym bag saves
+      let gymBagData = [];
+      try {
+        const { data } = await supabase
+          .from('video_interactions')
+          .select('video_id')
+          .eq('user_id', userId)
+          .eq('interaction_type', 'gym_bag');
+        if (data) gymBagData = data;
+      } catch (err) {
+        console.warn('Error fetching gym bag interactions:', err);
+      }
+
       setProfile({
         ...profData,
         followers: followersCount,
         following: followingCount
       });
       setUserPosts(postsData);
+      setGymBagVideos(gymBagData);
       setIsFollowing(followingStatus);
       setIsLoading(false);
     };
@@ -145,6 +214,17 @@ export default function PublicProfileScreen() {
     }
   };
 
+  // Compute badges for this user
+  const badges = useMemo(() => {
+    if (!profile) return [];
+    return BADGE_DEFINITIONS.map((badge) => ({
+      ...badge,
+      unlocked: badge.check(profile, userPosts, gymBagVideos),
+    }));
+  }, [profile, userPosts, gymBagVideos]);
+
+  const unlockedCount = badges.filter((b) => b.unlocked).length;
+
   if (isLoading || !profile) {
     return (
       <ScreenWrapper screenKey="public_profile">
@@ -165,6 +245,18 @@ export default function PublicProfileScreen() {
 
   return (
     <ScreenWrapper screenKey="public_profile">
+      {/* Animated blobs */}
+      <motion.div
+        style={styles.bgBlob1}
+        animate={{ x: [0, 40, -30, 0], y: [0, -30, 40, 0], scale: [1, 1.1, 0.9, 1] }}
+        transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        style={styles.bgBlob2}
+        animate={{ x: [0, -30, 30, 0], y: [0, 40, -30, 0], scale: [1, 0.9, 1.1, 1] }}
+        transition={{ duration: 19, repeat: Infinity, ease: 'easeInOut' }}
+      />
+
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
@@ -201,21 +293,6 @@ export default function PublicProfileScreen() {
                   <div style={styles.avatarPlaceholder}>{profile.display_name?.charAt(0) || '?'}</div>
                 )}
               </div>
-              
-              {/* Follow button below avatar picture */}
-              {user?.uid !== profile.id && (
-                <motion.button
-                  style={{
-                    ...styles.followPlusBtn,
-                    background: isFollowing ? 'rgba(255, 255, 255, 0.1)' : '#39FF14',
-                    boxShadow: isFollowing ? 'none' : '0 4px 12px rgba(57, 255, 20, 0.4)',
-                  }}
-                  onClick={handleFollowToggle}
-                  whileTap={{ scale: 0.85 }}
-                >
-                  {isFollowing ? <Check size={14} color="#fff" /> : <Plus size={14} color="#0A0A0F" />}
-                </motion.button>
-              )}
             </div>
           </div>
 
@@ -223,11 +300,52 @@ export default function PublicProfileScreen() {
             {profile.bio && <p style={styles.bioCenter}>{profile.bio}</p>}
           </div>
 
+          {/* Prominent Follow + Message buttons */}
+          {user?.uid !== profile.id && (
+            <div style={styles.actionRow}>
+              <motion.button
+                style={{
+                  ...styles.followBtn,
+                  background: isFollowing
+                    ? 'rgba(255,255,255,0.08)'
+                    : 'linear-gradient(135deg, #39FF14, #00CC00)',
+                  color: isFollowing ? '#fff' : '#0A0A0F',
+                  border: isFollowing ? '1px solid rgba(255,255,255,0.15)' : 'none',
+                  boxShadow: isFollowing ? 'none' : '0 6px 20px rgba(57,255,20,0.35)',
+                }}
+                onClick={handleFollowToggle}
+                whileTap={{ scale: 0.95 }}
+                disabled={isActionLoading}
+              >
+                {isFollowing ? (
+                  <>
+                    <UserCheck size={18} />
+                    <span>Seguindo</span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus size={18} />
+                    <span>Seguir</span>
+                  </>
+                )}
+              </motion.button>
+
+              <motion.button
+                style={styles.messageBtn}
+                onClick={handleMessage}
+                whileTap={{ scale: 0.95 }}
+              >
+                <MessageCircle size={18} />
+                <span>Mensagem</span>
+              </motion.button>
+            </div>
+          )}
+
           {/* Stats inside profile card */}
-          <div style={{ ...styles.statsGrid, width: '100%', marginTop: '24px', marginBottom: 0 }}>
+          <div style={{ ...styles.statsGrid, width: '100%', marginTop: '16px', marginBottom: 0 }}>
             <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
             <StatBox label="Ranking" value={`#${profile.rank_position || '-'}`} icon={Award} color="#FFD700" />
-            <StatBox label="Mensagem" value="Chat" icon={MessageCircle} color="#00D4FF" onClick={handleMessage} />
+            <StatBox label="Medalhas" value={unlockedCount} icon={Trophy} color="#FF9500" />
           </div>
         </motion.div>
 
@@ -244,6 +362,7 @@ export default function PublicProfileScreen() {
             onClick={() => setActiveTab('badges')}
           >
             <Award size={18} /> Medalhas
+            {unlockedCount > 0 && <span style={styles.badgeCountChip}>{unlockedCount}</span>}
           </button>
         </div>
 
@@ -282,9 +401,26 @@ export default function PublicProfileScreen() {
 
         {/* Content - Badges */}
         {activeTab === 'badges' && (
-          <div style={styles.emptyGrid}>
-            <Award size={32} color="#6C6C88" />
-            <span style={styles.emptyGridText}>Conquistas em breve 🏆</span>
+          <div style={badgeStyles.grid}>
+            <div style={badgeStyles.summary}>
+              <div style={badgeStyles.summaryIcon}>
+                <Trophy size={24} color="#FFD700" />
+              </div>
+              <div style={badgeStyles.summaryInfo}>
+                <span style={badgeStyles.summaryTitle}>{unlockedCount} de {badges.length} medalhas</span>
+                <div style={badgeStyles.progressBar}>
+                  <motion.div
+                    style={{ ...badgeStyles.progressFill, width: `${(unlockedCount / badges.length) * 100}%` }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(unlockedCount / badges.length) * 100}%` }}
+                    transition={{ duration: 1, ease: 'easeOut' }}
+                  />
+                </div>
+              </div>
+            </div>
+            {badges.map((badge, i) => (
+              <BadgeCard key={badge.id} badge={badge} unlocked={badge.unlocked} index={i} />
+            ))}
           </div>
         )}
       </div>
@@ -303,7 +439,6 @@ export default function PublicProfileScreen() {
                 <X size={28} color="#FFF" />
               </button>
             </div>
-            
             <div style={styles.modalContent}>
               <VideoCard video={selectedPost} isActive={true} index={0} />
             </div>
@@ -316,6 +451,16 @@ export default function PublicProfileScreen() {
 
 const styles = {
   container: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)', paddingBottom: '100px', position: 'relative', zIndex: 1 },
+  bgBlob1: {
+    position: 'absolute', width: '60vw', height: '60vw', minWidth: '400px', minHeight: '400px',
+    background: 'radial-gradient(circle, rgba(168,85,247,0.15) 0%, rgba(0,0,0,0) 60%)',
+    filter: 'blur(80px)', top: '-10%', left: '-20%', zIndex: 0, pointerEvents: 'none',
+  },
+  bgBlob2: {
+    position: 'absolute', width: '50vw', height: '50vw', minWidth: '350px', minHeight: '350px',
+    background: 'radial-gradient(circle, rgba(0,212,255,0.1) 0%, rgba(0,0,0,0) 60%)',
+    filter: 'blur(80px)', top: '60%', right: '-10%', zIndex: 0, pointerEvents: 'none',
+  },
   header: { display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '24px', position: 'relative' },
   title: { fontSize: '20px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0, letterSpacing: '-0.5px' },
   headerBtnLeft: { position: 'absolute', left: 0, background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
@@ -334,18 +479,8 @@ const styles = {
   },
   usernameCenter: { fontSize: '22px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: '0 0 4px', textAlign: 'center', letterSpacing: '-0.5px' },
   displayNameCenter: { fontSize: '15px', color: 'rgba(255,255,255,0.7)', marginBottom: '20px', textAlign: 'center' },
-  statsAvatarRow: {
-    display: 'flex',
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: '32px',
-    marginBottom: '20px'
-  },
-  statsRightAligned: {
-    display: 'flex',
-    gap: '20px',
-  },
+  statsAvatarRow: { display: 'flex', width: '100%', justifyContent: 'center', alignItems: 'center', gap: '32px', marginBottom: '20px' },
+  statsRightAligned: { display: 'flex', gap: '20px' },
   statItemInline: { display: 'flex', flexDirection: 'column', alignItems: 'center' },
   statValueInline: { fontSize: '20px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif" },
   statLabelInline: { fontSize: '13px', color: 'rgba(255,255,255,0.6)' },
@@ -355,25 +490,52 @@ const styles = {
   avatarPlaceholder: { width: '100%', height: '100%', background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '36px', fontFamily: "'Outfit', sans-serif" },
   bioContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '16px' },
   bioCenter: { fontSize: '15px', color: 'rgba(255,255,255,0.8)', textAlign: 'center', lineHeight: '1.5', margin: '0 0 16px', maxWidth: '90%' },
-  actionRow: { display: 'flex', gap: '12px', width: '100%' },
-  followBtn: { flex: 1, padding: '16px', borderRadius: '24px', fontWeight: 700, fontSize: '15px', border: 'none', cursor: 'pointer', fontFamily: "'Inter', sans-serif", backdropFilter: 'blur(30px)', boxShadow: '0 10px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)' },
-  messageBtn: { flex: 1, padding: '16px', borderRadius: '24px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontWeight: 600, fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', fontFamily: "'Inter', sans-serif", backdropFilter: 'blur(30px)', boxShadow: '0 10px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)' },
-  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' },
-  followPlusBtn: {
-    position: 'absolute',
-    bottom: '-12px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: '28px',
-    height: '28px',
-    borderRadius: '50%',
+  actionRow: {
+    display: 'flex',
+    gap: '12px',
+    width: '100%',
+    marginBottom: '8px',
+  },
+  followBtn: {
+    flex: 1,
+    padding: '14px',
+    borderRadius: '20px',
+    fontWeight: 700,
+    fontSize: '15px',
+    cursor: 'pointer',
+    fontFamily: "'Inter', sans-serif",
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: '8px',
+    transition: 'all 0.3s ease',
+  },
+  messageBtn: {
+    flex: 1,
+    padding: '14px',
+    borderRadius: '20px',
+    background: 'rgba(255,255,255,0.06)',
+    border: '1px solid rgba(255,255,255,0.15)',
+    color: '#fff',
+    fontWeight: 600,
+    fontSize: '15px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
     cursor: 'pointer',
-    border: '2.5px solid #0A0A0F',
-    zIndex: 10,
-    transition: 'all 0.2s ease',
+    fontFamily: "'Inter', sans-serif",
+    backdropFilter: 'blur(30px)',
+  },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' },
+  badgeCountChip: {
+    fontSize: '10px',
+    fontWeight: 800,
+    color: '#0A0A0F',
+    background: '#FFD700',
+    borderRadius: '10px',
+    padding: '2px 6px',
+    marginLeft: '2px',
   },
   contentTabs: { display: 'flex', gap: '8px', marginBottom: '16px' },
   contentTab: { flex: 1, padding: '14px', borderRadius: '20px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontFamily: "'Inter', sans-serif", backdropFilter: 'blur(20px)' },
@@ -385,42 +547,30 @@ const styles = {
   viewsBadge: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#fff', fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.8)' },
   emptyGrid: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '60px 0', gridColumn: '1 / -1', background: 'rgba(255,255,255,0.02)', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)' },
   emptyGridText: { fontSize: '14px', color: 'rgba(255,255,255,0.5)' },
-  fullScreenModal: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#000', zIndex: 9999, display: 'flex', flexDirection: 'column' },
+  fullScreenModal: { position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '500px', height: '100%', background: '#000', zIndex: 9999, display: 'flex', flexDirection: 'column' },
   modalHeader: { position: 'absolute', top: 0, left: 0, right: 0, padding: 'max(env(safe-area-inset-top, 0px), 16px) 16px 16px', display: 'flex', justifyContent: 'flex-start', zIndex: 10, background: 'linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%)' },
   modalCloseBtn: { background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(20px)' },
   modalContent: { flex: 1, height: '100%', position: 'relative' }
 };
 
 const statStyles = {
-  box: { 
-    display: 'flex', 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    gap: '8px', 
-    padding: '10px 8px', 
-    borderRadius: '20px', 
-    background: 'rgba(255,255,255,0.03)', 
-    border: '1px solid rgba(255,255,255,0.08)', 
-    backdropFilter: 'blur(20px)', 
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-    flex: 1
-  },
-  textContainer: { 
-    display: 'flex', 
-    flexDirection: 'column', 
-    alignItems: 'flex-start', 
-    gap: '1px' 
-  },
-  value: { 
-    fontSize: '13px', 
-    fontWeight: 800, 
-    fontFamily: "'Outfit', sans-serif" 
-  },
-  label: { 
-    fontSize: '10px', 
-    color: 'rgba(255,255,255,0.5)', 
-    fontWeight: 600,
-    fontFamily: "'Inter', sans-serif"
-  },
+  box: { display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 8px', borderRadius: '20px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', flex: 1 },
+  textContainer: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '1px' },
+  value: { fontSize: '13px', fontWeight: 800, fontFamily: "'Outfit', sans-serif" },
+  label: { fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 600, fontFamily: "'Inter', sans-serif" },
+};
+
+const badgeStyles = {
+  grid: { display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' },
+  summary: { display: 'flex', alignItems: 'center', gap: '16px', padding: '20px', borderRadius: '24px', background: 'rgba(255,215,0,0.05)', border: '1px solid rgba(255,215,0,0.15)', backdropFilter: 'blur(20px)', marginBottom: '8px' },
+  summaryIcon: { width: '48px', height: '48px', borderRadius: '16px', background: 'rgba(255,215,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  summaryInfo: { flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' },
+  summaryTitle: { fontSize: '15px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif" },
+  progressBar: { width: '100%', height: '6px', borderRadius: '3px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: '3px', background: 'linear-gradient(90deg, #FFD700, #FFA500)', boxShadow: '0 0 8px rgba(255,215,0,0.4)' },
+  card: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 16px', borderRadius: '20px', background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', gap: '8px', position: 'relative', transition: 'all 0.2s ease' },
+  iconContainer: { width: '52px', height: '52px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '4px' },
+  name: { fontSize: '14px', fontWeight: 700, fontFamily: "'Outfit', sans-serif", textAlign: 'center' },
+  description: { fontSize: '12px', color: 'rgba(255,255,255,0.4)', textAlign: 'center', fontFamily: "'Inter', sans-serif" },
+  unlockedBadge: { position: 'absolute', top: '12px', right: '12px', width: '22px', height: '22px', borderRadius: '50%', background: 'linear-gradient(135deg, #39FF14, #00CC00)', color: '#0A0A0F', fontSize: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(57,255,20,0.4)' },
 };

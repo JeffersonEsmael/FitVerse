@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, User, Lock, LogOut, ChevronRight } from 'lucide-react';
+import { ChevronLeft, User, Lock, LogOut, ChevronRight, Shield, Bell, Ban } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
@@ -30,6 +30,30 @@ export default function SettingsScreen() {
       description: 'Conta pública ou privada',
       color: '#39FF14',
       onClick: () => navigate('privacy_settings'),
+    },
+    {
+      id: 'security_settings',
+      icon: Shield,
+      title: 'Segurança',
+      description: 'Alterar senha e e-mail',
+      color: '#FF9500',
+      onClick: () => navigate('security_settings'),
+    },
+    {
+      id: 'notification_settings',
+      icon: Bell,
+      title: 'Notificações',
+      description: 'Preferências e toggles de recebimento',
+      color: '#A855F7',
+      onClick: () => navigate('notification_settings'),
+    },
+    {
+      id: 'blocked_users',
+      icon: Ban,
+      title: 'Usuários Bloqueados',
+      description: 'Lista de bloqueados e restrições',
+      color: '#FF2D55',
+      onClick: () => navigate('blocked_users'),
     },
     {
       id: 'logout',

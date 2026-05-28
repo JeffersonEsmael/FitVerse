@@ -35,10 +35,17 @@ export default function VideoInfo({ video, isFollowing, isSelf, onFollowToggle }
 
       {/* Caption */}
       <div
-        style={{ ...styles.caption, ...(expanded ? {} : styles.captionClamped) }}
-        onClick={() => setExpanded(!expanded)}
+        style={styles.caption}
+        onClick={() => video.caption?.length > 80 && setExpanded(!expanded)}
       >
-        {video.caption}
+        {video.caption?.length > 80 && !expanded
+          ? `${video.caption.slice(0, 80)}...`
+          : video.caption}
+        {video.caption?.length > 80 && (
+          <span style={styles.expandBtn}>
+            {expanded ? ' (menos)' : ' (mais)'}
+          </span>
+        )}
       </div>
 
       {/* Hashtags */}
@@ -107,11 +114,12 @@ const styles = {
     textShadow: '0 1px 3px rgba(0,0,0,0.5)',
     cursor: 'pointer',
   },
-  captionClamped: {
-    display: '-webkit-box',
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: 'vertical',
-    overflow: 'hidden',
+  expandBtn: {
+    color: '#00D4FF',
+    fontWeight: 700,
+    marginLeft: '6px',
+    fontSize: '13px',
+    fontFamily: "'Inter', sans-serif",
   },
   hashtags: {
     display: 'flex',

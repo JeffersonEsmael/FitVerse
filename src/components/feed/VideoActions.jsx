@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, Forward, Music, FileText } from 'lucide-react';
+import { MessageCircle, Forward, Music, FileText, MoreHorizontal } from 'lucide-react';
 import { useFeedStore } from '../../stores/feedStore';
 import { useNavigationStore } from '../../stores/navigationStore';
 
@@ -59,7 +59,7 @@ const InteractionBtn = ({ icon, label, onClick, isActive, activeColor, type }) =
   );
 };
 
-export default function VideoActions({ video, isFollowing, isSelf, onFollowToggle, onCommentClick }) {
+export default function VideoActions({ video, isFollowing, isSelf, onFollowToggle, onCommentClick, onMoreClick }) {
   const { toggleShape, toggleBoost, toggleGymBag } = useFeedStore();
   const navigate = useNavigationStore((s) => s.navigate);
 
@@ -172,6 +172,18 @@ export default function VideoActions({ video, isFollowing, isSelf, onFollowToggl
         icon={<Forward size={26} color="#fff" strokeWidth={2} />}
         label={formatCount(video.shares)}
         onClick={handleShare}
+        isActive={false}
+      />
+
+      {/* More Options / ... */}
+      <InteractionBtn 
+        type="more"
+        icon={<MoreHorizontal size={26} color="#fff" strokeWidth={2} />}
+        label=""
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onMoreClick) onMoreClick();
+        }}
         isActive={false}
       />
 
