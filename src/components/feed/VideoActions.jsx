@@ -114,7 +114,7 @@ export default function VideoActions({ video, isFollowing, isSelf, onFollowToggl
       {/* Shape (Replaces Like) */}
       <InteractionBtn 
         type="shape"
-        icon={<ShapeIcon filled={video.hasShaped} size={30} />}
+        icon={<ShapeIcon filled={video.hasShaped} size={25} />}
         label={formatCount(video.shapes)}
         onClick={handleShape}
         isActive={video.hasShaped}
@@ -124,7 +124,7 @@ export default function VideoActions({ video, isFollowing, isSelf, onFollowToggl
       {/* Comment */}
       <InteractionBtn 
         type="comment"
-        icon={<MessageCircle size={28} color="#fff" strokeWidth={2} />}
+        icon={<MessageCircle size={23} color="#fff" strokeWidth={2} />}
         label={formatCount(video.comments)}
         onClick={handleComment}
         isActive={false}
@@ -135,14 +135,14 @@ export default function VideoActions({ video, isFollowing, isSelf, onFollowToggl
         type="boost"
         icon={
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <BoostIcon filled={video.hasBoosted} size={30} />
+            <BoostIcon filled={video.hasBoosted} size={25} />
             {!video.hasBoosted && (
               <span style={{
                 position: 'absolute',
-                fontSize: '9px',
+                fontSize: '8px',
                 fontWeight: 900,
                 color: '#fff',
-                textShadow: '0px 1px 3px rgba(0,0,0,0.9), 0px 0px 2px rgba(0,0,0,0.8)',
+                textShadow: '0px 1px 2px rgba(0,0,0,0.9), 0px 0px 2px rgba(0,0,0,0.8)',
                 letterSpacing: '0.5px'
               }}>
                 BOOST
@@ -159,7 +159,7 @@ export default function VideoActions({ video, isFollowing, isSelf, onFollowToggl
       {/* Save (Notes emoji) */}
       <InteractionBtn 
         type="save"
-        icon={<FileText size={28} color={video.inGymBag ? "#00D4FF" : "#fff"} fill={video.inGymBag ? "rgba(0,212,255,0.4)" : "none"} strokeWidth={2} />}
+        icon={<FileText size={23} color={video.inGymBag ? "#00D4FF" : "#fff"} fill={video.inGymBag ? "rgba(0,212,255,0.4)" : "none"} strokeWidth={2} />}
         label={video.gym_bag_saves > 0 ? formatCount(video.gym_bag_saves) : 'Salvar'}
         onClick={handleGymBag}
         isActive={video.inGymBag}
@@ -169,7 +169,7 @@ export default function VideoActions({ video, isFollowing, isSelf, onFollowToggl
       {/* Share */}
       <InteractionBtn 
         type="share"
-        icon={<Forward size={26} color="#fff" strokeWidth={2} />}
+        icon={<Forward size={21} color="#fff" strokeWidth={2} />}
         label={formatCount(video.shares)}
         onClick={handleShare}
         isActive={false}
@@ -178,7 +178,7 @@ export default function VideoActions({ video, isFollowing, isSelf, onFollowToggl
       {/* More Options / ... */}
       <InteractionBtn 
         type="more"
-        icon={<MoreHorizontal size={26} color="#fff" strokeWidth={2} />}
+        icon={<MoreHorizontal size={21} color="#fff" strokeWidth={2} />}
         label=""
         onClick={(e) => {
           e.stopPropagation();
@@ -193,7 +193,7 @@ export default function VideoActions({ video, isFollowing, isSelf, onFollowToggl
         animate={{ rotate: 360 }}
         transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
       >
-        <Music size={14} color="#fff" />
+        <Music size={12} color="#fff" />
       </motion.div>
     </div>
   );
@@ -202,24 +202,24 @@ export default function VideoActions({ video, isFollowing, isSelf, onFollowToggl
 const styles = {
   container: {
     position: 'absolute',
-    right: '12px',
-    bottom: '100px',
+    right: '8px',
+    bottom: '84px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '18px',
+    gap: '11px',
     zIndex: 5,
   },
   avatarWrap: {
     position: 'relative',
-    marginBottom: '8px',
+    marginBottom: '4px',
     cursor: 'pointer',
   },
   avatar: {
-    width: '48px',
-    height: '48px',
+    width: '40px',
+    height: '40px',
     borderRadius: '50%',
-    border: '2px solid #fff',
+    border: '1.5px solid #fff',
     overflow: 'hidden',
   },
   avatarImg: {
@@ -236,31 +236,31 @@ const styles = {
     justifyContent: 'center',
     color: '#fff',
     fontWeight: 700,
-    fontSize: '18px',
+    fontSize: '15px',
     fontFamily: "'Outfit', sans-serif",
   },
   followBadge: {
     position: 'absolute',
-    bottom: '-6px',
+    bottom: '-4px',
     left: '50%',
     transform: 'translateX(-50%)',
-    width: '20px',
-    height: '20px',
+    width: '16px',
+    height: '16px',
     borderRadius: '50%',
     background: '#39FF14',
     color: '#000',
-    fontSize: '14px',
+    fontSize: '11px',
     fontWeight: 800,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    border: '2px solid #000',
+    border: '1.5px solid #000',
   },
   actionBtn: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '4px',
+    gap: '2px',
     background: 'none',
     border: 'none',
     cursor: 'pointer',
@@ -269,21 +269,21 @@ const styles = {
   },
   actionCount: {
     color: '#fff',
-    fontSize: '12px',
+    fontSize: '11px',
     fontWeight: 600,
     fontFamily: "'Inter', sans-serif",
     textShadow: '0 1px 3px rgba(0,0,0,0.8)',
     transition: 'color 0.2s ease',
   },
   musicDisc: {
-    width: '36px',
-    height: '36px',
+    width: '30px',
+    height: '30px',
     borderRadius: '50%',
     background: 'linear-gradient(135deg, #333, #111)',
-    border: '3px solid #555',
+    border: '2px solid #555',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: '4px',
+    marginTop: '2px',
   },
 };

@@ -14,7 +14,7 @@ export default function VideoCard({ video, isActive, index }) {
   const videoRef = useRef(null);
   const longPressTimer = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [showPlayIcon, setShowPlayIcon] = useState(false);
   
   const [progress, setProgress] = useState(0);
@@ -325,14 +325,8 @@ const styles = {
     scrollSnapAlign: 'start',
   },
   media: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    minWidth: '100%',
-    minHeight: '100%',
-    width: 'auto',
-    height: 'auto',
+    width: '100%',
+    height: '100%',
     objectFit: 'cover',
   },
   gradientTop: {

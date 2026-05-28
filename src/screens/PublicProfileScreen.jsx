@@ -268,31 +268,29 @@ export default function PublicProfileScreen() {
 
         {/* Profile card */}
         <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+          <div style={styles.avatarSectionCentered}>
+            <div style={styles.avatar}>
+              {profile.avatar_url ? <img src={profile.avatar_url} alt="" style={styles.avatarImg} /> : (
+                <div style={styles.avatarPlaceholder}>{profile.display_name?.charAt(0) || '?'}</div>
+              )}
+            </div>
+          </div>
+
           <h3 style={styles.usernameCenter}>@{profile.username}</h3>
           <span style={styles.displayNameCenter}>{profile.display_name}</span>
 
-          <div style={styles.statsAvatarRow}>
-            <div style={styles.statsRightAligned}>
-              <div style={styles.statItemInline}>
-                <span style={styles.statValueInline}>{profile.total_videos || userPosts.length}</span>
-                <span style={styles.statLabelInline}>posts</span>
-              </div>
-              <div style={styles.statItemInline}>
-                <span style={styles.statValueInline}>{profile.followers || 0}</span>
-                <span style={styles.statLabelInline}>seguidores</span>
-              </div>
-              <div style={styles.statItemInline}>
-                <span style={styles.statValueInline}>{profile.following || 0}</span>
-                <span style={styles.statLabelInline}>seguindo</span>
-              </div>
+          <div style={styles.statsRowCentered}>
+            <div style={styles.statItemInlineCentered}>
+              <span style={styles.statValueInline}>{profile.total_videos || userPosts.length}</span>
+              <span style={styles.statLabelInline}>posts</span>
             </div>
-
-            <div style={styles.avatarSection}>
-              <div style={styles.avatar}>
-                {profile.avatar_url ? <img src={profile.avatar_url} alt="" style={styles.avatarImg} /> : (
-                  <div style={styles.avatarPlaceholder}>{profile.display_name?.charAt(0) || '?'}</div>
-                )}
-              </div>
+            <div style={styles.statItemInlineCentered}>
+              <span style={styles.statValueInline}>{profile.followers || 0}</span>
+              <span style={styles.statLabelInline}>seguidores</span>
+            </div>
+            <div style={styles.statItemInlineCentered}>
+              <span style={styles.statValueInline}>{profile.following || 0}</span>
+              <span style={styles.statLabelInline}>seguindo</span>
             </div>
           </div>
 
@@ -477,19 +475,34 @@ const styles = {
     borderRadius: '32px',
     boxShadow: '0 20px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)',
   },
-  usernameCenter: { fontSize: '22px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: '0 0 4px', textAlign: 'center', letterSpacing: '-0.5px' },
-  displayNameCenter: { fontSize: '15px', color: 'rgba(255,255,255,0.7)', marginBottom: '20px', textAlign: 'center' },
-  statsAvatarRow: { display: 'flex', width: '100%', justifyContent: 'center', alignItems: 'center', gap: '32px', marginBottom: '20px' },
-  statsRightAligned: { display: 'flex', gap: '20px' },
-  statItemInline: { display: 'flex', flexDirection: 'column', alignItems: 'center' },
-  statValueInline: { fontSize: '20px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif" },
-  statLabelInline: { fontSize: '13px', color: 'rgba(255,255,255,0.6)' },
-  avatarSection: { position: 'relative', flexShrink: 0 },
-  avatar: { width: '100px', height: '100px', borderRadius: '32px', border: '2px solid rgba(255,255,255,0.2)', overflow: 'hidden', boxShadow: '0 10px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)' },
+  usernameCenter: { fontSize: '20px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: '0 0 4px', textAlign: 'center', letterSpacing: '-0.5px' },
+  displayNameCenter: { fontSize: '14px', color: 'rgba(255,255,255,0.5)', marginBottom: '16px', textAlign: 'center' },
+  avatarSectionCentered: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: '14px',
+  },
+  statsRowCentered: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '24px',
+    width: '100%',
+    marginBottom: '16px',
+  },
+  statItemInlineCentered: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    minWidth: '60px',
+  },
+  statValueInline: { fontSize: '17px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif" },
+  statLabelInline: { fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' },
+  avatar: { width: '88px', height: '88px', borderRadius: '28px', border: '1.5px solid rgba(255,255,255,0.2)', overflow: 'hidden', boxShadow: '0 10px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  avatarPlaceholder: { width: '100%', height: '100%', background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '36px', fontFamily: "'Outfit', sans-serif" },
-  bioContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: '16px' },
-  bioCenter: { fontSize: '15px', color: 'rgba(255,255,255,0.8)', textAlign: 'center', lineHeight: '1.5', margin: '0 0 16px', maxWidth: '90%' },
+  avatarPlaceholder: { width: '100%', height: '100%', background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '32px', fontFamily: "'Outfit', sans-serif" },
+  bioContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginTop: '4px' },
+  bioCenter: { fontSize: '14px', color: 'rgba(255,255,255,0.8)', textAlign: 'center', lineHeight: '1.4', margin: '0 0 12px', maxWidth: '90%' },
   actionRow: {
     display: 'flex',
     gap: '12px',
@@ -547,7 +560,19 @@ const styles = {
   viewsBadge: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#fff', fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.8)' },
   emptyGrid: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '60px 0', gridColumn: '1 / -1', background: 'rgba(255,255,255,0.02)', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)' },
   emptyGridText: { fontSize: '14px', color: 'rgba(255,255,255,0.5)' },
-  fullScreenModal: { position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '500px', height: '100%', background: '#000', zIndex: 9999, display: 'flex', flexDirection: 'column' },
+  fullScreenModal: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    background: '#000',
+    zIndex: 9999,
+    display: 'flex',
+    flexDirection: 'column'
+  },
   modalHeader: { position: 'absolute', top: 0, left: 0, right: 0, padding: 'max(env(safe-area-inset-top, 0px), 16px) 16px 16px', display: 'flex', justifyContent: 'flex-start', zIndex: 10, background: 'linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%)' },
   modalCloseBtn: { background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(20px)' },
   modalContent: { flex: 1, height: '100%', position: 'relative' }
