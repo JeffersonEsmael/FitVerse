@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Search, MessageCircle, ArrowLeft, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
@@ -73,8 +73,8 @@ export default function ConversationsListScreen() {
     const term = searchQuery.toLowerCase().trim();
     if (!term) return true;
     return (
-      conv.otherUser.display_name?.toLowerCase().includes(term) ||
-      conv.otherUser.username?.toLowerCase().includes(term)
+      conv.otherUser?.display_name?.toLowerCase().includes(term) ||
+      conv.otherUser?.username?.toLowerCase().includes(term)
     );
   });
 
@@ -140,11 +140,11 @@ export default function ConversationsListScreen() {
                 >
                   <div style={styles.convAvatarContainer}>
                     <div style={styles.convAvatar}>
-                      {conv.otherUser.avatar_url ? (
+                      {conv.otherUser?.avatar_url ? (
                         <img src={conv.otherUser.avatar_url} alt="" style={styles.avatarImg} />
                       ) : (
                         <div style={styles.avatarPlaceholder}>
-                          {conv.otherUser.display_name?.charAt(0) || '?'}
+                          {conv.otherUser?.display_name?.charAt(0) || '?'}
                         </div>
                       )}
                     </div>
@@ -154,7 +154,7 @@ export default function ConversationsListScreen() {
 
                   <div style={styles.convInfo}>
                     <div style={styles.convRow}>
-                      <span style={styles.convName}>{conv.otherUser.display_name}</span>
+                      <span style={styles.convName}>{conv.otherUser?.display_name || 'Usuário'}</span>
                       <span style={styles.convTime}>{formatTime(conv.lastMessageAt)}</span>
                     </div>
                     <span style={styles.convLastMsg}>{conv.lastMessage || 'Iniciar conversa...'}</span>
@@ -202,7 +202,7 @@ export default function ConversationsListScreen() {
               <div style={styles.sheetHandle} />
               <h4 style={styles.deleteTitle}>Apagar Conversa?</h4>
               <p style={styles.deleteDesc}>
-                Tem certeza que deseja apagar a conversa com <strong>{selectedConvForDelete.otherUser.display_name}</strong>? Esta ação removerá todas as mensagens.
+                Tem certeza que deseja apagar a conversa com <strong>{selectedConvForDelete.otherUser?.display_name || 'este usuário'}</strong>? Esta ação removerá todas as mensagens.
               </p>
               <div style={styles.deleteActions}>
                 <button

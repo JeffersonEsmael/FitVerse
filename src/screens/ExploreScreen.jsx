@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ChevronRight, Music, Play, X, Video, Image as ImageIcon } from 'lucide-react';
+import { Search, ChevronRight, Music, Play, X, Video, Image as ImageIcon, Users, Trophy } from 'lucide-react';
 import { useSocialStore } from '../stores/socialStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
@@ -15,6 +15,7 @@ export default function ExploreScreen() {
     searchUsers, 
     searchVideos, 
     searchSounds, 
+    searchChallenges,
     searchResults, 
     isSearching, 
     clearSearch 
@@ -28,13 +29,15 @@ export default function ExploreScreen() {
         searchUsers(query);
       } else if (activeTab === 'videos') {
         searchVideos(query);
-      } else {
+      } else if (activeTab === 'sounds') {
         searchSounds(query);
+      } else {
+        searchChallenges(query);
       }
     }, 400);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [query, activeTab, searchUsers, searchVideos, searchSounds]);
+  }, [query, activeTab, searchUsers, searchVideos, searchSounds, searchChallenges]);
 
   // Limpar busca ao sair
   useEffect(() => {
@@ -46,12 +49,11 @@ export default function ExploreScreen() {
   };
 
   const handlePlaySound = (soundUrl) => {
-    // Elegant temporary play audio feedback
     const audio = new Audio(soundUrl);
     audio.volume = 0.5;
     audio.play().then(() => {
       alert('Tocando prévia do som selecionado! 🎵');
-      setTimeout(() => audio.pause(), 4000); // Stop after 4 seconds
+      setTimeout(() => audio.pause(), 4000);
     }).catch(() => {
       alert('Som Original selecionado para gravação! 🎵');
     });
@@ -83,7 +85,9 @@ export default function ExploreScreen() {
                   ? 'Pesquisar usuários...'
                   : activeTab === 'videos'
                   ? 'Pesquisar vídeos, dicas ou treinos...'
-                  : 'Pesquisar músicas, áudios ou sons...'
+                  : activeTab === 'sounds'
+                  ? 'Pesquisar músicas, áudios ou sons...'
+                  : 'Pesquisar desafios fitness...'
               }
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -91,7 +95,7 @@ export default function ExploreScreen() {
           </div>
 
           <div style={styles.filterTabs}>
-            {['users', 'videos', 'sounds'].map((tab) => (
+            {['users', 'videos', 'sounds', 'challenges'].map((tab) => (
               <button
                 key={tab}
                 style={{
@@ -103,7 +107,7 @@ export default function ExploreScreen() {
                   clearSearch();
                 }}
               >
-                {tab === 'users' ? 'Usuários' : tab === 'videos' ? 'Vídeos' : 'Sons'}
+                {tab === 'users' ? 'Usuários' : tab === 'videos' ? 'Vídeos' : tab === 'sounds' ? 'Sons' : 'Desafios'}
               </button>
             ))}
           </div>
@@ -117,7 +121,7 @@ export default function ExploreScreen() {
             <div style={styles.centerMessage}>Nenhum resultado encontrado.</div>
           ) : query.length < 2 ? (
             <div style={styles.centerMessage}>
-              Digite pelo menos 2 caracteres para buscar {activeTab === 'users' ? 'usuários' : activeTab === 'videos' ? 'vídeos' : 'sons'}.
+              Digite pelo menos 2 caracteres para buscar {activeTab === 'users' ? 'usuários' : activeTab === 'videos' ? 'vídeos' : activeTab === 'sounds' ? 'sons' : 'desafios'}.
             </div>
           ) : (
             <div style={styles.resultsList}>
@@ -198,6 +202,42 @@ export default function ExploreScreen() {
                   <button style={styles.useSoundBtn}>Usar</button>
                 </motion.div>
               ))}
+
+              {/* Tab: Challenges */}
+              {activeTab === 'challenges' && searchResults.map((challenge) => {
+                const pct = Math.round(((challenge.progress || 0) / (challenge.duration || 30)) * 100);
+                return (
+                  <motion.div
+                    key={challenge.id}
+                    style={{ ...styles.challengeCard, borderLeft: `4px solid ${challenge.color || '#00D4FF'}` }}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => navigate('ranking')}
+                  >
+                    <div style={styles.challengeHeader}>
+                      <span style={styles.challengeIcon}>{challenge.icon || '🏆'}</span>
+                      <div style={styles.challengeInfo}>
+                        <span style={styles.challengeTitle}>{challenge.title}</span>
+                        <span style={styles.challengeDesc}>{challenge.description}</span>
+                      </div>
+                    </div>
+                    <div style={styles.challengeProgressTrack}>
+                      <motion.div
+                        style={{ ...styles.challengeProgressFill, background: challenge.color || '#00D4FF', width: `${pct}%` }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div style={styles.challengeFooter}>
+                      <span style={styles.challengeParticipants}>
+                        <Users size={12} style={{ marginRight: 4 }} /> {challenge.participants || 0}
+                      </span>
+                      <span style={styles.challengeProgress}>{challenge.progress || 0}/{challenge.duration || 30} dias</span>
+                      <span style={{ ...styles.challengeReward, color: challenge.color || '#00D4FF' }}>+{challenge.reward || 100} pts</span>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -510,4 +550,16 @@ const styles = {
     height: '100%',
     position: 'relative',
   },
+  challengeCard: { background: 'rgba(255,255,255,0.04)', borderRadius: '16px', padding: '16px', marginBottom: '12px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(30px)' },
+  challengeHeader: { display: 'flex', gap: '14px', alignItems: 'center', marginBottom: '12px' },
+  challengeIcon: { fontSize: '30px' },
+  challengeInfo: { display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 },
+  challengeTitle: { fontSize: '15px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif" },
+  challengeDesc: { fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontFamily: "'Inter', sans-serif", lineHeight: '1.4' },
+  challengeProgressTrack: { width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '9999px', overflow: 'hidden', marginBottom: '10px' },
+  challengeProgressFill: { height: '100%', borderRadius: '9999px' },
+  challengeFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  challengeParticipants: { fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', fontFamily: "'Inter', sans-serif" },
+  challengeProgress: { fontSize: '11px', color: '#B0B0C8', fontWeight: 500, fontFamily: "'Inter', sans-serif" },
+  challengeReward: { fontSize: '12px', fontWeight: 800, fontFamily: "'Inter', sans-serif" },
 };

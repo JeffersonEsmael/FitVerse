@@ -66,37 +66,252 @@ export const useRankingStore = create((set, get) => ({
 
   fetchChallenges: async () => {
     try {
-      const { data, error } = await supabase
+      const { useAuthStore } = await import('./authStore');
+      const userId = useAuthStore.getState().user?.uid;
+
+      const { data: rawChallenges, error: chalError } = await supabase
         .from('challenges')
         .select('*')
         .eq('active', true)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      if (data && data.length > 0) {
-        set({ challenges: data });
+      if (chalError) throw chalError;
+
+      let joinedChallenges = [];
+      if (userId && rawChallenges && rawChallenges.length > 0) {
+        const { data: participations } = await supabase
+          .from('challenge_participants')
+          .select('challenge_id, progress')
+          .eq('user_id', userId);
+
+        if (participations) {
+          joinedChallenges = participations;
+        }
       }
-    } catch {
-      // Keep sample challenges
+
+      if (rawChallenges && rawChallenges.length > 0) {
+        const enriched = rawChallenges.map((c) => {
+          const matched = joinedChallenges.find((p) => p.challenge_id === c.id);
+          return {
+            ...c,
+            joined: !!matched,
+            progress: matched ? matched.progress : 0,
+          };
+        });
+        set({ challenges: enriched });
+      }
+    } catch (err) {
+      console.warn('Error loading challenges from Supabase:', err.message);
     }
   },
 
   joinChallenge: async (challengeId) => {
+    const { useAuthStore } = await import('./authStore');
+    const userId = useAuthStore.getState().user?.uid;
+
     set((state) => ({
       challenges: state.challenges.map((c) =>
-        c.id === challengeId ? { ...c, participants: c.participants + 1, joined: true } : c
+        c.id === challengeId ? { ...c, participants: (c.participants || 0) + 1, joined: true } : c
       ),
     }));
 
-    // Persist to Supabase
-    try {
-      await supabase.from('challenge_participants').insert({
-        challenge_id: challengeId,
-        user_id: 'current-user-id', // Would use actual user ID
-      });
-    } catch {
-      // Silently fail for demo
+    if (userId) {
+      try {
+        await supabase.from('challenge_participants').insert({
+          challenge_id: challengeId,
+          user_id: userId,
+          progress: 0,
+        });
+
+        const chal = get().challenges.find((c) => c.id === challengeId);
+        await supabase
+          .from('challenges')
+          .update({ participants: (chal?.participants || 0) + 1 })
+          .eq('id', challengeId);
+      } catch (err) {
+        console.warn('Failed to join challenge in Supabase:', err.message);
+      }
     }
+  },
+
+  addChallenge: async (challenge) => {
+    const { useAuthStore } = await import('./authStore');
+    const userId = useAuthStore.getState().user?.uid;
+
+    const newId = challenge.id || `c_${Date.now()}`;
+    const newChallenge = {
+      id: newId,
+      title: challenge.title,
+      description: challenge.description || '',
+      icon: challenge.icon || '🏆',
+      type: challenge.type || 'geral',
+      duration: challenge.duration || 30,
+      participants: 1,
+      progress: 0,
+      reward: challenge.reward || 100,
+      color: challenge.color || '#00D4FF',
+      active: true,
+      joined: true,
+      creator_id: userId,
+    };
+
+    set((state) => ({
+      challenges: [newChallenge, ...state.challenges],
+    }));
+
+    if (userId) {
+      try {
+        const { data, error } = await supabase
+          .from('challenges')
+          .insert({
+            title: challenge.title,
+            description: challenge.description || '',
+            icon: challenge.icon || '🏆',
+            type: challenge.type || 'geral',
+            duration: challenge.duration || 30,
+            participants: 1,
+            reward: challenge.reward || 100,
+            color: challenge.color || '#00D4FF',
+            active: true,
+            creator_id: userId,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          await supabase.from('challenge_participants').insert({
+            challenge_id: data.id,
+            user_id: userId,
+            progress: 0,
+          });
+
+          set((state) => ({
+            challenges: state.challenges.map((c) =>
+              c.id === newId ? { ...data, joined: true, progress: 0 } : c
+            ),
+          }));
+        }
+      } catch (err) {
+        console.warn('Error creating challenge in Supabase:', err.message);
+      }
+    }
+  },
+
+  performCheckIn: async (challengeId, checkInData) => {
+    const { useAuthStore } = await import('./authStore');
+    const authState = useAuthStore.getState();
+    const userId = authState.user?.uid;
+    const userProfile = authState.profile;
+
+    const challenge = get().challenges.find((c) => c.id === challengeId);
+    if (!challenge) return { success: false, error: 'Desafio não encontrado.' };
+
+    const newProgress = (challenge.progress || 0) + 1;
+
+    set((state) => ({
+      challenges: state.challenges.map((c) =>
+        c.id === challengeId ? { ...c, progress: Math.min(newProgress, c.duration || 30) } : c
+      ),
+    }));
+
+    set((state) => ({ userPoints: state.userPoints + (challenge.reward || 100) }));
+
+    if (userProfile) {
+      const currentXp = userProfile.xp || 0;
+      const rewardXp = challenge.reward || 100;
+      const newXp = currentXp + rewardXp;
+      const newLevel = Math.floor(newXp / 1000) + 1;
+      await authState.updateProfile({ xp: newXp, level: newLevel });
+    }
+
+    if (userId) {
+      try {
+        await supabase
+          .from('challenge_participants')
+          .update({ progress: Math.min(newProgress, challenge.duration || 30) })
+          .eq('challenge_id', challengeId)
+          .eq('user_id', userId);
+
+        let uploadedPhotoUrl = checkInData.photoUrl || '';
+        if (checkInData.photoFile) {
+          const fileExt = checkInData.photoFile.name.split('.').pop();
+          const fileName = `${userId}/${Date.now()}.${fileExt}`;
+          const { error: uploadErr } = await supabase.storage
+            .from('posts')
+            .upload(fileName, checkInData.photoFile, { contentType: checkInData.photoFile.type });
+
+          if (!uploadErr) {
+            const { data: urlData } = supabase.storage.from('posts').getPublicUrl(fileName);
+            uploadedPhotoUrl = urlData?.publicUrl || '';
+          }
+        }
+
+        await supabase.from('challenge_checkins').insert({
+          challenge_id: challengeId,
+          user_id: userId,
+          activity_title: checkInData.activityTitle || 'Treino Concluído',
+          photo_url: uploadedPhotoUrl,
+          metric_value: checkInData.metricValue || 1,
+        });
+
+        const { useFeedStore } = await import('./feedStore');
+        const feedState = useFeedStore.getState();
+        const postCaption = `Check-in diário no desafio ${challenge.icon} *${challenge.title}*:\n"${checkInData.activityTitle || 'Treino Concluído'}"! +${challenge.reward || 100} XP 💪🔥`;
+
+        if (checkInData.photoFile) {
+          await feedState.createPost(checkInData.photoFile, {
+            userId,
+            username: userProfile?.username || 'user',
+            userAvatar: userProfile?.avatar_url || '',
+            displayName: userProfile?.display_name || 'Usuário',
+            caption: postCaption,
+            hashtags: ['desafio', challenge.type || 'treino'],
+            category: 'desafio',
+          });
+        } else {
+          const postData = {
+            video_url: uploadedPhotoUrl || 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=500',
+            media_type: 'image',
+            user_id: userId,
+            username: userProfile?.username || 'user',
+            user_avatar: userProfile?.avatar_url || '',
+            display_name: userProfile?.display_name || 'Usuário',
+            caption: postCaption,
+            hashtags: ['desafio', challenge.type || 'treino'],
+            category: 'desafio',
+            shapes: 0, boosts: 0, gym_bag_saves: 0,
+            comments: 0, shares: 0, views: 0,
+          };
+          await supabase.from('videos').insert(postData);
+          feedState.fetchVideos();
+        }
+      } catch (err) {
+        console.warn('Supabase DB updates for checkin failed:', err.message);
+      }
+    } else {
+      const { useFeedStore } = await import('./feedStore');
+      const feedState = useFeedStore.getState();
+      const mockPost = {
+        id: `mock_post_${Date.now()}`,
+        videoUrl: checkInData.photoPreview || 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=500',
+        mediaType: 'image',
+        userId: 'fituser',
+        username: userProfile?.username || 'fituser',
+        userAvatar: userProfile?.avatar_url || '',
+        displayName: userProfile?.display_name || 'FitUser',
+        caption: `Check-in diário no desafio ${challenge.icon} *${challenge.title}*:\n"${checkInData.activityTitle || 'Treino Concluído'}"! +${challenge.reward || 100} XP 💪🔥`,
+        hashtags: ['desafio', challenge.type || 'treino'],
+        category: 'desafio',
+        shapes: 0, boosts: 0, gym_bag_saves: 0,
+        comments: 0, shares: 0, views: 0,
+        hasShaped: false, hasBoosted: false, inGymBag: false,
+        createdAt: new Date(),
+      };
+      useFeedStore.setState({ videos: [mockPost, ...feedState.videos] });
+    }
+    return { success: true };
   },
 
   updateProgress: (challengeId, newProgress) => {

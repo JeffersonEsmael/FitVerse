@@ -183,6 +183,46 @@ export const useSocialStore = create((set, get) => ({
     }
   },
 
+  // Search challenges
+  searchChallenges: async (query) => {
+    if (!query || query.length < 2) {
+      set({ searchResults: [] });
+      return;
+    }
+    
+    set({ isSearching: true });
+    try {
+      const { data, error } = await supabase
+        .from('challenges')
+        .select('*')
+        .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
+        .limit(20);
+        
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        set({ searchResults: data });
+      } else {
+        const mockChallenges = [
+          { id: 'c1', title: '30 Dias de Treino', description: 'Treine todos os dias por 30 dias', icon: '🏋️', type: 'treino', duration: 30, participants: 1247, progress: 12, reward: 500, color: '#00D4FF' },
+          { id: 'c2', title: 'Hidratação Master', description: 'Beba 3L de água por dia', icon: '💧', type: 'saúde', duration: 14, participants: 892, progress: 8, reward: 200, color: '#39FF14' },
+          { id: 'c3', title: 'Cardio Challenge', description: '150min de cardio por semana', icon: '🏃', type: 'cardio', duration: 7, participants: 634, progress: 3, reward: 150, color: '#FF6B35' },
+          { id: 'c4', title: 'Clean Eating', description: 'Registre todas as refeições no NutriScan', icon: '🥗', type: 'nutrição', duration: 21, participants: 445, progress: 5, reward: 300, color: '#A855F7' },
+        ];
+        const filtered = mockChallenges.filter(
+          c => c.title.toLowerCase().includes(query.toLowerCase()) || 
+               c.description.toLowerCase().includes(query.toLowerCase())
+        );
+        set({ searchResults: filtered });
+      }
+    } catch (error) {
+      console.error('[SocialStore] searchChallenges error:', error.message);
+      set({ searchResults: [] });
+    } finally {
+      set({ isSearching: false });
+    }
+  },
+
   // Clear search
   clearSearch: () => set({ searchResults: [] }),
 

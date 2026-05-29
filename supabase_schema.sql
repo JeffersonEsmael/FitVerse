@@ -106,6 +106,7 @@ create table if not exists public.challenges (
   reward integer default 100,
   color text default '#00D4FF',
   active boolean default true,
+  creator_id uuid references auth.users(id) on delete set null,
   created_at timestamptz default now()
 );
 
@@ -114,6 +115,9 @@ alter table public.challenges enable row level security;
 
 create policy "Challenges are viewable by everyone"
   on public.challenges for select using (true);
+
+create policy "Users can insert their own challenges"
+  on public.challenges for insert with check (auth.uid() = creator_id);
 
 -- 5. CHALLENGE PARTICIPANTS TABLE
 create table if not exists public.challenge_participants (
@@ -136,6 +140,26 @@ create policy "Users can join challenges"
 
 create policy "Users can update their own progress"
   on public.challenge_participants for update using (auth.uid() = user_id);
+
+-- 5b. CHALLENGE CHECKINS TABLE
+create table if not exists public.challenge_checkins (
+  id uuid default gen_random_uuid() primary key,
+  challenge_id uuid references public.challenges(id) on delete cascade not null,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  activity_title text not null,
+  photo_url text,
+  metric_value numeric default 0,
+  created_at timestamptz default now()
+);
+
+-- Enable RLS
+alter table public.challenge_checkins enable row level security;
+
+create policy "Challenge checkins are viewable by everyone"
+  on public.challenge_checkins for select using (true);
+
+create policy "Users can check in to challenges"
+  on public.challenge_checkins for insert with check (auth.uid() = user_id);
 
 -- 6. VIDEO LIKES TABLE
 create table if not exists public.video_likes (

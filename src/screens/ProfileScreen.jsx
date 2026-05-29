@@ -262,7 +262,7 @@ export default function ProfileScreen() {
           {/* Stats inside profile card */}
           <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0 }}>
             <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
-            <StatBox label="Ranking" value={`#${p.rank_position || '-'}`} icon={Award} color="#FFD700" onClick={() => navigate('ranking')} />
+            <StatBox label="Desafios" value={`#${p.rank_position || '-'}`} icon={Award} color="#FFD700" onClick={() => navigate('ranking', { params: { tab: 'challenges' } })} />
             <StatBox label="Mensagem" value="Chat" icon={MessageCircle} color="#00D4FF" onClick={handleDM} />
           </div>
         </motion.div>

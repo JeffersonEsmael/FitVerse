@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Image as ImageIcon, Video, Hash, X, ChevronLeft, Send, Camera, Play, Square, Music, Volume2, ShieldAlert } from 'lucide-react';
+import { Upload, Image as ImageIcon, Video, Hash, X, ChevronLeft, Send, Camera, Play, Square, Music, Volume2, ShieldAlert, Trophy } from 'lucide-react';
 import { useFeedStore } from '../stores/feedStore';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
+import { useRankingStore } from '../stores/rankingStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 
 const categories = ['treino', 'dieta', 'evolução', 'rotina', 'desafio', 'humor', 'motivação', 'dicas'];
@@ -17,6 +18,31 @@ const MOCK_TRACKS = [
 ];
 
 export default function CreatePostScreen() {
+  const screenParams = useNavigationStore((s) => s.screenParams);
+  const [creationType, setCreationType] = useState(null); // null | 'post' | 'challenge'
+
+  // Challenge creation states
+  const [challengeTitle, setChallengeTitle] = useState('');
+  const [challengeDesc, setChallengeDesc] = useState('');
+  const [challengeMetric, setChallengeMetric] = useState('treino');
+  const [challengeDuration, setChallengeDuration] = useState(30);
+  const [challengeReward, setChallengeReward] = useState(100);
+  const [challengeIcon, setChallengeIcon] = useState('🏆');
+  const [challengeColor, setChallengeColor] = useState('#00D4FF');
+  const [isSubmittingChallenge, setIsSubmittingChallenge] = useState(false);
+
+  const { addChallenge } = useRankingStore();
+
+  useEffect(() => {
+    if (screenParams?.type === 'challenge') {
+      setCreationType('challenge');
+    } else if (screenParams?.type === 'post') {
+      setCreationType('post');
+    } else {
+      setCreationType(null); // Show selection screen
+    }
+  }, [screenParams]);
+
   const [mode, setMode] = useState('camera'); // 'camera' | 'gallery'
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -47,32 +73,6 @@ export default function CreatePostScreen() {
   const setActiveTab = useNavigationStore((s) => s.setActiveTab);
 
   // Setup camera stream on mode change
-  useEffect(() => {
-    if (mode === 'camera' && !preview) {
-      startCamera();
-    } else {
-      stopCamera();
-    }
-
-    return () => {
-      stopCamera();
-    };
-  }, [mode, preview]);
-
-  // Handle recording timer
-  useEffect(() => {
-    if (isRecording) {
-      timerRef.current = setInterval(() => {
-        setRecordingSeconds((prev) => prev + 1);
-      }, 1000);
-    } else {
-      clearInterval(timerRef.current);
-      setRecordingSeconds(0);
-    }
-
-    return () => clearInterval(timerRef.current);
-  }, [isRecording]);
-
   const startCamera = async () => {
     setCameraError(null);
     try {
@@ -96,6 +96,33 @@ export default function CreatePostScreen() {
       setCameraStream(null);
     }
   };
+
+  // Setup camera stream on mode change
+  useEffect(() => {
+    if (mode === 'camera' && !preview) {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+
+    return () => {
+      stopCamera();
+    };
+  }, [mode, preview]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle recording timer
+  useEffect(() => {
+    if (isRecording) {
+      timerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      clearInterval(timerRef.current);
+      setRecordingSeconds(0);
+    }
+
+    return () => clearInterval(timerRef.current);
+  }, [isRecording]);
 
   // Start recording video from feed
   const startRecording = () => {
@@ -199,286 +226,500 @@ export default function CreatePostScreen() {
     });
   };
 
+  const handleCreateChallenge = async () => {
+    if (!challengeTitle.trim()) {
+      alert('Por favor, informe o título do desafio.');
+      return;
+    }
+
+    setIsSubmittingChallenge(true);
+    try {
+      await addChallenge({
+        title: challengeTitle.trim(),
+        description: challengeDesc.trim(),
+        icon: challengeIcon,
+        type: challengeMetric,
+        duration: challengeDuration,
+        reward: challengeReward,
+        color: challengeColor,
+      });
+
+      alert('Desafio criado com sucesso! 🏆');
+      setChallengeTitle('');
+      setChallengeDesc('');
+      setChallengeMetric('treino');
+      setChallengeDuration(30);
+      setChallengeReward(100);
+      setChallengeIcon('🏆');
+      setChallengeColor('#00D4FF');
+
+      // Navigate to explore -> challenges tab
+      setActiveTab('explore');
+    } catch (err) {
+      console.error('Error creating challenge:', err);
+      alert('Falha ao criar o desafio. Tente novamente.');
+    } finally {
+      setIsSubmittingChallenge(false);
+    }
+  };
+
   return (
     <ScreenWrapper screenKey="create">
-      <div style={styles.container}>
-        {/* Header */}
-        <div style={styles.header}>
-          <button style={styles.backBtn} onClick={() => goBack()}>
-            <ChevronLeft size={24} color="#fff" />
-          </button>
-          <h2 style={styles.title}>Novo Post</h2>
-          <motion.button
-            style={{ ...styles.postBtn, opacity: file ? 1 : 0.4 }}
-            onClick={handlePost}
-            disabled={!file}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Send size={16} /> Postar
-          </motion.button>
-        </div>
-
-        {/* Audio selector button at the top */}
-        {!preview && (
-          <motion.button
-            style={{
-              ...styles.audioSelectBtn,
-              background: selectedTrack ? 'rgba(57,255,20,0.1)' : 'rgba(255,255,255,0.05)',
-              borderColor: selectedTrack ? '#39FF14' : 'rgba(255,255,255,0.1)',
-            }}
-            onClick={() => setShowMusicSelector(true)}
-            whileTap={{ scale: 0.97 }}
-          >
-            <Music size={16} color={selectedTrack ? '#39FF14' : '#fff'} />
-            <span style={{ ...styles.audioText, color: selectedTrack ? '#39FF14' : '#fff' }}>
-              {selectedTrack ? selectedTrack.title : 'Adicionar Trilha / Som Fitness'}
-            </span>
-            {selectedTrack && <Volume2 size={16} color="#39FF14" />}
-          </motion.button>
-        )}
-
-        {/* Segmented Mode Selector */}
-        {!preview && (
-          <div style={styles.modeTabs}>
-            <button
-              style={{ ...styles.modeTab, ...(mode === 'camera' ? styles.modeTabActive : {}) }}
-              onClick={() => setMode('camera')}
-            >
-              <Camera size={16} /> Gravar Câmera
+      {creationType === null ? (
+        <div style={styles.selectionContainer}>
+          {/* Header */}
+          <div style={styles.header}>
+            <button style={styles.backBtn} onClick={() => goBack()}>
+              <ChevronLeft size={24} color="#fff" />
             </button>
-            <button
-              style={{ ...styles.modeTab, ...(mode === 'gallery' ? styles.modeTabActive : {}) }}
-              onClick={() => setMode('gallery')}
-            >
-              <Upload size={16} /> Fazer Upload
-            </button>
+            <h2 style={styles.title}>Criar</h2>
           </div>
-        )}
 
-        {/* Content Preview/Input Area */}
-        {preview ? (
-          /* Locked Content Preview */
-          <div style={styles.previewWrap}>
-            {mediaType === 'video' ? (
-              <video src={preview} style={styles.previewMedia} controls playsInline />
-            ) : (
-              <img src={preview} alt="Preview" style={styles.previewMedia} />
-            )}
-            <button
-              style={styles.removeBtn}
-              onClick={() => {
-                setFile(null);
-                setPreview(null);
-                setMediaType(null);
-              }}
+          <div style={styles.selectionGrid}>
+            <motion.button
+              style={styles.selectionCard}
+              whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.04)' }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setCreationType('post')}
             >
-              <X size={18} color="#fff" />
-            </button>
-            {selectedTrack && (
-              <div style={styles.audioBadge}>
-                <Music size={12} color="#39FF14" />
-                <span style={styles.audioBadgeText}>{selectedTrack.title}</span>
+              <div style={{ ...styles.selectionIconBg, background: 'linear-gradient(135deg, #00D4FF, #0056FF)' }}>
+                <Video size={32} color="#fff" />
               </div>
-            )}
-            <div style={styles.mediaTypeBadge}>
-              {mediaType === 'video' ? <Video size={14} color="#fff" /> : <ImageIcon size={14} color="#fff" />}
-              <span style={styles.mediaTypeText}>{mediaType === 'video' ? 'Vídeo' : 'Foto'}</span>
+              <h3 style={styles.selectionCardTitle}>Publicar Vídeo / Post</h3>
+              <p style={styles.selectionCardDesc}>Grave ou carregue fotos e vídeos de treinos com música de fundo e categorias.</p>
+            </motion.button>
+
+            <motion.button
+              style={styles.selectionCard}
+              whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.04)' }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setCreationType('challenge')}
+            >
+              <div style={{ ...styles.selectionIconBg, background: 'linear-gradient(135deg, #FF6B35, #FF2D55)' }}>
+                <Trophy size={32} color="#fff" />
+              </div>
+              <h3 style={styles.selectionCardTitle}>Criar Desafio</h3>
+              <p style={styles.selectionCardDesc}>Crie um grupo de competição personalizada com duração, recompensas de XP e métricas.</p>
+            </motion.button>
+          </div>
+        </div>
+      ) : creationType === 'challenge' ? (
+        <div style={styles.challengeContainer}>
+          {/* Header */}
+          <div style={styles.header}>
+            <button style={styles.backBtn} onClick={() => setCreationType(null)}>
+              <ChevronLeft size={24} color="#fff" />
+            </button>
+            <h2 style={styles.title}>Novo Desafio</h2>
+          </div>
+
+          {/* Form */}
+          <div style={styles.formContainer}>
+            {/* Title */}
+            <div style={styles.field}>
+              <label style={styles.label}>Título do Desafio</label>
+              <input
+                type="text"
+                placeholder="Ex: 30 Dias de Treino, Corrida de Outono"
+                value={challengeTitle}
+                onChange={(e) => setChallengeTitle(e.target.value)}
+                style={styles.inputField}
+                maxLength={40}
+              />
+            </div>
+
+            {/* Description */}
+            <div style={styles.field}>
+              <label style={styles.label}>Descrição & Regras</label>
+              <textarea
+                placeholder="Ex: Treine todos os dias e faça check-in com foto."
+                value={challengeDesc}
+                onChange={(e) => setChallengeDesc(e.target.value)}
+                style={styles.textareaField}
+                rows={3}
+                maxLength={200}
+              />
+            </div>
+
+            {/* Metric */}
+            <div style={styles.field}>
+              <label style={styles.label}>Métrica de Pontuação</label>
+              <select
+                value={challengeMetric}
+                onChange={(e) => setChallengeMetric(e.target.value)}
+                style={styles.selectField}
+              >
+                <option value="treino">Número de Treinos (Treinos)</option>
+                <option value="minutos">Minutos Praticados (Minutos)</option>
+                <option value="calorias">Calorias Gastas (Calorias)</option>
+                <option value="km">Quilômetros Percorridos (km)</option>
+                <option value="passos">Passos Realizados (Passos)</option>
+              </select>
+            </div>
+
+            <div style={styles.rowFields}>
+              {/* Duration */}
+              <div style={{ ...styles.field, flex: 1 }}>
+                <label style={styles.label}>Duração (Dias)</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={challengeDuration}
+                  onChange={(e) => setChallengeDuration(Math.max(1, parseInt(e.target.value) || 7))}
+                  style={styles.inputField}
+                />
+              </div>
+
+              {/* XP Reward */}
+              <div style={{ ...styles.field, flex: 1 }}>
+                <label style={styles.label}>Recompensa (XP)</label>
+                <input
+                  type="number"
+                  min={50}
+                  step={50}
+                  value={challengeReward}
+                  onChange={(e) => setChallengeReward(Math.max(50, parseInt(e.target.value) || 100))}
+                  style={styles.inputField}
+                />
+              </div>
+            </div>
+
+            {/* Icon/Emoji Selector */}
+            <div style={styles.field}>
+              <label style={styles.label}>Ícone do Desafio</label>
+              <div style={styles.emojiSelectorGrid}>
+                {['🏆', '🏋️', '🏃', '🥗', '💧', '🔥', '🥑', '👟', '💪'].map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    style={{
+                      ...styles.emojiBtn,
+                      background: challengeIcon === emoji ? 'rgba(0,212,255,0.15)' : 'rgba(255,255,255,0.03)',
+                      borderColor: challengeIcon === emoji ? '#00D4FF' : 'rgba(255,255,255,0.1)',
+                    }}
+                    onClick={() => setChallengeIcon(emoji)}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Color Selector */}
+            <div style={styles.field}>
+              <label style={styles.label}>Cor Temática</label>
+              <div style={styles.colorSelectorRow}>
+                {['#00D4FF', '#39FF14', '#FF6B35', '#A855F7', '#FF2D55', '#FFD700'].map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    style={{
+                      ...styles.colorBtn,
+                      backgroundColor: color,
+                      border: challengeColor === color ? '3px solid #fff' : '1px solid rgba(255,255,255,0.2)',
+                      transform: challengeColor === color ? 'scale(1.15)' : 'scale(1)',
+                    }}
+                    onClick={() => setChallengeColor(color)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Create Button */}
+            <motion.button
+              style={{
+                ...styles.submitBtn,
+                background: `linear-gradient(135deg, ${challengeColor}, ${challengeColor}CC)`,
+                color: challengeColor === '#FFD700' || challengeColor === '#39FF14' ? '#000' : '#fff',
+              }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleCreateChallenge}
+              disabled={isSubmittingChallenge}
+            >
+              {isSubmittingChallenge ? 'Criando Desafio...' : 'Criar Desafio'}
+            </motion.button>
+          </div>
+        </div>
+      ) : (
+        <div style={styles.container}>
+          {/* Header */}
+          <div style={styles.header}>
+            <button style={styles.backBtn} onClick={() => setCreationType(null)}>
+              <ChevronLeft size={24} color="#fff" />
+            </button>
+            <h2 style={styles.title}>Novo Post</h2>
+            <motion.button
+              style={{ ...styles.postBtn, opacity: file ? 1 : 0.4 }}
+              onClick={handlePost}
+              disabled={!file}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Send size={16} /> Postar
+            </motion.button>
+          </div>
+
+          {/* Audio selector button at the top */}
+          {!preview && (
+            <motion.button
+              style={{
+                ...styles.audioSelectBtn,
+                background: selectedTrack ? 'rgba(57,255,20,0.1)' : 'rgba(255,255,255,0.05)',
+                borderColor: selectedTrack ? '#39FF14' : 'rgba(255,255,255,0.1)',
+              }}
+              onClick={() => setShowMusicSelector(true)}
+              whileTap={{ scale: 0.97 }}
+            >
+              <Music size={16} color={selectedTrack ? '#39FF14' : '#fff'} />
+              <span style={{ ...styles.audioText, color: selectedTrack ? '#39FF14' : '#fff' }}>
+                {selectedTrack ? selectedTrack.title : 'Adicionar Trilha / Som Fitness'}
+              </span>
+              {selectedTrack && <Volume2 size={16} color="#39FF14" />}
+            </motion.button>
+          )}
+
+          {/* Segmented Mode Selector */}
+          {!preview && (
+            <div style={styles.modeTabs}>
+              <button
+                style={{ ...styles.modeTab, ...(mode === 'camera' ? styles.modeTabActive : {}) }}
+                onClick={() => setMode('camera')}
+              >
+                <Camera size={16} /> Gravar Câmera
+              </button>
+              <button
+                style={{ ...styles.modeTab, ...(mode === 'gallery' ? styles.modeTabActive : {}) }}
+                onClick={() => setMode('gallery')}
+              >
+                <Upload size={16} /> Fazer Upload
+              </button>
+            </div>
+          )}
+
+          {/* Content Preview/Input Area */}
+          {preview ? (
+            /* Locked Content Preview */
+            <div style={styles.previewWrap}>
+              {mediaType === 'video' ? (
+                <video src={preview} style={styles.previewMedia} controls playsInline />
+              ) : (
+                <img src={preview} alt="Preview" style={styles.previewMedia} />
+              )}
+              <button
+                style={styles.removeBtn}
+                onClick={() => {
+                  setFile(null);
+                  setPreview(null);
+                  setMediaType(null);
+                }}
+              >
+                <X size={18} color="#fff" />
+              </button>
+              {selectedTrack && (
+                <div style={styles.audioBadge}>
+                  <Music size={12} color="#39FF14" />
+                  <span style={styles.audioBadgeText}>{selectedTrack.title}</span>
+                </div>
+              )}
+              <div style={styles.mediaTypeBadge}>
+                {mediaType === 'video' ? <Video size={14} color="#fff" /> : <ImageIcon size={14} color="#fff" />}
+                <span style={styles.mediaTypeText}>{mediaType === 'video' ? 'Vídeo' : 'Foto'}</span>
+              </div>
+            </div>
+          ) : mode === 'camera' ? (
+            /* Active Camera Mode View */
+            <div style={styles.cameraFrame}>
+              {cameraError ? (
+                <div style={styles.cameraErrorWrap}>
+                  <ShieldAlert size={40} color="#FF9500" />
+                  <span style={styles.cameraErrorText}>{cameraError}</span>
+                  <motion.button
+                    style={styles.fallbackToGalleryBtn}
+                    onClick={() => setMode('gallery')}
+                    whileTap={{ scale: 0.97 }}
+                  >
+                    Ir para Fazer Upload
+                  </motion.button>
+                </div>
+              ) : (
+                <>
+                  <video ref={videoPreviewRef} style={styles.cameraVideo} autoPlay playsInline muted />
+
+                  {/* Overlays */}
+                  {isRecording && (
+                    <div style={styles.recIndicator}>
+                      <div style={styles.recDot} />
+                      <span>REC {formatTime(recordingSeconds)}</span>
+                    </div>
+                  )}
+
+                  {/* Floating control buttons */}
+                  <div style={styles.cameraControls}>
+                    {!isRecording ? (
+                      <motion.button
+                        style={styles.recordBtnStart}
+                        onClick={startRecording}
+                        whileTap={{ scale: 0.9 }}
+                      >
+                        <div style={styles.recordBtnInner} />
+                      </motion.button>
+                    ) : (
+                      <motion.button
+                        style={styles.recordBtnStop}
+                        onClick={stopRecording}
+                        whileTap={{ scale: 0.9 }}
+                      >
+                        <Square size={20} color="#fff" fill="#fff" />
+                      </motion.button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            /* Gallery Mode Picker Area */
+            <motion.div
+              style={styles.uploadArea}
+              onClick={() => fileRef.current?.click()}
+              whileHover={{ borderColor: 'rgba(0,212,255,0.4)', background: 'rgba(0,212,255,0.06)' }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Upload size={40} color="#00D4FF" />
+              <span style={styles.uploadTitle}>Selecionar da Galeria</span>
+              <span style={styles.uploadDesc}>Fotos ou Vídeos • JPG, PNG, MP4, MOV</span>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*,video/*"
+                onChange={handleFileSelect}
+                style={{ display: 'none' }}
+              />
+            </motion.div>
+          )}
+
+          {/* Caption */}
+          <div style={styles.field}>
+            <label style={styles.label}>Legenda</label>
+            <textarea
+              style={styles.textarea}
+              placeholder="Descreva seu post e treinos..."
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              maxLength={300}
+            />
+            <div style={styles.fieldBottomRow}>
+              {selectedTrack && <span style={styles.attachedMusicInfo}>🎵 Trilha: {selectedTrack.title}</span>}
+              <span style={styles.charCount}>{caption.length}/300</span>
             </div>
           </div>
-        ) : mode === 'camera' ? (
-          /* Active Camera Mode View */
-          <div style={styles.cameraFrame}>
-            {cameraError ? (
-              <div style={styles.cameraErrorWrap}>
-                <ShieldAlert size={40} color="#FF9500" />
-                <span style={styles.cameraErrorText}>{cameraError}</span>
-                <motion.button
-                  style={styles.fallbackToGalleryBtn}
-                  onClick={() => setMode('gallery')}
-                  whileTap={{ scale: 0.97 }}
+
+          {/* Hashtags */}
+          <div style={styles.field}>
+            <label style={styles.label}>Hashtags</label>
+            <div style={styles.hashtagInput}>
+              <Hash size={16} color="#6C6C88" />
+              <input
+                style={styles.input}
+                placeholder="Adicionar hashtag (pressione Enter)"
+                value={hashtagInput}
+                onChange={(e) => setHashtagInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addHashtag())}
+              />
+            </div>
+            <div style={styles.chipRow}>
+              {hashtags.map((t) => (
+                <span key={t} style={styles.chip}>
+                  #{t} <X size={12} onClick={() => removeHashtag(t)} style={{ cursor: 'pointer', marginLeft: 4 }} />
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Category */}
+          <div style={styles.field}>
+            <label style={styles.label}>Categoria</label>
+            <div style={styles.catRow}>
+              {categories.map((c) => (
+                <button
+                  key={c}
+                  style={{ ...styles.catChip, ...(category === c ? styles.catChipActive : {}) }}
+                  onClick={() => setCategory(c)}
                 >
-                  Ir para Fazer Upload
-                </motion.button>
-              </div>
-            ) : (
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Music selector slider sheet */}
+          <AnimatePresence>
+            {showMusicSelector && (
               <>
-                <video ref={videoPreviewRef} style={styles.cameraVideo} autoPlay playsInline muted />
+                {/* Overlay Backdrop */}
+                <motion.div
+                  style={styles.sheetBackdrop}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowMusicSelector(false)}
+                />
 
-                {/* Overlays */}
-                {isRecording && (
-                  <div style={styles.recIndicator}>
-                    <div style={styles.recDot} />
-                    <span>REC {formatTime(recordingSeconds)}</span>
+                {/* Slider Sheet */}
+                <motion.div
+                  style={styles.sheet}
+                  initial={{ y: '100%' }}
+                  animate={{ y: 0 }}
+                  exit={{ y: '100%' }}
+                  transition={{ type: 'spring', damping: 25, stiffness: 250 }}
+                >
+                  <div style={styles.sheetHeader}>
+                    <div style={styles.sheetHandle} />
+                    <div style={styles.sheetTitleRow}>
+                      <Music size={18} color="#00D4FF" />
+                      <h3 style={styles.sheetTitle}>Trilhas Sonoras Fitness</h3>
+                    </div>
+                    <button style={styles.sheetCloseBtn} onClick={() => setShowMusicSelector(false)}>
+                      <X size={20} color="#fff" />
+                    </button>
                   </div>
-                )}
 
-                {/* Floating control buttons */}
-                <div style={styles.cameraControls}>
-                  {!isRecording ? (
-                    <motion.button
-                      style={styles.recordBtnStart}
-                      onClick={startRecording}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <div style={styles.recordBtnInner} />
-                    </motion.button>
-                  ) : (
-                    <motion.button
-                      style={styles.recordBtnStop}
-                      onClick={stopRecording}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <Square size={20} color="#fff" fill="#fff" />
-                    </motion.button>
-                  )}
-                </div>
+                  <div style={styles.sheetList}>
+                    {MOCK_TRACKS.map((track) => {
+                      const isSelected = selectedTrack?.id === track.id;
+                      return (
+                        <motion.div
+                          key={track.id}
+                          style={{
+                            ...styles.trackRow,
+                            background: isSelected ? 'rgba(0,212,255,0.06)' : 'transparent',
+                            borderColor: isSelected ? '#00D4FF' : 'rgba(255,255,255,0.05)',
+                          }}
+                          onClick={() => {
+                            setSelectedTrack(isSelected ? null : track);
+                            setShowMusicSelector(false);
+                          }}
+                          whileHover={{ background: 'rgba(255,255,255,0.03)' }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <div style={styles.trackInfo}>
+                            <span style={{ ...styles.trackTitle, color: isSelected ? '#00D4FF' : '#fff' }}>
+                              {track.title}
+                            </span>
+                            <span style={styles.trackArtist}>{track.artist}</span>
+                          </div>
+                          <div style={styles.trackRight}>
+                            <span style={styles.trackTime}>{track.duration}</span>
+                            {isSelected && <Volume2 size={16} color="#00D4FF" />}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
               </>
             )}
-          </div>
-        ) : (
-          /* Gallery Mode Picker Area */
-          <motion.div
-            style={styles.uploadArea}
-            onClick={() => fileRef.current?.click()}
-            whileHover={{ borderColor: 'rgba(0,212,255,0.4)', background: 'rgba(0,212,255,0.06)' }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Upload size={40} color="#00D4FF" />
-            <span style={styles.uploadTitle}>Selecionar da Galeria</span>
-            <span style={styles.uploadDesc}>Fotos ou Vídeos • JPG, PNG, MP4, MOV</span>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*,video/*"
-              onChange={handleFileSelect}
-              style={{ display: 'none' }}
-            />
-          </motion.div>
-        )}
-
-        {/* Caption */}
-        <div style={styles.field}>
-          <label style={styles.label}>Legenda</label>
-          <textarea
-            style={styles.textarea}
-            placeholder="Descreva seu post e treinos..."
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            maxLength={300}
-          />
-          <div style={styles.fieldBottomRow}>
-            {selectedTrack && <span style={styles.attachedMusicInfo}>🎵 Trilha: {selectedTrack.title}</span>}
-            <span style={styles.charCount}>{caption.length}/300</span>
-          </div>
+          </AnimatePresence>
         </div>
-
-        {/* Hashtags */}
-        <div style={styles.field}>
-          <label style={styles.label}>Hashtags</label>
-          <div style={styles.hashtagInput}>
-            <Hash size={16} color="#6C6C88" />
-            <input
-              style={styles.input}
-              placeholder="Adicionar hashtag (pressione Enter)"
-              value={hashtagInput}
-              onChange={(e) => setHashtagInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addHashtag())}
-            />
-          </div>
-          <div style={styles.chipRow}>
-            {hashtags.map((t) => (
-              <span key={t} style={styles.chip}>
-                #{t} <X size={12} onClick={() => removeHashtag(t)} style={{ cursor: 'pointer', marginLeft: 4 }} />
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Category */}
-        <div style={styles.field}>
-          <label style={styles.label}>Categoria</label>
-          <div style={styles.catRow}>
-            {categories.map((c) => (
-              <button
-                key={c}
-                style={{ ...styles.catChip, ...(category === c ? styles.catChipActive : {}) }}
-                onClick={() => setCategory(c)}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Music selector slider sheet */}
-        <AnimatePresence>
-          {showMusicSelector && (
-            <>
-              {/* Overlay Backdrop */}
-              <motion.div
-                style={styles.sheetBackdrop}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setShowMusicSelector(false)}
-              />
-
-              {/* Slider Sheet */}
-              <motion.div
-                style={styles.sheet}
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                exit={{ y: '100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 250 }}
-              >
-                <div style={styles.sheetHeader}>
-                  <div style={styles.sheetHandle} />
-                  <div style={styles.sheetTitleRow}>
-                    <Music size={18} color="#00D4FF" />
-                    <h3 style={styles.sheetTitle}>Trilhas Sonoras Fitness</h3>
-                  </div>
-                  <button style={styles.sheetCloseBtn} onClick={() => setShowMusicSelector(false)}>
-                    <X size={20} color="#fff" />
-                  </button>
-                </div>
-
-                <div style={styles.sheetList}>
-                  {MOCK_TRACKS.map((track) => {
-                    const isSelected = selectedTrack?.id === track.id;
-                    return (
-                      <motion.div
-                        key={track.id}
-                        style={{
-                          ...styles.trackRow,
-                          background: isSelected ? 'rgba(0,212,255,0.06)' : 'transparent',
-                          borderColor: isSelected ? '#00D4FF' : 'rgba(255,255,255,0.05)',
-                        }}
-                        onClick={() => {
-                          setSelectedTrack(isSelected ? null : track);
-                          setShowMusicSelector(false);
-                        }}
-                        whileHover={{ background: 'rgba(255,255,255,0.03)' }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <div style={styles.trackInfo}>
-                          <span style={{ ...styles.trackTitle, color: isSelected ? '#00D4FF' : '#fff' }}>
-                            {track.title}
-                          </span>
-                          <span style={styles.trackArtist}>{track.artist}</span>
-                        </div>
-                        <div style={styles.trackRight}>
-                          <span style={styles.trackTime}>{track.duration}</span>
-                          {isSelected && <Volume2 size={16} color="#00D4FF" />}
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-      </div>
+      )}
     </ScreenWrapper>
   );
 }
@@ -543,4 +784,25 @@ const styles = {
   trackArtist: { fontSize: '12px', color: 'rgba(255,255,255,0.4)', fontFamily: "'Inter', sans-serif" },
   trackRight: { display: 'flex', alignItems: 'center', gap: '10px', marginLeft: '12px' },
   trackTime: { fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontFamily: "'Inter', sans-serif" },
+
+  // Selection Screen
+  selectionContainer: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)', display: 'flex', flexDirection: 'column', height: '100%' },
+  selectionGrid: { display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '32px' },
+  selectionCard: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '30px 20px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', cursor: 'pointer', textAlign: 'center', fontFamily: "'Inter', sans-serif", width: '100%', boxSizing: 'border-box' },
+  selectionIconBg: { width: '64px', height: '64px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  selectionCardTitle: { fontSize: '18px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0 },
+  selectionCardDesc: { fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.5', margin: 0 },
+
+  // Challenge Form
+  challengeContainer: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)', paddingBottom: '60px' },
+  formContainer: { display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' },
+  inputField: { width: '100%', padding: '14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', color: '#fff', fontSize: '15px', fontFamily: "'Inter', sans-serif", outline: 'none', boxSizing: 'border-box' },
+  textareaField: { width: '100%', padding: '14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', color: '#fff', fontSize: '15px', fontFamily: "'Inter', sans-serif", outline: 'none', resize: 'none', boxSizing: 'border-box' },
+  selectField: { width: '100%', padding: '14px', background: '#0A0A0F', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', color: '#fff', fontSize: '15px', fontFamily: "'Inter', sans-serif", outline: 'none', boxSizing: 'border-box' },
+  rowFields: { display: 'flex', gap: '12px' },
+  emojiSelectorGrid: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' },
+  emojiBtn: { padding: '10px', borderRadius: '10px', fontSize: '20px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  colorSelectorRow: { display: 'flex', gap: '10px', flexWrap: 'wrap' },
+  colorBtn: { width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', transition: 'all 0.2s', border: 'none' },
+  submitBtn: { width: '100%', padding: '16px', borderRadius: '14px', border: 'none', fontSize: '16px', fontWeight: 800, cursor: 'pointer', fontFamily: "'Outfit', sans-serif", marginTop: '8px' },
 };

@@ -38,6 +38,22 @@ export default function MessagesScreen() {
     return () => unsubscribeFromMessages();
   }, [conversationId, fetchMessages, subscribeToMessages, unsubscribeFromMessages]);
 
+  const handleStartRecording = () => {
+    setIsRecording(true);
+  };
+
+  const handleStopRecording = async (shouldSend = true) => {
+    if (!isRecording) return;
+    setIsRecording(false);
+    if (shouldSend && conversationId && user?.uid) {
+      setIsSending(true);
+      const timeStr = recordingTime > 0 ? `0:${recordingTime < 10 ? '0' + recordingTime : recordingTime}` : '0:03';
+      await sendMessage(conversationId, user.uid, `🎙️ Mensagem de voz (${timeStr})`);
+      setIsSending(false);
+    }
+    setRecordingTime(0);
+  };
+
   // Audio recording timer simulation
   useEffect(() => {
     if (isRecording) {
@@ -92,22 +108,6 @@ export default function MessagesScreen() {
       await sendMessage(conversationId, user.uid, '', imageUrl);
     }
     setIsSending(false);
-  };
-
-  const handleStartRecording = () => {
-    setIsRecording(true);
-  };
-
-  const handleStopRecording = async (shouldSend = true) => {
-    if (!isRecording) return;
-    setIsRecording(false);
-    if (shouldSend && conversationId && user?.uid) {
-      setIsSending(true);
-      const timeStr = recordingTime > 0 ? `0:${recordingTime < 10 ? '0' + recordingTime : recordingTime}` : '0:03';
-      await sendMessage(conversationId, user.uid, `🎙️ Mensagem de voz (${timeStr})`);
-      setIsSending(false);
-    }
-    setRecordingTime(0);
   };
 
   const handleAddEmoji = (emoji) => {
