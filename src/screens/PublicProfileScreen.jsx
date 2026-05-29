@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, X, UserPlus, UserCheck, Trophy, Flame, Target, Dumbbell, Zap, Star } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, Trophy, Flame, Target, Dumbbell, Zap, Star, Plus, Check } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -9,7 +9,6 @@ import { useSocialStore } from '../stores/socialStore';
 import { useChatStore } from '../stores/chatStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import ShapeIcon from '../components/icons/ShapeIcon';
-import VideoCard from '../components/feed/VideoCard';
 
 // Badge definitions (same as own profile)
 const BADGE_DEFINITIONS = [
@@ -94,7 +93,6 @@ export default function PublicProfileScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
-  const [selectedPost, setSelectedPost] = useState(null);
   const [gymBagVideos, setGymBagVideos] = useState([]);
 
   const userId = screenParams?.userId;
@@ -165,8 +163,15 @@ export default function PublicProfileScreen() {
     loadData();
   }, [userId, user?.uid, fetchPublicProfile, fetchUserPosts, checkIfFollowing, navigate]);
 
-  const handleFollowToggle = async () => {
+  const handleFollowToggle = async (e) => {
+    if (e) e.stopPropagation();
     if (!user || isActionLoading) return;
+    
+    if (isFollowing) {
+      const confirmUnfollow = window.confirm(`Deseja realmente parar de seguir @${profile.username}?`);
+      if (!confirmUnfollow) return;
+    }
+
     setIsActionLoading(true);
     
     // Optimistic UI update
@@ -268,29 +273,57 @@ export default function PublicProfileScreen() {
 
         {/* Profile card */}
         <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-          <div style={styles.avatarSectionCentered}>
-            <div style={styles.avatar}>
-              {profile.avatar_url ? <img src={profile.avatar_url} alt="" style={styles.avatarImg} /> : (
-                <div style={styles.avatarPlaceholder}>{profile.display_name?.charAt(0) || '?'}</div>
+          <div style={styles.profileCardHeader}>
+            <div style={styles.profileInfoBlock}>
+              <h3 style={styles.usernameLeft}>@{profile.username}</h3>
+              <span style={styles.displayNameLeft}>{profile.display_name}</span>
+
+              <div style={styles.statsRowLeft}>
+                <div style={styles.statItemLeft}>
+                  <span style={styles.statValueLeft}>{profile.total_videos || userPosts.length}</span>
+                  <span style={styles.statLabelLeft}>posts</span>
+                </div>
+                <div style={styles.statItemLeft}>
+                  <span style={styles.statValueLeft}>{profile.followers || 0}</span>
+                  <span style={styles.statLabelLeft}>seguidores</span>
+                </div>
+                <div style={styles.statItemLeft}>
+                  <span style={styles.statValueLeft}>{profile.following || 0}</span>
+                  <span style={styles.statLabelLeft}>seguindo</span>
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.avatarContainerRight}>
+              <div style={styles.avatar}>
+                {profile.avatar_url ? <img src={profile.avatar_url} alt="" style={styles.avatarImg} /> : (
+                  <div style={styles.avatarPlaceholder}>{profile.display_name?.charAt(0) || '?'}</div>
+                )}
+              </div>
+              {user?.uid !== profile.id && (
+                <motion.button
+                  style={{
+                    ...styles.profileFollowIconBtn,
+                    backgroundColor: isFollowing ? 'rgba(255,255,255,0.1)' : '#39FF14',
+                    border: isFollowing ? '2px solid rgba(255,255,255,0.3)' : '2px solid #39FF14',
+                    boxShadow: isFollowing ? 'none' : '0 4px 10px rgba(57,255,20,0.4)',
+                  }}
+                  onClick={handleFollowToggle}
+                  disabled={isActionLoading}
+                  whileTap={{ scale: 0.9 }}
+                  animate={{
+                    rotate: isFollowing ? 360 : 0,
+                    scale: isFollowing ? 1.05 : 1,
+                  }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {isFollowing ? (
+                    <Check size={14} color="#39FF14" strokeWidth={3} />
+                  ) : (
+                    <Plus size={14} color="#0A0A0F" strokeWidth={3} />
+                  )}
+                </motion.button>
               )}
-            </div>
-          </div>
-
-          <h3 style={styles.usernameCenter}>@{profile.username}</h3>
-          <span style={styles.displayNameCenter}>{profile.display_name}</span>
-
-          <div style={styles.statsRowCentered}>
-            <div style={styles.statItemInlineCentered}>
-              <span style={styles.statValueInline}>{profile.total_videos || userPosts.length}</span>
-              <span style={styles.statLabelInline}>posts</span>
-            </div>
-            <div style={styles.statItemInlineCentered}>
-              <span style={styles.statValueInline}>{profile.followers || 0}</span>
-              <span style={styles.statLabelInline}>seguidores</span>
-            </div>
-            <div style={styles.statItemInlineCentered}>
-              <span style={styles.statValueInline}>{profile.following || 0}</span>
-              <span style={styles.statLabelInline}>seguindo</span>
             </div>
           </div>
 
@@ -298,42 +331,15 @@ export default function PublicProfileScreen() {
             {profile.bio && <p style={styles.bioCenter}>{profile.bio}</p>}
           </div>
 
-          {/* Prominent Follow + Message buttons */}
+          {/* Prominent Message button (Follow button is now the green '+' on avatar) */}
           {user?.uid !== profile.id && (
             <div style={styles.actionRow}>
-              <motion.button
-                style={{
-                  ...styles.followBtn,
-                  background: isFollowing
-                    ? 'rgba(255,255,255,0.08)'
-                    : 'linear-gradient(135deg, #39FF14, #00CC00)',
-                  color: isFollowing ? '#fff' : '#0A0A0F',
-                  border: isFollowing ? '1px solid rgba(255,255,255,0.15)' : 'none',
-                  boxShadow: isFollowing ? 'none' : '0 6px 20px rgba(57,255,20,0.35)',
-                }}
-                onClick={handleFollowToggle}
-                whileTap={{ scale: 0.95 }}
-                disabled={isActionLoading}
-              >
-                {isFollowing ? (
-                  <>
-                    <UserCheck size={18} />
-                    <span>Seguindo</span>
-                  </>
-                ) : (
-                  <>
-                    <UserPlus size={18} />
-                    <span>Seguir</span>
-                  </>
-                )}
-              </motion.button>
-
               <motion.button
                 style={styles.messageBtn}
                 onClick={handleMessage}
                 whileTap={{ scale: 0.95 }}
               >
-                <MessageCircle size={18} />
+                <MessageCircle size={16} />
                 <span>Mensagem</span>
               </motion.button>
             </div>
@@ -379,7 +385,7 @@ export default function PublicProfileScreen() {
                   style={styles.videoThumb}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  onClick={() => setSelectedPost(post)}
+                  onClick={() => navigate('post_details', { params: { post } })}
                 >
                   {post.mediaType === 'image' ? (
                     <img src={post.videoUrl} alt="" style={styles.thumbMedia} />
@@ -423,26 +429,6 @@ export default function PublicProfileScreen() {
         )}
       </div>
 
-      {/* Fullscreen Video Modal */}
-      <AnimatePresence>
-        {selectedPost && (
-          <motion.div
-            style={styles.fullScreenModal}
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-          >
-            <div style={styles.modalHeader}>
-              <button style={styles.modalCloseBtn} onClick={() => setSelectedPost(null)}>
-                <X size={28} color="#FFF" />
-              </button>
-            </div>
-            <div style={styles.modalContent}>
-              <VideoCard video={selectedPost} isActive={true} index={0} />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </ScreenWrapper>
   );
 }
@@ -467,7 +453,7 @@ const styles = {
     marginBottom: '16px',
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
+    alignItems: 'stretch',
     background: 'rgba(255, 255, 255, 0.05)',
     backdropFilter: 'blur(40px) saturate(180%)',
     WebkitBackdropFilter: 'blur(40px) saturate(180%)',
@@ -475,53 +461,92 @@ const styles = {
     borderRadius: '32px',
     boxShadow: '0 20px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)',
   },
-  usernameCenter: { fontSize: '20px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: '0 0 4px', textAlign: 'center', letterSpacing: '-0.5px' },
-  displayNameCenter: { fontSize: '14px', color: 'rgba(255,255,255,0.5)', marginBottom: '16px', textAlign: 'center' },
-  avatarSectionCentered: {
+  profileCardHeader: {
     display: 'flex',
-    justifyContent: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '14px',
-  },
-  statsRowCentered: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: '24px',
     width: '100%',
     marginBottom: '16px',
+    gap: '16px',
   },
-  statItemInlineCentered: {
+  profileInfoBlock: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  avatarContainerRight: {
+    position: 'relative',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    minWidth: '60px',
+    flexShrink: 0,
   },
-  statValueInline: { fontSize: '17px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif" },
-  statLabelInline: { fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' },
+  usernameLeft: {
+    fontSize: '18px',
+    fontWeight: 800,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    margin: '0 0 4px',
+    textAlign: 'left',
+    letterSpacing: '-0.5px'
+  },
+  displayNameLeft: {
+    fontSize: '13px',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: '12px',
+    textAlign: 'left'
+  },
+  statsRowLeft: {
+    display: 'flex',
+    justifyContent: 'flex-start',
+    gap: '16px',
+    width: '100%',
+  },
+  statItemLeft: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    minWidth: '55px',
+  },
+  statValueLeft: {
+    fontSize: '16px',
+    fontWeight: 800,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif"
+  },
+  statLabelLeft: {
+    fontSize: '11px',
+    color: 'rgba(255,255,255,0.4)',
+    marginTop: '2px',
+  },
   avatar: { width: '88px', height: '88px', borderRadius: '28px', border: '1.5px solid rgba(255,255,255,0.2)', overflow: 'hidden', boxShadow: '0 10px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
   avatarPlaceholder: { width: '100%', height: '100%', background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '32px', fontFamily: "'Outfit', sans-serif" },
-  bioContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginTop: '4px' },
+  profileFollowIconBtn: {
+    position: 'absolute',
+    bottom: '-8px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: '30px',
+    height: '30px',
+    borderRadius: '50%',
+    border: '3px solid #0A0A0F',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    zIndex: 10,
+    transition: 'all 0.2s ease',
+  },
+  bioContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' },
   bioCenter: { fontSize: '14px', color: 'rgba(255,255,255,0.8)', textAlign: 'center', lineHeight: '1.4', margin: '0 0 12px', maxWidth: '90%' },
   actionRow: {
     display: 'flex',
     gap: '12px',
     width: '100%',
     marginBottom: '8px',
-  },
-  followBtn: {
-    flex: 1,
-    padding: '14px',
-    borderRadius: '20px',
-    fontWeight: 700,
-    fontSize: '15px',
-    cursor: 'pointer',
-    fontFamily: "'Inter', sans-serif",
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    transition: 'all 0.3s ease',
   },
   messageBtn: {
     flex: 1,

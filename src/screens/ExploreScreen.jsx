@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ChevronRight, Music, Play, X, Video, Image as ImageIcon, Users, Trophy } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Search, ChevronRight, Music, Play, Video, Image as ImageIcon, Users, Trophy } from 'lucide-react';
 import { useSocialStore } from '../stores/socialStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
-import VideoCard from '../components/feed/VideoCard';
 
 export default function ExploreScreen() {
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState('users');
-  const [selectedPost, setSelectedPost] = useState(null);
 
   const { 
     searchUsers, 
@@ -163,7 +161,7 @@ export default function ExploreScreen() {
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       whileTap={{ scale: 0.97 }}
-                      onClick={() => setSelectedPost(post)}
+                      onClick={() => navigate('post_details', { params: { post } })}
                     >
                       {post.media_type === 'image' ? (
                         <img src={post.video_url} alt="" style={styles.thumbMedia} />
@@ -243,27 +241,6 @@ export default function ExploreScreen() {
         </div>
       </div>
 
-      {/* Fullscreen Video Modal player overlay */}
-      <AnimatePresence>
-        {selectedPost && (
-          <motion.div
-            style={styles.fullScreenModal}
-            initial={{ opacity: 0, y: 80 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 80 }}
-          >
-            <div style={styles.modalHeader}>
-              <button style={styles.modalCloseBtn} onClick={() => setSelectedPost(null)}>
-                <X size={26} color="#FFF" />
-              </button>
-            </div>
-            
-            <div style={styles.modalContent}>
-              <VideoCard video={selectedPost} isActive={true} index={0} />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </ScreenWrapper>
   );
 }

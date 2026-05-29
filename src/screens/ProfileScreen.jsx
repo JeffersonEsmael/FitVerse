@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, X, Trophy, Flame, Target, Dumbbell, Zap, Star, Medal } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -8,7 +8,6 @@ import { useFeedStore } from '../stores/feedStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import GymBagIcon from '../components/icons/GymBagIcon';
 import ShapeIcon from '../components/icons/ShapeIcon';
-import VideoCard from '../components/feed/VideoCard';
 
 // Badge definitions with unlock criteria
 const BADGE_DEFINITIONS = [
@@ -87,9 +86,6 @@ export default function ProfileScreen() {
   const [gymBagVideos, setGymBagVideos] = useState([]);
   const [gymBagLoaded, setGymBagLoaded] = useState(false);
   
-  // For full screen video viewing
-  const [selectedPost, setSelectedPost] = useState(null);
-
   const p = profile || {};
 
   const [followersCount, setFollowersCount] = useState(p.followers || 0);
@@ -222,29 +218,33 @@ export default function ProfileScreen() {
 
         {/* Profile card - Glassmorphism */}
         <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-          <div style={styles.avatarSectionCentered}>
-            <div style={styles.avatar}>
-              {p.avatar_url ? <img src={p.avatar_url} alt="" style={styles.avatarImg} /> : (
-                <div style={styles.avatarPlaceholder}>{p.display_name?.charAt(0) || '?'}</div>
-              )}
-            </div>
-          </div>
+          <div style={styles.profileCardHeader}>
+            <div style={styles.profileInfoBlock}>
+              <h3 style={styles.usernameLeft}>@{p.username || 'user'}</h3>
+              <span style={styles.displayNameLeft}>{p.display_name || 'Usuário'}</span>
 
-          <h3 style={styles.usernameCenter}>@{p.username || 'user'}</h3>
-          <span style={styles.displayNameCenter}>{p.display_name || 'Usuário'}</span>
+              <div style={styles.statsRowLeft}>
+                <div style={styles.statItemLeft}>
+                  <span style={styles.statValueLeft}>{p.total_videos || 0}</span>
+                  <span style={styles.statLabelLeft}>posts</span>
+                </div>
+                <div style={styles.statItemLeft}>
+                  <span style={styles.statValueLeft}>{followersCount}</span>
+                  <span style={styles.statLabelLeft}>seguidores</span>
+                </div>
+                <div style={styles.statItemLeft}>
+                  <span style={styles.statValueLeft}>{followingCount}</span>
+                  <span style={styles.statLabelLeft}>seguindo</span>
+                </div>
+              </div>
+            </div>
 
-          <div style={styles.statsRowCentered}>
-            <div style={styles.statItemInlineCentered}>
-              <span style={styles.statValueInline}>{p.total_videos || 0}</span>
-              <span style={styles.statLabelInline}>posts</span>
-            </div>
-            <div style={styles.statItemInlineCentered}>
-              <span style={styles.statValueInline}>{followersCount}</span>
-              <span style={styles.statLabelInline}>seguidores</span>
-            </div>
-            <div style={styles.statItemInlineCentered}>
-              <span style={styles.statValueInline}>{followingCount}</span>
-              <span style={styles.statLabelInline}>seguindo</span>
+            <div style={styles.avatarContainerRight}>
+              <div style={styles.avatar}>
+                {p.avatar_url ? <img src={p.avatar_url} alt="" style={styles.avatarImg} /> : (
+                  <div style={styles.avatarPlaceholder}>{p.display_name?.charAt(0) || '?'}</div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -323,7 +323,7 @@ export default function ProfileScreen() {
                   style={styles.videoThumb}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  onClick={() => setSelectedPost(post)}
+                  onClick={() => navigate('post_details', { params: { post } })}
                 >
                   {post.mediaType === 'image' ? (
                     <img src={post.videoUrl} alt="" style={styles.thumbMedia} />
@@ -356,7 +356,7 @@ export default function ProfileScreen() {
                   style={styles.videoThumb}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  onClick={() => setSelectedPost(post)}
+                  onClick={() => navigate('post_details', { params: { post } })}
                 >
                   {post.mediaType === 'image' ? (
                     <img src={post.videoUrl} alt="" style={styles.thumbMedia} />
@@ -406,27 +406,6 @@ export default function ProfileScreen() {
         )}
       </div>
 
-      {/* Fullscreen Video Modal */}
-      <AnimatePresence>
-        {selectedPost && (
-          <motion.div
-            style={styles.fullScreenModal}
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-          >
-            <div style={styles.modalHeader}>
-              <button style={styles.modalCloseBtn} onClick={() => setSelectedPost(null)}>
-                <X size={28} color="#FFF" />
-              </button>
-            </div>
-            
-            <div style={styles.modalContent}>
-              <VideoCard video={selectedPost} isActive={true} index={0} />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </ScreenWrapper>
   );
 }
@@ -452,7 +431,7 @@ const styles = {
     marginBottom: '16px',
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
+    alignItems: 'stretch',
     background: 'rgba(255, 255, 255, 0.05)',
     backdropFilter: 'blur(40px) saturate(180%)',
     WebkitBackdropFilter: 'blur(40px) saturate(180%)',
@@ -460,34 +439,62 @@ const styles = {
     borderRadius: '32px',
     boxShadow: '0 20px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)',
   },
-  usernameCenter: { fontSize: '20px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: '0 0 4px', textAlign: 'center', letterSpacing: '-0.5px' },
-  displayNameCenter: { fontSize: '14px', color: 'rgba(255,255,255,0.5)', marginBottom: '16px', textAlign: 'center' },
-  avatarSectionCentered: {
+  profileCardHeader: {
     display: 'flex',
-    justifyContent: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '14px',
-  },
-  statsRowCentered: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: '24px',
     width: '100%',
     marginBottom: '16px',
+    gap: '16px',
   },
-  statItemInlineCentered: {
+  profileInfoBlock: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  avatarContainerRight: {
+    position: 'relative',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    minWidth: '60px',
+    flexShrink: 0,
   },
-  statValueInline: {
-    fontSize: '17px',
+  usernameLeft: {
+    fontSize: '18px',
+    fontWeight: 800,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    margin: '0 0 4px',
+    textAlign: 'left',
+    letterSpacing: '-0.5px'
+  },
+  displayNameLeft: {
+    fontSize: '13px',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: '12px',
+    textAlign: 'left'
+  },
+  statsRowLeft: {
+    display: 'flex',
+    justifyContent: 'flex-start',
+    gap: '16px',
+    width: '100%',
+  },
+  statItemLeft: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    minWidth: '55px',
+  },
+  statValueLeft: {
+    fontSize: '16px',
     fontWeight: 800,
     color: '#fff',
     fontFamily: "'Outfit', sans-serif"
   },
-  statLabelInline: {
+  statLabelLeft: {
     fontSize: '11px',
     color: 'rgba(255,255,255,0.4)',
     marginTop: '2px',
@@ -500,7 +507,9 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     width: '100%',
-    marginTop: '4px'
+    marginTop: '12px',
+    borderTop: '1px solid rgba(255,255,255,0.06)',
+    paddingTop: '12px',
   },
   bioCenter: { fontSize: '14px', color: 'rgba(255,255,255,0.8)', textAlign: 'center', lineHeight: '1.4', margin: '0 0 12px', maxWidth: '90%' },
   goalsCenter: { display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' },

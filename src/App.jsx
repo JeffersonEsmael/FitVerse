@@ -23,8 +23,8 @@ import NotificationsScreen from './screens/NotificationsScreen';
 import ConversationsListScreen from './screens/ConversationsListScreen';
 import MessagesScreen from './screens/MessagesScreen';
 import ProductDetailsScreen from './screens/ProductDetailsScreen';
-
 import PublicProfileScreen from './screens/PublicProfileScreen';
+import PostDetailsScreen from './screens/PostDetailsScreen';
 
 // Screens that show the bottom nav
 const NAV_SCREENS = ['feed', 'explore', 'conversations', 'notifications', 'profile', 'public_profile'];
@@ -50,6 +50,7 @@ const SCREENS = {
   conversations: ConversationsListScreen,
   messages: MessagesScreen,
   product_details: ProductDetailsScreen,
+  post_details: PostDetailsScreen,
 };
 
 export default function App() {
