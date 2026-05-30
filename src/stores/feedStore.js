@@ -293,6 +293,35 @@ export const useFeedStore = create(
     }
   },
 
+  // ─── Delete post permanently from DB ──────────────────────
+  deletePost: async (postId) => {
+    try {
+      const { error } = await supabase
+        .from('videos')
+        .delete()
+        .eq('id', postId);
+
+      if (error) throw error;
+
+      // Update local state by filtering out the deleted video
+      set((state) => ({
+        videos: state.videos.filter((v) => v.id !== postId),
+      }));
+
+      // Refresh auth profile stats (decrement total posts)
+      const { useAuthStore } = await import('./authStore');
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        useAuthStore.getState().refreshProfile();
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('[Feed] deletePost error:', error.message);
+      return { success: false, error: error.message };
+    }
+  },
+
   // ─── Fetch Gym Bag saved videos ──────────────────────────
   fetchGymBagVideos: async (userId) => {
     try {

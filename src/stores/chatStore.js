@@ -21,32 +21,45 @@ export const useChatStore = create((set, get) => ({
 
       if (error) throw error;
 
-      // For each conversation, fetch the other participant's profile
-      const enriched = await Promise.all(
-        (data || []).map(async (conv) => {
-          const otherUserId = conv.participant_ids.find((id) => id !== userId);
-          let otherUser = { display_name: 'Usuário', username: 'user', avatar_url: '' };
+      // Extract unique contact IDs to fetch them in a single batch query
+      const otherUserIds = [
+        ...new Set(
+          (data || [])
+            .map((conv) => conv.participant_ids.find((id) => id !== userId))
+            .filter(Boolean)
+        ),
+      ];
 
-          if (otherUserId) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('display_name, username, avatar_url')
-              .eq('id', otherUserId)
-              .single();
-            if (profile) otherUser = profile;
-          }
+      const profilesMap = {};
+      if (otherUserIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, display_name, username, avatar_url')
+          .in('id', otherUserIds);
 
-          return {
-            id: conv.id,
-            participantIds: conv.participant_ids,
-            otherUserId,
-            otherUser,
-            lastMessage: conv.last_message || '',
-            lastMessageAt: conv.updated_at,
-            unreadCount: conv.unread_count || 0,
-          };
-        })
-      );
+        if (profilesError) throw profilesError;
+
+        if (profiles) {
+          profiles.forEach((p) => {
+            profilesMap[p.id] = p;
+          });
+        }
+      }
+
+      const enriched = (data || []).map((conv) => {
+        const otherUserId = conv.participant_ids.find((id) => id !== userId);
+        const otherUser = profilesMap[otherUserId] || { display_name: 'Usuário', username: 'user', avatar_url: '' };
+
+        return {
+          id: conv.id,
+          participantIds: conv.participant_ids,
+          otherUserId,
+          otherUser,
+          lastMessage: conv.last_message || '',
+          lastMessageAt: conv.updated_at,
+          unreadCount: conv.unread_count || 0,
+        };
+      });
 
       set({ conversations: enriched, isLoading: false });
     } catch (error) {

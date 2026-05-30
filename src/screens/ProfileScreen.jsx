@@ -204,6 +204,7 @@ function ChallengePostCard({ challenge, navigate }) {
 export default function ProfileScreen() {
   const { user, profile, isProfileLoading, refreshProfile } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
+  const currentScreen = useNavigationStore((s) => s.currentScreen);
   const { fetchUserPosts, fetchGymBagVideos } = useFeedStore();
   const { challenges, fetchChallenges } = useRankingStore();
   
@@ -263,9 +264,9 @@ export default function ProfileScreen() {
 
   const unlockedCount = badges.filter((b) => b.unlocked).length;
 
-  // Refresh profile on mount to ensure real-time data
+  // Refresh profile when screen becomes active to ensure real-time data
   useEffect(() => {
-    if (user?.uid) {
+    if (currentScreen === 'profile' && user?.uid) {
       refreshProfile();
       fetchUserPosts(user.uid).then((posts) => {
         setUserPosts(posts);
@@ -277,7 +278,7 @@ export default function ProfileScreen() {
       });
       fetchChallenges();
     }
-  }, [user?.uid, refreshProfile, fetchUserPosts, fetchGymBagVideos, fetchChallenges]);
+  }, [currentScreen, user?.uid, refreshProfile, fetchUserPosts, fetchGymBagVideos, fetchChallenges]);
 
   const loadProfileChallenges = useCallback(async () => {
     if (!user?.uid) return;
@@ -487,7 +488,7 @@ export default function ProfileScreen() {
             onClick={() => setActiveProfileTab('challenges')}
           >
             <Trophy size={18} /> Desafios
-            {activeChallenges.length > 0 && <span style={styles.badgeCountChip}>{activeChallenges.length}</span>}
+            {profileChallenges.length > 0 && <span style={styles.badgeCountChip}>{profileChallenges.length}</span>}
           </button>
         </div>
 

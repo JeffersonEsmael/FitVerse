@@ -6,6 +6,7 @@ import VideoInfo from './VideoInfo';
 import CommentsSheet from './CommentsSheet';
 import { useAuthStore } from '../../stores/authStore';
 import { useSocialStore } from '../../stores/socialStore';
+import { useNavigationStore } from '../../stores/navigationStore';
 
 import { useFeedStore } from '../../stores/feedStore';
 import { AnimatePresence } from 'framer-motion';
@@ -265,38 +266,67 @@ export default function VideoCard({ video, isActive, index }) {
                 </div>
               ) : (
                 <div style={styles.optionsList}>
-                  <button
-                    style={styles.optionItem}
-                    onClick={() => {
-                      setOptionsActionFeedback('Obrigado! Vamos ocultar conteúdo semelhante para você.');
-                      setTimeout(() => {
-                        setShowOptions(false);
-                        setOptionsActionFeedback(null);
-                        const store = useFeedStore.getState();
-                        const nextIndex = store.currentIndex + 1;
-                        if (nextIndex < store.videos.length) {
-                          store.setCurrentIndex(nextIndex);
+                  {isSelf ? (
+                    <button
+                      style={styles.optionItemDanger}
+                      onClick={async () => {
+                        if (window.confirm("Deseja realmente excluir esta publicação? Ela será removida permanentemente do banco de dados.")) {
+                          setShowOptions(false);
+                          const store = useFeedStore.getState();
+                          const res = await store.deletePost(video.id);
+                          if (res.success) {
+                            const navStore = useNavigationStore.getState();
+                            if (navStore.currentScreen === 'post_details') {
+                              navStore.goBack();
+                            }
+                          } else {
+                            alert('Erro ao excluir a publicação: ' + res.error);
+                          }
                         }
-                      }, 2000);
-                    }}
-                  >
-                    <span style={styles.optionIcon}>👁️‍🗨️</span>
-                    <div style={styles.optionTextContainer}>
-                      <span style={styles.optionLabel}>Não tenho interesse</span>
-                      <span style={styles.optionSub}>Esconder este post e similares</span>
-                    </div>
-                  </button>
-                  
-                  <button
-                    style={styles.optionItemDanger}
-                    onClick={() => setReportingReason(true)}
-                  >
-                    <span style={styles.optionIconDanger}>🚩</span>
-                    <div style={styles.optionTextContainer}>
-                      <span style={styles.optionLabelDanger}>Denunciar Conteúdo</span>
-                      <span style={styles.optionSubDanger}>Reportar spam, abuso ou conteúdo impróprio</span>
-                    </div>
-                  </button>
+                      }}
+                    >
+                      <span style={styles.optionIconDanger}>🗑️</span>
+                      <div style={styles.optionTextContainer}>
+                        <span style={styles.optionLabelDanger}>Excluir Publicação</span>
+                        <span style={styles.optionSubDanger}>Remover permanentemente este post</span>
+                      </div>
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        style={styles.optionItem}
+                        onClick={() => {
+                          setOptionsActionFeedback('Obrigado! Vamos ocultar conteúdo semelhante para você.');
+                          setTimeout(() => {
+                            setShowOptions(false);
+                            setOptionsActionFeedback(null);
+                            const store = useFeedStore.getState();
+                            const nextIndex = store.currentIndex + 1;
+                            if (nextIndex < store.videos.length) {
+                              store.setCurrentIndex(nextIndex);
+                            }
+                          }, 2000);
+                        }}
+                      >
+                        <span style={styles.optionIcon}>👁️‍🗨️</span>
+                        <div style={styles.optionTextContainer}>
+                          <span style={styles.optionLabel}>Não tenho interesse</span>
+                          <span style={styles.optionSub}>Esconder este post e similares</span>
+                        </div>
+                      </button>
+                      
+                      <button
+                        style={styles.optionItemDanger}
+                        onClick={() => setReportingReason(true)}
+                      >
+                        <span style={styles.optionIconDanger}>🚩</span>
+                        <div style={styles.optionTextContainer}>
+                          <span style={styles.optionLabelDanger}>Denunciar Conteúdo</span>
+                          <span style={styles.optionSubDanger}>Reportar spam, abuso ou conteúdo impróprio</span>
+                        </div>
+                      </button>
+                    </>
+                  )}
                   
                   <button
                     style={styles.cancelBtn}
