@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -88,6 +88,7 @@ export default function ProfileScreen() {
   const [gymBagVideos, setGymBagVideos] = useState([]);
   const [gymBagLoaded, setGymBagLoaded] = useState(false);
   const [checkinPhotos, setCheckinPhotos] = useState({});
+  const [showMedalsModal, setShowMedalsModal] = useState(false);
 
   // Active challenges that the user has joined
   const activeChallenges = challenges.filter(c => c.joined);
@@ -289,7 +290,7 @@ export default function ProfileScreen() {
           {/* Stats inside profile card */}
           <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0 }}>
             <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
-            <StatBox label="Desafios" value={`#${p.rank_position || '-'}`} icon={Award} color="#FFD700" onClick={() => navigate('ranking', { params: { tab: 'challenges' } })} />
+            <StatBox label="Medalhas" value={unlockedCount} icon={Award} color="#FFD700" onClick={() => setShowMedalsModal(true)} />
             <StatBox label="Mensagem" value="Chat" icon={MessageCircle} color="#00D4FF" onClick={handleDM} />
           </div>
         </motion.div>
@@ -312,71 +313,6 @@ export default function ProfileScreen() {
           </motion.button>
         </div>
 
-        {/* Active Challenges Section */}
-        {activeChallenges.length > 0 && (
-          <div style={challengeStyles.section}>
-            <div style={challengeStyles.sectionHeader}>
-              <h3 style={challengeStyles.sectionTitle}>🏆 Desafios Ativos</h3>
-              <button
-                style={challengeStyles.seeAllBtn}
-                onClick={() => navigate('ranking', { params: { tab: 'challenges' } })}
-              >
-                Ver todos <ChevronRight size={14} />
-              </button>
-            </div>
-            <div style={challengeStyles.scrollContainer}>
-              {activeChallenges.map((challenge) => {
-                const progressPct = Math.min(100, Math.round(((challenge.progress || 0) / (challenge.duration || 30)) * 100));
-                const photos = checkinPhotos[challenge.id] || [];
-                const isCompleted = progressPct >= 100;
-                return (
-                  <motion.div
-                    key={challenge.id}
-                    style={challengeStyles.card}
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => navigate('ranking', { params: { tab: 'challenges' } })}
-                  >
-                    <div style={challengeStyles.cardHeader}>
-                      <span style={challengeStyles.cardIcon}>{challenge.icon || '🏆'}</span>
-                      <div style={challengeStyles.cardInfo}>
-                        <span style={challengeStyles.cardTitle}>{challenge.title}</span>
-                        <span style={challengeStyles.cardSub}>
-                          {isCompleted ? '✅ Concluído!' : `${challenge.progress || 0}/${challenge.duration || 30} dias`}
-                        </span>
-                      </div>
-                      <span style={{ ...challengeStyles.pctBadge, color: challenge.color || '#00D4FF' }}>
-                        {progressPct}%
-                      </span>
-                    </div>
-                    <div style={challengeStyles.progressTrack}>
-                      <motion.div
-                        style={{
-                          ...challengeStyles.progressFill,
-                          background: isCompleted
-                            ? 'linear-gradient(90deg, #39FF14, #00CC00)'
-                            : `linear-gradient(90deg, ${challenge.color || '#00D4FF'}, ${challenge.color || '#00D4FF'}88)`,
-                        }}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progressPct}%` }}
-                        transition={{ duration: 0.8, ease: 'easeOut' }}
-                      />
-                    </div>
-                    {photos.length > 0 && (
-                      <div style={challengeStyles.photosRow}>
-                        {photos.map((photo, i) => (
-                          <div key={i} style={challengeStyles.photoThumb}>
-                            <img src={photo.photo_url} alt={photo.activity_title || ''} style={challengeStyles.photoImg} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* Content tabs */}
         <div style={styles.contentTabs}>
           <button
@@ -392,11 +328,11 @@ export default function ProfileScreen() {
             <GymBagIcon filled={false} size={18} color={activeProfileTab === 'gymbag' ? '#fff' : 'rgba(255,255,255,0.6)'} /> Gym Bag
           </button>
           <button
-            style={{ ...styles.contentTab, ...(activeProfileTab === 'badges' ? styles.contentTabActive : {}) }}
-            onClick={() => setActiveProfileTab('badges')}
+            style={{ ...styles.contentTab, ...(activeProfileTab === 'challenges' ? styles.contentTabActive : {}) }}
+            onClick={() => setActiveProfileTab('challenges')}
           >
-            <Award size={18} /> Medalhas
-            {unlockedCount > 0 && <span style={styles.badgeCountChip}>{unlockedCount}</span>}
+            <Trophy size={18} /> Desafios
+            {activeChallenges.length > 0 && <span style={styles.badgeCountChip}>{activeChallenges.length}</span>}
           </button>
         </div>
 
@@ -466,38 +402,154 @@ export default function ProfileScreen() {
           </div>
         )}
 
-        {/* Content - Badges */}
-        {activeProfileTab === 'badges' && (
-          <div style={badgeStyles.grid}>
-            {/* Summary header */}
-            <div style={badgeStyles.summary}>
-              <div style={badgeStyles.summaryIcon}>
-                <Trophy size={24} color="#FFD700" />
+        {/* Content - Challenges */}
+        {activeProfileTab === 'challenges' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
+            {activeChallenges.length === 0 ? (
+              <div style={styles.emptyGrid}>
+                <Trophy size={32} color="rgba(255,255,255,0.4)" />
+                <span style={styles.emptyGridText}>Nenhum desafio ativo</span>
+                <button
+                  style={{
+                    marginTop: '12px',
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    background: '#00D4FF',
+                    border: 'none',
+                    color: '#000',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    fontFamily: "'Outfit', sans-serif",
+                  }}
+                  onClick={() => navigate('ranking', { params: { tab: 'challenges' } })}
+                >
+                  Descobrir Desafios
+                </button>
               </div>
-              <div style={badgeStyles.summaryInfo}>
-                <span style={badgeStyles.summaryTitle}>{unlockedCount} de {badges.length} medalhas</span>
-                <div style={badgeStyles.progressBar}>
+            ) : (
+              activeChallenges.map((challenge) => {
+                const progressPct = Math.min(100, Math.round(((challenge.progress || 0) / (challenge.duration || 30)) * 100));
+                const photos = checkinPhotos[challenge.id] || [];
+                const isCompleted = progressPct >= 100;
+                return (
                   <motion.div
-                    style={{
-                      ...badgeStyles.progressFill,
-                      width: `${(unlockedCount / badges.length) * 100}%`,
-                    }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(unlockedCount / badges.length) * 100}%` }}
-                    transition={{ duration: 1, ease: 'easeOut' }}
-                  />
-                </div>
-              </div>
-            </div>
+                    key={challenge.id}
+                    style={challengeStyles.card}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => navigate('ranking', { params: { tab: 'challenges' } })}
+                  >
+                    <div style={challengeStyles.cardHeader}>
+                      <span style={challengeStyles.cardIcon}>{challenge.icon || '🏆'}</span>
+                      <div style={challengeStyles.cardInfo}>
+                        <span style={challengeStyles.cardTitle}>{challenge.title}</span>
+                        <span style={challengeStyles.cardSub}>
+                          {isCompleted ? '✅ Concluído!' : `${challenge.progress || 0}/${challenge.duration || 30} dias`}
+                        </span>
+                      </div>
+                      <span style={{ ...challengeStyles.pctBadge, color: challenge.color || '#00D4FF' }}>
+                        {progressPct}%
+                      </span>
+                    </div>
 
-            {/* Badge cards */}
-            {badges.map((badge, i) => (
-              <BadgeCard key={badge.id} badge={badge} unlocked={badge.unlocked} index={i} />
-            ))}
+                    {/* Carousel with check-in photos */}
+                    {photos.length > 0 && (
+                      <div style={challengeStyles.photosRow}>
+                        {photos.map((photo, i) => (
+                          <div key={i} style={challengeStyles.photoThumb}>
+                            <img src={photo.photo_url} alt={photo.activity_title || ''} style={challengeStyles.photoImg} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Progress bar on the bottom */}
+                    <div style={challengeStyles.progressTrack}>
+                      <motion.div
+                        style={{
+                          ...challengeStyles.progressFill,
+                          background: isCompleted
+                            ? 'linear-gradient(90deg, #39FF14, #00CC00)'
+                            : `linear-gradient(90deg, ${challenge.color || '#00D4FF'}, ${challenge.color || '#00D4FF'}88)`,
+                        }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progressPct}%` }}
+                        transition={{ duration: 0.8, ease: 'easeOut' }}
+                      />
+                    </div>
+                  </motion.div>
+                );
+              })
+            )}
           </div>
         )}
       </div>
 
+      {/* MODAL: Medalhas (Badges) */}
+      <AnimatePresence>
+        {showMedalsModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              style={modalStyles.backdrop}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMedalsModal(false)}
+            />
+            {/* Sheet */}
+            <motion.div
+              style={modalStyles.sheet}
+              initial={{ y: '100%', x: '-50%' }}
+              animate={{ y: 0, x: '-50%' }}
+              exit={{ y: '100%', x: '-50%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+            >
+              <div style={modalStyles.handle} />
+              
+              <div style={modalStyles.headerRow}>
+                <div style={{ ...modalStyles.iconBg, backgroundColor: 'rgba(255,215,0,0.1)' }}>
+                  <Trophy size={24} color="#FFD700" />
+                </div>
+                <div style={modalStyles.headerInfo}>
+                  <h3 style={modalStyles.title}>Suas Medalhas</h3>
+                  <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontFamily: "'Inter', sans-serif" }}>
+                    {unlockedCount} de {badges.length} conquistas
+                  </span>
+                </div>
+                <button style={modalStyles.closeBtn} onClick={() => setShowMedalsModal(false)}>
+                  <X size={20} color="#fff" />
+                </button>
+              </div>
+
+              {/* Progress Bar */}
+              <div style={{ padding: '16px 0 8px 0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={modalStyles.progressBarTrack}>
+                  <motion.div
+                    style={{
+                      ...modalStyles.progressBarFill,
+                      backgroundColor: '#FFD700',
+                      width: `${(unlockedCount / badges.length) * 100}%`,
+                    }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(unlockedCount / badges.length) * 100}%` }}
+                    transition={{ duration: 0.8 }}
+                  />
+                </div>
+              </div>
+
+              {/* Body */}
+              <div style={{ ...modalStyles.body, overflowY: 'auto' }}>
+                <div style={badgeStyles.grid}>
+                  {badges.map((badge, i) => (
+                    <BadgeCard key={badge.id} badge={badge} unlocked={badge.unlocked} index={i} />
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </ScreenWrapper>
   );
 }
@@ -924,5 +976,92 @@ const challengeStyles = {
     width: '100%',
     height: '100%',
     objectFit: 'cover',
+  },
+};
+
+const modalStyles = {
+  backdrop: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.6)',
+    zIndex: 9999,
+    backdropFilter: 'blur(10px)',
+  },
+  sheet: {
+    position: 'fixed',
+    bottom: 0,
+    left: '50%',
+    width: '100%',
+    maxWidth: '500px',
+    background: '#0A0A0F',
+    borderTop: '1px solid rgba(255,255,255,0.1)',
+    borderTopLeftRadius: '32px',
+    borderTopRightRadius: '32px',
+    padding: '20px',
+    zIndex: 10000,
+    display: 'flex',
+    flexDirection: 'column',
+    maxHeight: '80vh',
+    boxSizing: 'border-box',
+  },
+  handle: {
+    width: '36px',
+    height: '4px',
+    background: 'rgba(255,255,255,0.15)',
+    borderRadius: '2px',
+    alignSelf: 'center',
+    marginBottom: '12px',
+  },
+  headerRow: {
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'center',
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
+    paddingBottom: '14px',
+    width: '100%',
+  },
+  iconBg: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    flex: 1,
+  },
+  title: {
+    fontSize: '18px',
+    fontWeight: 800,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    margin: 0,
+  },
+  closeBtn: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px',
+  },
+  body: {
+    flex: 1,
+    paddingTop: '12px',
+    paddingBottom: '12px',
+  },
+  progressBarTrack: {
+    width: '100%',
+    height: '6px',
+    background: 'rgba(255,255,255,0.05)',
+    borderRadius: '3px',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: '3px',
+    transition: 'width 0.5s ease-out',
   },
 };
