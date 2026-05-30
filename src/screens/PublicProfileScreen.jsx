@@ -364,7 +364,8 @@ export default function PublicProfileScreen() {
       if (partError) throw partError;
 
       if (participations) {
-        const enriched = await Promise.all(participations.map(async (p) => {
+        const enriched = (await Promise.all(participations.map(async (p) => {
+          if (!p.challenge) return null;
           const { data: checkins } = await supabase
             .from('challenge_checkins')
             .select('photo_url, created_at, activity_title')
@@ -377,7 +378,7 @@ export default function PublicProfileScreen() {
             progress: p.progress,
             checkins: checkins || []
           };
-        }));
+        }))).filter(Boolean);
         setProfileChallenges(enriched);
       } else {
         setProfileChallenges([]);

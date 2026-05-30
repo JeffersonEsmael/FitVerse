@@ -253,8 +253,8 @@ export default function CreatePostScreen() {
       setChallengeIcon('🏆');
       setChallengeColor('#00D4FF');
 
-      // Navigate to explore -> challenges tab
-      setActiveTab('explore');
+      // Navigate to ranking -> challenges tab
+      navigate('ranking', { params: { tab: 'challenges' } });
     } catch (err) {
       console.error('Error creating challenge:', err);
       alert('Falha ao criar o desafio. Tente novamente.');

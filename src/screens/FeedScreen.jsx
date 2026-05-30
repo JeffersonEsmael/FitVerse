@@ -104,6 +104,12 @@ export default function FeedScreen() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [currentIndex, goToVideo]);
 
+  const slideVariants = {
+    initial: (d) => ({ y: d > 0 ? '100%' : '-100%', opacity: 0.5 }),
+    animate: { y: 0, opacity: 1 },
+    exit: (d) => ({ y: d > 0 ? '-100%' : '100%', opacity: 0 }),
+  };
+
   return (
     <div
       ref={containerRef}
@@ -236,9 +242,10 @@ export default function FeedScreen() {
                 <motion.div
                   key={video.id}
                   custom={direction}
-                  initial={(d) => ({ y: d > 0 ? '100%' : '-100%', opacity: 0.5 })}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={(d) => ({ y: d > 0 ? '-100%' : '100%', opacity: 0 })}
+                  variants={slideVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
                   transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                   style={{
                     ...styles.videoSlide,
