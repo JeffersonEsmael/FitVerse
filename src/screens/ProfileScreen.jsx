@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Layers } from 'lucide-react';
+import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Layers, Camera } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -165,7 +165,7 @@ export default function ProfileScreen() {
   const navigate = useNavigationStore((s) => s.navigate);
   const currentScreen = useNavigationStore((s) => s.currentScreen);
   const { fetchUserPosts, fetchGymBagVideos } = useFeedStore();
-  const { challenges, fetchChallenges } = useRankingStore();
+  const { challenges, fetchChallenges, performCheckIn } = useRankingStore();
   
   const [activeProfileTab, setActiveProfileTab] = useState('videos');
   const [userPosts, setUserPosts] = useState([]);
@@ -176,6 +176,64 @@ export default function ProfileScreen() {
   const [profileChallenges, setProfileChallenges] = useState([]);
   const [isLoadingChallenges, setIsLoadingChallenges] = useState(true);
   const [selectedChallenge, setSelectedChallenge] = useState(null);
+  const [showCheckInModal, setShowCheckInModal] = useState(false);
+  const [activityTitle, setActivityTitle] = useState('Treino Concluído');
+  const [metricValue, setMetricValue] = useState(1);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [isSubmittingCheckIn, setIsSubmittingCheckIn] = useState(false);
+  const fileInputRef = React.useRef(null);
+
+  const handlePhotoSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleConfirmCheckIn = async () => {
+    if (!selectedChallenge) return;
+    setIsSubmittingCheckIn(true);
+    try {
+      const res = await performCheckIn(selectedChallenge.id, {
+        activityTitle,
+        photoFile,
+        photoPreview,
+        metricValue,
+      });
+
+      if (res.success) {
+        alert('Check-in diário realizado com sucesso! 💪 Pontos de XP adicionados e post de treino publicado no Feed!');
+        setShowCheckInModal(false);
+        setSelectedChallenge(null);
+        // Reset states
+        setActivityTitle('Treino Concluído');
+        setMetricValue(1);
+        setPhotoFile(null);
+        setPhotoPreview(null);
+        
+        // Refresh challenges progress
+        loadProfileChallenges();
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Falha ao realizar o check-in.');
+    } finally {
+      setIsSubmittingCheckIn(false);
+    }
+  };
+
+  const getMetricLabel = (type) => {
+    const mapping = {
+      treino: 'Treinos',
+      minutos: 'Minutos',
+      calorias: 'Calorias',
+      km: 'km',
+      passos: 'Passos',
+    };
+    return mapping[type] || 'Atividade';
+  };
   
   const p = profile || {};
 
@@ -756,7 +814,51 @@ export default function ProfileScreen() {
                   </div>
                 )}
 
-                {/* Action button */}
+                {/* Action buttons */}
+                {(selectedChallenge.progress || 0) < (selectedChallenge.duration || 30) ? (
+                  <button
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      borderRadius: '16px',
+                      background: selectedChallenge.color || '#00D4FF',
+                      color: selectedChallenge.color === '#FFD700' || selectedChallenge.color === '#39FF14' ? '#000' : '#fff',
+                      fontWeight: 750,
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      fontFamily: "'Outfit', sans-serif",
+                      border: 'none',
+                      marginTop: '8px'
+                    }}
+                    onClick={() => setShowCheckInModal(true)}
+                  >
+                    <Camera size={16} />
+                    Registrar Check-In Diário
+                  </button>
+                ) : (
+                  <div
+                    style={{
+                      background: 'rgba(57,255,20,0.1)',
+                      border: '1px solid #39FF14',
+                      color: '#39FF14',
+                      padding: '14px',
+                      borderRadius: '16px',
+                      textAlign: 'center',
+                      fontWeight: 700,
+                      fontSize: '14px',
+                      fontFamily: "'Outfit', sans-serif",
+                      marginTop: '8px',
+                      boxShadow: '0 0 12px rgba(57,255,20,0.2)',
+                    }}
+                  >
+                    🎉 Desafio Concluído! Excelente trabalho!
+                  </div>
+                )}
+
                 <button
                   style={{
                     width: '100%',
@@ -783,6 +885,109 @@ export default function ProfileScreen() {
                   <Trophy size={16} color={selectedChallenge.color || '#00D4FF'} />
                   Ver Classificação
                 </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL: Check-In Form */}
+      <AnimatePresence>
+        {showCheckInModal && selectedChallenge && (
+          <>
+            {/* Backdrop Check-in */}
+            <motion.div
+              style={{ ...modalStyles.backdrop, zIndex: 100001 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCheckInModal(false)}
+            />
+            {/* Card Modal Form */}
+            <motion.div
+              style={{ ...modalStyles.checkInModal, zIndex: 100002 }}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <div style={modalStyles.checkInHeader}>
+                <h3 style={modalStyles.checkInTitle}>Check-in: {selectedChallenge.title}</h3>
+                <button style={modalStyles.closeBtn} onClick={() => setShowCheckInModal(false)}>
+                  <X size={20} color="#fff" />
+                </button>
+              </div>
+
+              <div style={modalStyles.checkInForm}>
+                {/* Title */}
+                <div style={modalStyles.checkInField}>
+                  <label style={modalStyles.checkInLabel}>Título da Atividade</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Treino de Pernas, Corrida na Esteira"
+                    value={activityTitle}
+                    onChange={(e) => setActivityTitle(e.target.value)}
+                    style={modalStyles.checkInInput}
+                  />
+                </div>
+
+                {/* Metric value input if applicable */}
+                {selectedChallenge.type !== 'treino' && (
+                  <div style={modalStyles.checkInField}>
+                    <label style={modalStyles.checkInLabel}>
+                      Quantidade Realizada ({getMetricLabel(selectedChallenge.type)})
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={metricValue}
+                      onChange={(e) => setMetricValue(Math.max(1, parseFloat(e.target.value) || 1))}
+                      style={modalStyles.checkInInput}
+                    />
+                  </div>
+                )}
+
+                {/* Photo Upload Area */}
+                <div style={modalStyles.checkInField}>
+                  <label style={modalStyles.checkInLabel}>Comprovação (Foto)</label>
+                  {photoPreview ? (
+                    <div style={modalStyles.photoPreviewContainer}>
+                      <img src={photoPreview} alt="Comprovação" style={modalStyles.photoPreviewImg} />
+                      <button style={modalStyles.removePhotoBtn} onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}>
+                        <X size={16} color="#fff" />
+                      </button>
+                    </div>
+                  ) : (
+                    <motion.div
+                      style={modalStyles.photoUploadBox}
+                      onClick={() => fileInputRef.current?.click()}
+                      whileTap={{ scale: 0.97 }}
+                    >
+                      <Camera size={24} color="#00D4FF" />
+                      <span style={modalStyles.photoUploadText}>Tirar foto ou carregar print</span>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoSelect}
+                        style={{ display: 'none' }}
+                      />
+                    </motion.div>
+                  )}
+                </div>
+
+                {/* Confirm Button */}
+                <motion.button
+                  style={{
+                    ...modalStyles.confirmBtn,
+                    background: selectedChallenge.color || '#00D4FF',
+                    color: selectedChallenge.color === '#FFD700' || selectedChallenge.color === '#39FF14' ? '#000' : '#fff',
+                  }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleConfirmCheckIn}
+                  disabled={isSubmittingCheckIn}
+                >
+                  {isSubmittingCheckIn ? 'Realizando Check-in...' : 'Confirmar Check-in'}
+                </motion.button>
               </div>
             </motion.div>
           </>
@@ -1410,6 +1615,118 @@ const modalStyles = {
     height: '100%',
     borderRadius: '3px',
     transition: 'width 0.5s ease-out',
+  },
+  // Check-In Modal Form
+  checkInModal: {
+    position: 'fixed',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '90%',
+    maxWidth: '420px',
+    background: '#0F0F15',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '24px',
+    padding: '20px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+    boxSizing: 'border-box'
+  },
+  checkInHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
+    paddingBottom: '12px'
+  },
+  checkInTitle: {
+    fontSize: '16px',
+    fontWeight: 800,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    margin: 0
+  },
+  checkInForm: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '14px'
+  },
+  checkInField: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px'
+  },
+  checkInLabel: {
+    fontSize: '12px',
+    fontWeight: 600,
+    color: '#B0B0C8',
+    fontFamily: "'Inter', sans-serif"
+  },
+  checkInInput: {
+    width: '100%',
+    padding: '12px 14px',
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '10px',
+    color: '#fff',
+    fontSize: '14px',
+    fontFamily: "'Inter', sans-serif",
+    outline: 'none',
+    boxSizing: 'border-box'
+  },
+  photoUploadBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    padding: '24px',
+    border: '1px dashed rgba(0,212,255,0.3)',
+    borderRadius: '12px',
+    background: 'rgba(0,212,255,0.02)',
+    cursor: 'pointer'
+  },
+  photoUploadText: {
+    fontSize: '12px',
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: "'Inter', sans-serif"
+  },
+  photoPreviewContainer: {
+    position: 'relative',
+    width: '100%',
+    height: '140px',
+    borderRadius: '12px',
+    overflow: 'hidden'
+  },
+  photoPreviewImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover'
+  },
+  removePhotoBtn: {
+    position: 'absolute',
+    top: '8px',
+    right: '8px',
+    width: '26px',
+    height: '26px',
+    borderRadius: '50%',
+    background: 'rgba(0,0,0,0.6)',
+    border: 'none',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  confirmBtn: {
+    width: '100%',
+    padding: '14px',
+    borderRadius: '12px',
+    border: 'none',
+    fontSize: '14px',
+    fontWeight: 800,
+    cursor: 'pointer',
+    fontFamily: "'Outfit', sans-serif"
   },
 };
 
