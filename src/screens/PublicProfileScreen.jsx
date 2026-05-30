@@ -82,7 +82,7 @@ function BadgeCard({ badge, unlocked, index }) {
 
 export default function PublicProfileScreen() {
   const { user } = useAuthStore();
-  const { navigate, goBack, screenParams } = useNavigationStore();
+  const { navigate, goBack, screenParams, currentScreen } = useNavigationStore();
   const { fetchUserPosts } = useFeedStore();
   const { fetchPublicProfile, followUser, unfollowUser, checkIfFollowing } = useSocialStore();
   const { getOrCreateConversation } = useChatStore();
@@ -98,6 +98,8 @@ export default function PublicProfileScreen() {
   const userId = screenParams?.userId;
 
   useEffect(() => {
+    if (currentScreen !== 'public_profile') return;
+
     if (!userId) {
       navigate('explore');
       return;
@@ -161,7 +163,7 @@ export default function PublicProfileScreen() {
     };
 
     loadData();
-  }, [userId, user?.uid, fetchPublicProfile, fetchUserPosts, checkIfFollowing, navigate]);
+  }, [userId, user?.uid, fetchPublicProfile, fetchUserPosts, checkIfFollowing, navigate, currentScreen]);
 
   const handleFollowToggle = async (e) => {
     if (e) e.stopPropagation();

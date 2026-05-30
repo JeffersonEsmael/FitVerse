@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Send, Image as ImageIcon, Mic, Smile, X } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
@@ -11,7 +11,7 @@ const FITNESS_EMOJIS = ['💪', '🏋️', '🥗', '🏆', '💧', '🧠', '🥇
 export default function MessagesScreen() {
   const { user } = useAuthStore();
   const { messages, fetchMessages, sendMessage, uploadChatImage, subscribeToMessages, unsubscribeFromMessages } = useChatStore();
-  const { screenParams, goBack } = useNavigationStore();
+  const { screenParams, goBack, navigate } = useNavigationStore();
   
   const [text, setText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -39,6 +39,7 @@ export default function MessagesScreen() {
   }, [conversationId, fetchMessages, subscribeToMessages, unsubscribeFromMessages]);
 
   const handleStartRecording = () => {
+    setRecordingTime(0);
     setIsRecording(true);
   };
 
@@ -57,7 +58,6 @@ export default function MessagesScreen() {
   // Audio recording timer simulation
   useEffect(() => {
     if (isRecording) {
-      setRecordingTime(0);
       recordingInterval.current = setInterval(() => {
         setRecordingTime(prev => {
           if (prev >= 9) {
@@ -126,7 +126,15 @@ export default function MessagesScreen() {
           <button style={styles.iconBtn} onClick={goBack}>
             <ArrowLeft size={24} color="#fff" />
           </button>
-          <div style={styles.headerUserInfo}>
+          <div
+            style={styles.headerUserInfo}
+            onClick={() => {
+              const otherUserId = screenParams?.otherUserId || screenParams?.otherUser?.id;
+              if (otherUserId) {
+                navigate('public_profile', { params: { userId: otherUserId } });
+              }
+            }}
+          >
             <div style={styles.headerTitles}>
               <span style={styles.userName}>{otherUser.display_name}</span>
               <div style={styles.statusRow}>
@@ -318,6 +326,7 @@ const styles = {
     gap: '12px',
     flex: 1,
     marginLeft: '8px',
+    cursor: 'pointer',
   },
   avatar: {
     width: '40px',

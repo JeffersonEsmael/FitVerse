@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigationStore } from '../../stores/navigationStore';
 
@@ -24,9 +24,12 @@ export default function VideoInfo({ video, isFollowing, isSelf, onFollowToggle }
               ...styles.followBtn,
               background: isFollowing ? 'rgba(255,255,255,0.1)' : 'transparent',
               borderColor: isFollowing ? 'transparent' : 'rgba(255,255,255,0.3)',
+              cursor: isFollowing ? 'default' : 'pointer',
+              color: isFollowing ? 'rgba(255,255,255,0.4)' : '#fff',
             }}
-            whileTap={{ scale: 0.9 }}
-            onClick={onFollowToggle}
+            whileTap={isFollowing ? {} : { scale: 0.9 }}
+            onClick={isFollowing ? undefined : onFollowToggle}
+            disabled={isFollowing}
           >
             {isFollowing ? 'Seguindo' : 'Seguir'}
           </motion.button>

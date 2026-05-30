@@ -14,7 +14,7 @@ export const useNavigationStore = create((set, get) => ({
 
   // Navigate to a screen with optional params
   navigate: (screen, options = {}) => {
-    const { currentScreen } = get();
+    const { currentScreen, screenParams } = get();
     const tabScreenMapReversed = {
       feed: 'feed',
       explore: 'explore',
@@ -28,7 +28,7 @@ export const useNavigationStore = create((set, get) => ({
       previousScreen: currentScreen,
       currentScreen: screen,
       transitionDirection: options.direction || 'forward',
-      history: [...get().history, currentScreen],
+      history: [...get().history, { screen: currentScreen, params: screenParams }],
       screenParams: options.params || {},
       activeTab: nextTab || get().activeTab,
     });
@@ -37,7 +37,17 @@ export const useNavigationStore = create((set, get) => ({
   goBack: () => {
     const { history } = get();
     if (history.length > 0) {
-      const previousScreen = history[history.length - 1];
+      const lastHistoryEntry = history[history.length - 1];
+      let previousScreen;
+      let previousParams = {};
+
+      if (typeof lastHistoryEntry === 'object' && lastHistoryEntry !== null) {
+        previousScreen = lastHistoryEntry.screen;
+        previousParams = lastHistoryEntry.params || {};
+      } else {
+        previousScreen = lastHistoryEntry;
+      }
+
       const tabScreenMapReversed = {
         feed: 'feed',
         explore: 'explore',
@@ -52,7 +62,7 @@ export const useNavigationStore = create((set, get) => ({
         previousScreen: get().currentScreen,
         transitionDirection: 'back',
         history: history.slice(0, -1),
-        screenParams: {},
+        screenParams: previousParams,
         activeTab: nextTab || get().activeTab,
       });
     }
