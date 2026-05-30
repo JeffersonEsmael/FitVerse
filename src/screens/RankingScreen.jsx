@@ -104,8 +104,9 @@ export default function RankingScreen() {
   const rest = leaderboard.slice(3);
 
   // Split challenges list
-  const createdChallenges = challenges.filter(c => c.creator_id === user?.uid);
-  const joinedChallenges = challenges.filter(c => c.joined && c.creator_id !== user?.uid);
+  const completedChallenges = challenges.filter(c => (c.joined || c.creator_id === user?.uid) && (c.progress || 0) >= (c.duration || 30));
+  const createdChallenges = challenges.filter(c => c.creator_id === user?.uid && (c.progress || 0) < (c.duration || 30));
+  const joinedChallenges = challenges.filter(c => c.joined && c.creator_id !== user?.uid && (c.progress || 0) < (c.duration || 30));
   const discoverChallenges = challenges.filter(c => !c.joined);
 
   useEffect(() => {
@@ -369,6 +370,18 @@ export default function RankingScreen() {
               createdChallenges.map(renderChallengeCard)
             )}
 
+            {/* Section: Concluídos */}
+            <div style={{ ...styles.sectionHeaderRow, marginTop: '24px' }}>
+              <h3 style={styles.sectionTitle}>✅ Concluídos ({completedChallenges.length})</h3>
+            </div>
+            {completedChallenges.length === 0 ? (
+              <div style={styles.emptyChallengesCard}>
+                <span style={styles.emptyText}>Nenhum desafio concluído ainda. Continue firme! 🚀</span>
+              </div>
+            ) : (
+              completedChallenges.map(renderChallengeCard)
+            )}
+
             {/* Section: Descobrir Desafios */}
             <div style={{ ...styles.sectionHeaderRow, marginTop: '24px' }}>
               <h3 style={styles.sectionTitle}>🔍 Descobrir Desafios ({discoverChallenges.length})</h3>
@@ -526,13 +539,33 @@ export default function RankingScreen() {
                     </div>
 
                     {/* Action Button: Checkin */}
-                    <motion.button
-                      style={{ ...modalStyles.actionBtn, background: selectedChallenge.color || '#00D4FF' }}
-                      whileTap={{ scale: 0.96 }}
-                      onClick={() => setShowCheckInModal(true)}
-                    >
-                      Realizar Check-In Diário
-                    </motion.button>
+                    {(selectedChallenge.progress || 0) < (selectedChallenge.duration || 30) ? (
+                      <motion.button
+                        style={{ ...modalStyles.actionBtn, background: selectedChallenge.color || '#00D4FF' }}
+                        whileTap={{ scale: 0.96 }}
+                        onClick={() => setShowCheckInModal(true)}
+                      >
+                        Realizar Check-In Diário
+                      </motion.button>
+                    ) : (
+                      <div
+                        style={{
+                          background: 'rgba(57,255,20,0.1)',
+                          border: '1px solid #39FF14',
+                          color: '#39FF14',
+                          padding: '14px',
+                          borderRadius: '12px',
+                          textAlign: 'center',
+                          fontWeight: 700,
+                          fontSize: '14px',
+                          fontFamily: "'Outfit', sans-serif",
+                          marginTop: '24px',
+                          boxShadow: '0 0 12px rgba(57,255,20,0.2)',
+                        }}
+                      >
+                        🎉 Desafio Concluído! Excelente trabalho!
+                      </div>
+                    )}
                   </>
                 ) : (
                   <motion.button

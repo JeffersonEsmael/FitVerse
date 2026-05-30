@@ -194,66 +194,67 @@ export default function FeedScreen() {
       </div>
 
       {/* ── Content Area ─────────────────────────────────── */}
-      <AnimatePresence mode="wait">
-        {activeTab === 'store' ? (
-          <motion.div
-            key="store"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.3 }}
-            style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
-          >
-            <StoreView />
-          </motion.div>
-        ) : videos.length === 0 ? (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            style={styles.emptyFeed}
-          >
-            <Video size={48} color="#6C6C88" />
-            <span style={styles.emptyTitle}>
-              {uploadingPost ? 'Publicando seu post...' : 'Nenhum post ainda'}
-            </span>
-            <span style={styles.emptySubtitle}>
-              {uploadingPost ? 'Aguarde um momento' : 'Seja o primeiro a postar!'}
-            </span>
-            {!uploadingPost && (
-              <motion.button
-                style={styles.emptyBtn}
-                onClick={() => navigate('create')}
-                whileTap={{ scale: 0.95 }}
-              >
-                <PlusCircle size={18} /> Criar Post
-              </motion.button>
-            )}
-          </motion.div>
-        ) : (
-          videos.map((video, index) => (
-            index === currentIndex && (
-              <motion.div
-                key={video.id}
-                style={{
-                  ...styles.videoSlide,
-                  y: dragOffset,
-                }}
-                initial={{ y: direction > 0 ? '100%' : '-100%', opacity: 0.5 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: direction > 0 ? '-30%' : '30%', opacity: 0 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              >
-                <VideoCard
-                  video={video}
-                  isActive={index === currentIndex}
-                  index={index}
-                />
-              </motion.div>
-            )
-          ))
-        )}
-      </AnimatePresence>
+        <AnimatePresence mode="wait" custom={direction}>
+          {activeTab === 'store' ? (
+            <motion.div
+              key="store"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              transition={{ duration: 0.3 }}
+              style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
+            >
+              <StoreView />
+            </motion.div>
+          ) : videos.length === 0 ? (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              style={styles.emptyFeed}
+            >
+              <Video size={48} color="#6C6C88" />
+              <span style={styles.emptyTitle}>
+                {uploadingPost ? 'Publicando seu post...' : 'Nenhum post ainda'}
+              </span>
+              <span style={styles.emptySubtitle}>
+                {uploadingPost ? 'Aguarde um momento' : 'Seja o primeiro a postar!'}
+              </span>
+              {!uploadingPost && (
+                <motion.button
+                  style={styles.emptyBtn}
+                  onClick={() => navigate('create')}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <PlusCircle size={18} /> Criar Post
+                </motion.button>
+              )}
+            </motion.div>
+          ) : (
+            videos.map((video, index) => (
+              index === currentIndex && (
+                <motion.div
+                  key={video.id}
+                  custom={direction}
+                  initial={(d) => ({ y: d > 0 ? '100%' : '-100%', opacity: 0.5 })}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={(d) => ({ y: d > 0 ? '-100%' : '100%', opacity: 0 })}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  style={{
+                    ...styles.videoSlide,
+                    y: dragOffset,
+                  }}
+                >
+                  <VideoCard
+                    video={video}
+                    isActive={index === currentIndex}
+                    index={index}
+                  />
+                </motion.div>
+              )
+            ))
+          )}
+        </AnimatePresence>
 
       {/* Video counter */}
       {activeTab !== 'store' && videos.length > 0 && (

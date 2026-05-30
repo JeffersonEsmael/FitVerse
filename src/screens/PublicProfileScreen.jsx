@@ -381,13 +381,13 @@ export default function PublicProfileScreen() {
                 <span style={styles.emptyGridText}>Nenhum post ainda</span>
               </div>
             ) : (
-              userPosts.map((post) => (
+              userPosts.map((post, idx) => (
                 <motion.div
                   key={post.id}
                   style={styles.videoThumb}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  onClick={() => navigate('post_details', { params: { post } })}
+                  onClick={() => navigate('post_details', { params: { post, allPosts: userPosts, startIndex: idx } })}
                 >
                   {post.mediaType === 'image' ? (
                     <img src={post.videoUrl} alt="" style={styles.thumbMedia} />
@@ -476,7 +476,7 @@ const styles = {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   avatarContainerRight: {
     position: 'relative',
@@ -491,18 +491,20 @@ const styles = {
     color: '#fff',
     fontFamily: "'Outfit', sans-serif",
     margin: '0 0 4px',
-    textAlign: 'left',
+    textAlign: 'center',
+    width: '100%',
     letterSpacing: '-0.5px'
   },
   displayNameLeft: {
     fontSize: '13px',
     color: 'rgba(255,255,255,0.5)',
     marginBottom: '12px',
-    textAlign: 'left'
+    textAlign: 'center',
+    width: '100%'
   },
   statsRowLeft: {
     display: 'flex',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     gap: '16px',
     width: '100%',
   },

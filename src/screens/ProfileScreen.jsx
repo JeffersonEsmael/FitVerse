@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useFeedStore } from '../stores/feedStore';
+import { useRankingStore } from '../stores/rankingStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import GymBagIcon from '../components/icons/GymBagIcon';
 import ShapeIcon from '../components/icons/ShapeIcon';
@@ -79,12 +80,17 @@ export default function ProfileScreen() {
   const { user, profile, isProfileLoading, refreshProfile } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
   const { fetchUserPosts, fetchGymBagVideos } = useFeedStore();
+  const { challenges, fetchChallenges } = useRankingStore();
   
   const [activeProfileTab, setActiveProfileTab] = useState('videos');
   const [userPosts, setUserPosts] = useState([]);
   const [postsLoaded, setPostsLoaded] = useState(false);
   const [gymBagVideos, setGymBagVideos] = useState([]);
   const [gymBagLoaded, setGymBagLoaded] = useState(false);
+  const [checkinPhotos, setCheckinPhotos] = useState({});
+
+  // Active challenges that the user has joined
+  const activeChallenges = challenges.filter(c => c.joined);
   
   const p = profile || {};
 
@@ -145,8 +151,29 @@ export default function ProfileScreen() {
         setGymBagVideos(videos);
         setGymBagLoaded(true);
       });
+      fetchChallenges();
     }
-  }, [user?.uid, refreshProfile, fetchUserPosts, fetchGymBagVideos]);
+  }, [user?.uid, refreshProfile, fetchUserPosts, fetchGymBagVideos, fetchChallenges]);
+
+  // Fetch check-in photos for active challenges
+  useEffect(() => {
+    if (user?.uid && activeChallenges.length > 0) {
+      activeChallenges.forEach(async (challenge) => {
+        try {
+          const { data } = await supabase
+            .from('challenge_checkins')
+            .select('photo_url, created_at, activity_title')
+            .eq('challenge_id', challenge.id)
+            .eq('user_id', user.uid)
+            .order('created_at', { ascending: false })
+            .limit(10);
+          if (data && data.length > 0) {
+            setCheckinPhotos(prev => ({ ...prev, [challenge.id]: data.filter(d => d.photo_url) }));
+          }
+        } catch { /* ignore */ }
+      });
+    }
+  }, [user?.uid, activeChallenges.length]);
 
   // Fetch posts
   useEffect(() => {
@@ -285,6 +312,71 @@ export default function ProfileScreen() {
           </motion.button>
         </div>
 
+        {/* Active Challenges Section */}
+        {activeChallenges.length > 0 && (
+          <div style={challengeStyles.section}>
+            <div style={challengeStyles.sectionHeader}>
+              <h3 style={challengeStyles.sectionTitle}>🏆 Desafios Ativos</h3>
+              <button
+                style={challengeStyles.seeAllBtn}
+                onClick={() => navigate('ranking', { params: { tab: 'challenges' } })}
+              >
+                Ver todos <ChevronRight size={14} />
+              </button>
+            </div>
+            <div style={challengeStyles.scrollContainer}>
+              {activeChallenges.map((challenge) => {
+                const progressPct = Math.min(100, Math.round(((challenge.progress || 0) / (challenge.duration || 30)) * 100));
+                const photos = checkinPhotos[challenge.id] || [];
+                const isCompleted = progressPct >= 100;
+                return (
+                  <motion.div
+                    key={challenge.id}
+                    style={challengeStyles.card}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => navigate('ranking', { params: { tab: 'challenges' } })}
+                  >
+                    <div style={challengeStyles.cardHeader}>
+                      <span style={challengeStyles.cardIcon}>{challenge.icon || '🏆'}</span>
+                      <div style={challengeStyles.cardInfo}>
+                        <span style={challengeStyles.cardTitle}>{challenge.title}</span>
+                        <span style={challengeStyles.cardSub}>
+                          {isCompleted ? '✅ Concluído!' : `${challenge.progress || 0}/${challenge.duration || 30} dias`}
+                        </span>
+                      </div>
+                      <span style={{ ...challengeStyles.pctBadge, color: challenge.color || '#00D4FF' }}>
+                        {progressPct}%
+                      </span>
+                    </div>
+                    <div style={challengeStyles.progressTrack}>
+                      <motion.div
+                        style={{
+                          ...challengeStyles.progressFill,
+                          background: isCompleted
+                            ? 'linear-gradient(90deg, #39FF14, #00CC00)'
+                            : `linear-gradient(90deg, ${challenge.color || '#00D4FF'}, ${challenge.color || '#00D4FF'}88)`,
+                        }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progressPct}%` }}
+                        transition={{ duration: 0.8, ease: 'easeOut' }}
+                      />
+                    </div>
+                    {photos.length > 0 && (
+                      <div style={challengeStyles.photosRow}>
+                        {photos.map((photo, i) => (
+                          <div key={i} style={challengeStyles.photoThumb}>
+                            <img src={photo.photo_url} alt={photo.activity_title || ''} style={challengeStyles.photoImg} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Content tabs */}
         <div style={styles.contentTabs}>
           <button
@@ -317,13 +409,13 @@ export default function ProfileScreen() {
                 <span style={styles.emptyGridText}>Nenhum post ainda</span>
               </div>
             ) : (
-              userPosts.map((post) => (
+              userPosts.map((post, idx) => (
                 <motion.div
                   key={post.id}
                   style={styles.videoThumb}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  onClick={() => navigate('post_details', { params: { post } })}
+                  onClick={() => navigate('post_details', { params: { post, allPosts: userPosts, startIndex: idx } })}
                 >
                   {post.mediaType === 'image' ? (
                     <img src={post.videoUrl} alt="" style={styles.thumbMedia} />
@@ -350,13 +442,13 @@ export default function ProfileScreen() {
                 <span style={styles.emptyGridText}>Posts salvos aparecerão aqui</span>
               </div>
             ) : (
-              gymBagVideos.map((post) => (
+              gymBagVideos.map((post, idx) => (
                 <motion.div
                   key={post.id}
                   style={styles.videoThumb}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  onClick={() => navigate('post_details', { params: { post } })}
+                  onClick={() => navigate('post_details', { params: { post, allPosts: gymBagVideos, startIndex: idx } })}
                 >
                   {post.mediaType === 'image' ? (
                     <img src={post.videoUrl} alt="" style={styles.thumbMedia} />
@@ -452,7 +544,7 @@ const styles = {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   avatarContainerRight: {
     position: 'relative',
@@ -467,18 +559,20 @@ const styles = {
     color: '#fff',
     fontFamily: "'Outfit', sans-serif",
     margin: '0 0 4px',
-    textAlign: 'left',
+    textAlign: 'center',
+    width: '100%',
     letterSpacing: '-0.5px'
   },
   displayNameLeft: {
     fontSize: '13px',
     color: 'rgba(255,255,255,0.5)',
     marginBottom: '12px',
-    textAlign: 'left'
+    textAlign: 'center',
+    width: '100%'
   },
   statsRowLeft: {
     display: 'flex',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     gap: '16px',
     width: '100%',
   },
@@ -718,5 +812,117 @@ const badgeStyles = {
     alignItems: 'center',
     justifyContent: 'center',
     boxShadow: '0 2px 8px rgba(57,255,20,0.4)',
+  },
+};
+
+const challengeStyles = {
+  section: {
+    marginBottom: '24px',
+  },
+  sectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '12px',
+  },
+  sectionTitle: {
+    fontSize: '16px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    margin: 0,
+  },
+  seeAllBtn: {
+    background: 'none',
+    border: 'none',
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    fontFamily: "'Inter', sans-serif",
+  },
+  scrollContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  card: {
+    padding: '16px',
+    borderRadius: '20px',
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    backdropFilter: 'blur(20px)',
+    cursor: 'pointer',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+  },
+  cardHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  cardIcon: {
+    fontSize: '28px',
+    flexShrink: 0,
+  },
+  cardInfo: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+  },
+  cardTitle: {
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+  },
+  cardSub: {
+    fontSize: '12px',
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: "'Inter', sans-serif",
+  },
+  pctBadge: {
+    fontSize: '16px',
+    fontWeight: 800,
+    fontFamily: "'Outfit', sans-serif",
+    flexShrink: 0,
+  },
+  progressTrack: {
+    height: '6px',
+    borderRadius: '3px',
+    background: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: '3px',
+    boxShadow: '0 0 8px rgba(0,212,255,0.3)',
+  },
+  photosRow: {
+    display: 'flex',
+    gap: '8px',
+    overflowX: 'auto',
+    paddingBottom: '4px',
+    scrollbarWidth: 'none',
+    msOverflowStyle: 'none',
+  },
+  photoThumb: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    flexShrink: 0,
+    border: '1px solid rgba(255,255,255,0.15)',
+  },
+  photoImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
   },
 };

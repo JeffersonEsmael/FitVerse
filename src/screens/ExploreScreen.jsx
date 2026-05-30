@@ -154,14 +154,14 @@ export default function ExploreScreen() {
               {/* Tab: Videos */}
               {activeTab === 'videos' && (
                 <div style={styles.videoGrid}>
-                  {searchResults.map((post) => (
+                  {searchResults.map((post, idx) => (
                     <motion.div
                       key={post.id}
                       style={styles.videoThumb}
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       whileTap={{ scale: 0.97 }}
-                      onClick={() => navigate('post_details', { params: { post } })}
+                      onClick={() => navigate('post_details', { params: { post, allPosts: searchResults, startIndex: idx } })}
                     >
                       {post.media_type === 'image' ? (
                         <img src={post.video_url} alt="" style={styles.thumbMedia} />
