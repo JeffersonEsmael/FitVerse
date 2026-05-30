@@ -334,32 +334,44 @@ export default function ProfileScreen() {
     await Promise.resolve();
     setIsLoadingChallenges(true);
     try {
+      // Step 1: Fetch participations (simple query, no embedded join)
       const { data: participations, error: partError } = await supabase
         .from('challenge_participants')
-        .select(`
-          progress,
-          challenge:challenges (*)
-        `)
+        .select('challenge_id, progress')
         .eq('user_id', user.uid);
 
       if (partError) throw partError;
+      console.log('[Profile] Participations found:', participations?.length || 0);
 
-      if (participations) {
-        const enriched = (await Promise.all(participations.map(async (p) => {
-          if (!p.challenge) return null;
+      if (participations && participations.length > 0) {
+        const challengeIds = participations.map((p) => p.challenge_id);
+
+        // Step 2: Fetch challenges by IDs
+        const { data: challengesData, error: chalError } = await supabase
+          .from('challenges')
+          .select('*')
+          .in('id', challengeIds);
+
+        if (chalError) throw chalError;
+        console.log('[Profile] Challenges fetched:', challengesData?.length || 0);
+
+        // Step 3: Fetch checkins for each challenge
+        const enriched = (await Promise.all((challengesData || []).map(async (challenge) => {
+          const participation = participations.find((p) => p.challenge_id === challenge.id);
           const { data: checkins } = await supabase
             .from('challenge_checkins')
             .select('photo_url, created_at, activity_title')
-            .eq('challenge_id', p.challenge.id)
+            .eq('challenge_id', challenge.id)
             .eq('user_id', user.uid)
             .order('created_at', { ascending: false });
 
           return {
-            ...p.challenge,
-            progress: p.progress,
+            ...challenge,
+            progress: participation?.progress || 0,
             checkins: checkins || []
           };
         }))).filter(Boolean);
+        console.log('[Profile] Enriched challenges:', enriched.length);
         setProfileChallenges(enriched);
       } else {
         setProfileChallenges([]);
@@ -460,7 +472,7 @@ export default function ProfileScreen() {
 
               <div style={styles.statsRowLeft}>
                 <div style={styles.statItemLeft}>
-                  <span style={styles.statValueLeft}>{p.total_videos || 0}</span>
+                  <span style={styles.statValueLeft}>{filteredUserPosts.length}</span>
                   <span style={styles.statLabelLeft}>posts</span>
                 </div>
                 <div style={styles.statItemLeft}>

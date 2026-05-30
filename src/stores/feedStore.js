@@ -491,7 +491,8 @@ export const useFeedStore = create(
         const { count: videoCount } = await supabase
           .from('videos')
           .select('*', { count: 'exact', head: true })
-          .eq('user_id', metadata.userId);
+          .eq('user_id', metadata.userId)
+          .neq('category', 'desafio');
 
         await supabase
           .from('profiles')
