@@ -147,6 +147,7 @@ export const useFeedStore = create(
       const { data, error } = await supabase
         .from('videos')
         .select('*')
+        .neq('category', 'desafio')
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
@@ -527,9 +528,9 @@ export const useFeedStore = create(
       // Clear banner after 1.5s so user sees the "100%" completion
       setTimeout(() => {
         set((state) => ({
-          videos: [newVideo, ...state.videos],
+          videos: metadata.category === 'desafio' ? state.videos : [newVideo, ...state.videos],
           uploadingPost: null,
-          currentIndex: 0,
+          currentIndex: metadata.category === 'desafio' ? state.currentIndex : 0,
         }));
       }, 1500);
 

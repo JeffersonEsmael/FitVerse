@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Layers, Camera } from 'lucide-react';
+import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -9,6 +9,7 @@ import { useRankingStore } from '../stores/rankingStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import GymBagIcon from '../components/icons/GymBagIcon';
 import ShapeIcon from '../components/icons/ShapeIcon';
+import ProfileChallengeCard from '../components/profile/ProfileChallengeCard';
 
 // Badge definitions with unlock criteria
 const BADGE_DEFINITIONS = [
@@ -51,7 +52,9 @@ function BadgeCard({ badge, unlocked, index }) {
         background: unlocked ? badge.gradient : 'rgba(255,255,255,0.05)',
         boxShadow: unlocked ? `0 4px 16px ${badge.color}30` : 'none',
       }}>
-        {typeof badge.icon === 'function' ? (
+        {typeof badge.icon === 'string' ? (
+          <span style={{ fontSize: '24px' }}>{badge.icon}</span>
+        ) : typeof badge.icon === 'function' ? (
           <badge.icon size={24} color={unlocked ? '#fff' : '#6C6C88'} />
         ) : (
           React.createElement(badge.icon, { size: 24, color: unlocked ? '#fff' : '#6C6C88' })
@@ -165,7 +168,7 @@ export default function ProfileScreen() {
   const navigate = useNavigationStore((s) => s.navigate);
   const currentScreen = useNavigationStore((s) => s.currentScreen);
   const { fetchUserPosts, fetchGymBagVideos } = useFeedStore();
-  const { challenges, fetchChallenges, performCheckIn } = useRankingStore();
+  const { fetchChallenges, performCheckIn } = useRankingStore();
   
   const [activeProfileTab, setActiveProfileTab] = useState('videos');
   const [userPosts, setUserPosts] = useState([]);
@@ -272,6 +275,10 @@ export default function ProfileScreen() {
   // Calculate total shapes dynamically
   const totalShapes = userPosts.reduce((sum, post) => sum + (post.shapes || 0), 0);
 
+  const filteredUserPosts = useMemo(() => {
+    return userPosts.filter((post) => post.category !== 'desafio');
+  }, [userPosts]);
+
   // Compute badges
   const badges = useMemo(() => {
     return BADGE_DEFINITIONS.map((badge) => ({
@@ -281,6 +288,30 @@ export default function ProfileScreen() {
   }, [p, followersCount, userPosts, gymBagVideos]);
 
   const unlockedCount = badges.filter((b) => b.unlocked).length;
+
+  const completedChallengesCount = useMemo(() => {
+    return profileChallenges.filter(c => (c.progress || 0) >= (c.duration || 30)).length;
+  }, [profileChallenges]);
+
+  const challengeMedals = useMemo(() => {
+    return profileChallenges
+      .filter(c => (c.progress || 0) >= (c.duration || 30))
+      .map(c => ({
+        id: `completed_challenge_${c.id}`,
+        name: `Desafio: ${c.title}`,
+        description: `Concluiu o desafio de ${c.duration} dias!`,
+        icon: c.icon || '🏆',
+        color: c.color || '#FFD700',
+        gradient: `linear-gradient(135deg, ${c.color || '#FFD700'}, #FFA500)`,
+        unlocked: true,
+      }));
+  }, [profileChallenges]);
+
+  const allBadgesAndMedals = useMemo(() => {
+    return [...badges, ...challengeMedals];
+  }, [badges, challengeMedals]);
+
+  const totalMedalsCount = unlockedCount + completedChallengesCount;
 
   // Refresh profile when screen becomes active to ensure real-time data
   useEffect(() => {
@@ -300,6 +331,7 @@ export default function ProfileScreen() {
 
   const loadProfileChallenges = useCallback(async () => {
     if (!user?.uid) return;
+    await Promise.resolve();
     setIsLoadingChallenges(true);
     try {
       const { data: participations, error: partError } = await supabase
@@ -337,7 +369,7 @@ export default function ProfileScreen() {
     } finally {
       setIsLoadingChallenges(false);
     }
-  }, [user?.uid]);
+  }, [user]);
 
   useEffect(() => {
     if (user?.uid) {
@@ -465,7 +497,7 @@ export default function ProfileScreen() {
           {/* Stats inside profile card */}
           <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0 }}>
             <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
-            <StatBox label="Medalhas" value={unlockedCount} icon={Award} color="#FFD700" onClick={() => setShowMedalsModal(true)} />
+            <StatBox label="Medalhas" value={totalMedalsCount} icon={Award} color="#FFD700" onClick={() => setShowMedalsModal(true)} />
             <StatBox label="Mensagem" value="Chat" icon={MessageCircle} color="#00D4FF" onClick={handleDM} />
           </div>
         </motion.div>
@@ -514,19 +546,19 @@ export default function ProfileScreen() {
         {/* Content - Videos */}
         {activeProfileTab === 'videos' && (
           <div style={styles.videoGrid}>
-            {userPosts.length === 0 && postsLoaded ? (
+            {filteredUserPosts.length === 0 && postsLoaded ? (
               <div style={styles.emptyGrid}>
                 <Video size={32} color="rgba(255,255,255,0.4)" />
                 <span style={styles.emptyGridText}>Nenhum post ainda</span>
               </div>
             ) : (
-              userPosts.map((post, idx) => (
+              filteredUserPosts.map((post, idx) => (
                 <motion.div
                   key={post.id}
                   style={styles.videoThumb}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  onClick={() => navigate('post_details', { params: { post, allPosts: userPosts, startIndex: idx } })}
+                  onClick={() => navigate('post_details', { params: { post, allPosts: filteredUserPosts, startIndex: idx } })}
                 >
                   {post.mediaType === 'image' ? (
                     <img src={post.videoUrl} alt="" style={styles.thumbMedia} />
@@ -608,66 +640,13 @@ export default function ProfileScreen() {
               </div>
             ) : (
               <div style={styles.challengeGrid}>
-                {profileChallenges.map((challenge) => {
-                  const photos = challenge.checkins || [];
-                  const progressPct = Math.min(100, Math.round(((challenge.progress || 0) / (challenge.duration || 30)) * 100));
-                  const isCompleted = progressPct >= 100;
-                  
-                  return (
-                    <motion.div
-                      key={challenge.id}
-                      style={styles.challengeGridCard}
-                      whileTap={{ scale: 0.96 }}
-                      onClick={() => setSelectedChallenge(challenge)}
-                    >
-                      {/* Capa */}
-                      {photos.length > 0 ? (
-                        <img
-                          src={photos[0].photo_url}
-                          alt=""
-                          style={styles.cardCoverImg}
-                        />
-                      ) : (
-                        <div style={{
-                          ...styles.cardGradientPlaceholder,
-                          background: `linear-gradient(135deg, ${challenge.color || '#00D4FF'}30, ${challenge.color || '#00D4FF'}08)`,
-                        }}>
-                          <span style={styles.cardPlaceholderEmoji}>{challenge.icon || '🏆'}</span>
-                          <span style={styles.cardPlaceholderText}>Sem check-ins</span>
-                        </div>
-                      )}
-                      
-                      {/* Overlay */}
-                      <div style={styles.cardOverlay} />
-                      
-                      {/* Conteúdo sobreposto */}
-                      <div style={styles.cardContent}>
-                        {/* Indicador de Carrossel */}
-                        {photos.length > 1 ? (
-                          <div style={styles.carouselBadge}>
-                            <Layers size={12} color="#fff" />
-                          </div>
-                        ) : <div />}
-                        
-                        {/* Título do desafio */}
-                        <span style={styles.cardTitleOverlay}>{challenge.title}</span>
-                      </div>
-                      
-                      {/* Barra de progresso */}
-                      <div style={styles.challengeProgressTrackGrid}>
-                        <div
-                          style={{
-                            ...styles.challengeProgressFillGrid,
-                            background: isCompleted
-                              ? 'linear-gradient(90deg, #39FF14, #00CC00)'
-                              : `linear-gradient(90deg, ${challenge.color || '#00D4FF'}, ${challenge.color || '#00D4FF'}88)`,
-                            width: `${progressPct}%`,
-                          }}
-                        />
-                      </div>
-                    </motion.div>
-                  );
-                })}
+                {profileChallenges.map((challenge) => (
+                  <ProfileChallengeCard
+                    key={challenge.id}
+                    challenge={challenge}
+                    onClick={() => setSelectedChallenge(challenge)}
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -703,7 +682,7 @@ export default function ProfileScreen() {
                 <div style={modalStyles.headerInfo}>
                   <h3 style={modalStyles.title}>Suas Medalhas</h3>
                   <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontFamily: "'Inter', sans-serif" }}>
-                    {unlockedCount} de {badges.length} conquistas
+                    {totalMedalsCount} de {badges.length + completedChallengesCount} conquistas
                   </span>
                 </div>
                 <button style={modalStyles.closeBtn} onClick={() => setShowMedalsModal(false)}>
@@ -718,10 +697,10 @@ export default function ProfileScreen() {
                     style={{
                       ...modalStyles.progressBarFill,
                       backgroundColor: '#FFD700',
-                      width: `${(unlockedCount / badges.length) * 100}%`,
+                      width: `${((totalMedalsCount) / (badges.length + completedChallengesCount || 1)) * 100}%`,
                     }}
                     initial={{ width: 0 }}
-                    animate={{ width: `${(unlockedCount / badges.length) * 100}%` }}
+                    animate={{ width: `${((totalMedalsCount) / (badges.length + completedChallengesCount || 1)) * 100}%` }}
                     transition={{ duration: 0.8 }}
                   />
                 </div>
@@ -730,7 +709,7 @@ export default function ProfileScreen() {
               {/* Body */}
               <div style={{ ...modalStyles.body, overflowY: 'auto' }}>
                 <div style={badgeStyles.grid}>
-                  {badges.map((badge, i) => (
+                  {allBadgesAndMedals.map((badge, i) => (
                     <BadgeCard key={badge.id} badge={badge} unlocked={badge.unlocked} index={i} />
                   ))}
                 </div>
@@ -1419,117 +1398,7 @@ const badgeStyles = {
   },
 };
 
-const challengeStyles = {
-  section: {
-    marginBottom: '24px',
-  },
-  sectionHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '12px',
-  },
-  sectionTitle: {
-    fontSize: '16px',
-    fontWeight: 700,
-    color: '#fff',
-    fontFamily: "'Outfit', sans-serif",
-    margin: 0,
-  },
-  seeAllBtn: {
-    background: 'none',
-    border: 'none',
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: '13px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    fontFamily: "'Inter', sans-serif",
-  },
-  scrollContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-  },
-  card: {
-    padding: '16px',
-    borderRadius: '20px',
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    backdropFilter: 'blur(20px)',
-    cursor: 'pointer',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-    boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-  },
-  cardHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  cardIcon: {
-    fontSize: '28px',
-    flexShrink: 0,
-  },
-  cardInfo: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px',
-  },
-  cardTitle: {
-    fontSize: '14px',
-    fontWeight: 700,
-    color: '#fff',
-    fontFamily: "'Outfit', sans-serif",
-  },
-  cardSub: {
-    fontSize: '12px',
-    color: 'rgba(255,255,255,0.5)',
-    fontFamily: "'Inter', sans-serif",
-  },
-  pctBadge: {
-    fontSize: '16px',
-    fontWeight: 800,
-    fontFamily: "'Outfit', sans-serif",
-    flexShrink: 0,
-  },
-  progressTrack: {
-    height: '6px',
-    borderRadius: '3px',
-    background: 'rgba(255,255,255,0.08)',
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: '3px',
-    boxShadow: '0 0 8px rgba(0,212,255,0.3)',
-  },
-  photosRow: {
-    display: 'flex',
-    gap: '8px',
-    overflowX: 'auto',
-    paddingBottom: '4px',
-    scrollbarWidth: 'none',
-    msOverflowStyle: 'none',
-  },
-  photoThumb: {
-    width: '48px',
-    height: '48px',
-    borderRadius: '12px',
-    overflow: 'hidden',
-    flexShrink: 0,
-    border: '1px solid rgba(255,255,255,0.15)',
-  },
-  photoImg: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-  },
-};
+
 
 const modalStyles = {
   backdrop: {
