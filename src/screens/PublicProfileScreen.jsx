@@ -317,7 +317,7 @@ export default function PublicProfileScreen() {
     await Promise.resolve();
     setIsLoadingChallenges(true);
     try {
-      // Step 1: Fetch participations (simple query, no embedded join)
+      // Fetch participations from DB
       const { data: participations, error: partError } = await supabase
         .from('challenge_participants')
         .select('challenge_id, progress')
@@ -328,8 +328,10 @@ export default function PublicProfileScreen() {
 
       if (participations && participations.length > 0) {
         const challengeIds = participations.map((p) => p.challenge_id);
+        const progressMap = {};
+        participations.forEach(p => { progressMap[p.challenge_id] = p.progress; });
 
-        // Step 2: Fetch challenges by IDs
+        // Fetch challenges
         const { data: challengesData, error: chalError } = await supabase
           .from('challenges')
           .select('*')
@@ -337,22 +339,58 @@ export default function PublicProfileScreen() {
 
         if (chalError) throw chalError;
 
-        // Step 3: Fetch checkins for each challenge
-        const enriched = (await Promise.all((challengesData || []).map(async (challenge) => {
-          const participation = participations.find((p) => p.challenge_id === challenge.id);
-          const { data: checkins } = await supabase
+        // Fetch checkins
+        let allCheckins = [];
+        try {
+          const { data: dbCheckins } = await supabase
             .from('challenge_checkins')
-            .select('photo_url, created_at, activity_title')
-            .eq('challenge_id', challenge.id)
+            .select('challenge_id, photo_url, created_at, activity_title')
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
+          allCheckins = dbCheckins || [];
+        } catch { /* ignore */ }
+
+        // Fallback: desafio posts from videos table
+        let desafioPosts = [];
+        try {
+          const { data: videoPosts } = await supabase
+            .from('videos')
+            .select('video_url, caption, created_at')
+            .eq('user_id', userId)
+            .eq('category', 'desafio')
+            .order('created_at', { ascending: false });
+          desafioPosts = videoPosts || [];
+        } catch { /* ignore */ }
+
+        const enriched = (challengesData || []).map((challenge) => {
+          let checkins = allCheckins
+            .filter(c => c.challenge_id === challenge.id)
+            .map(c => ({ photo_url: c.photo_url, created_at: c.created_at, activity_title: c.activity_title }));
+
+          if (checkins.length === 0 && desafioPosts.length > 0) {
+            const titleLower = (challenge.title || '').toLowerCase();
+            const matched = desafioPosts.filter(p => (p.caption || '').toLowerCase().includes(titleLower));
+            if (matched.length > 0) {
+              checkins = matched.map(p => ({
+                photo_url: p.video_url,
+                created_at: p.created_at,
+                activity_title: 'Check-in',
+              }));
+            }
+          }
+
+          const effectiveProgress = Math.max(
+            progressMap[challenge.id] || 0,
+            checkins.length
+          );
 
           return {
             ...challenge,
-            progress: participation?.progress || 0,
-            checkins: checkins || []
+            progress: effectiveProgress,
+            checkins,
           };
-        }))).filter(Boolean);
+        });
+
         setProfileChallenges(enriched);
       } else {
         setProfileChallenges([]);

@@ -334,44 +334,125 @@ export default function ProfileScreen() {
     await Promise.resolve();
     setIsLoadingChallenges(true);
     try {
-      // Step 1: Fetch participations (simple query, no embedded join)
-      const { data: participations, error: partError } = await supabase
-        .from('challenge_participants')
-        .select('challenge_id, progress')
-        .eq('user_id', user.uid);
+      // Strategy 1: Use rankingStore as primary source (has joined challenges from current session)
+      const { useRankingStore } = await import('../stores/rankingStore');
+      const rankingChallenges = useRankingStore.getState().challenges || [];
+      const joinedFromStore = rankingChallenges.filter(c => c.joined);
+      console.log('[Profile] Joined challenges from rankingStore:', joinedFromStore.length);
 
-      if (partError) throw partError;
-      console.log('[Profile] Participations found:', participations?.length || 0);
+      // Strategy 2: Also try DB for challenge_participants
+      let dbProgressMap = {};
+      try {
+        const { data: participations } = await supabase
+          .from('challenge_participants')
+          .select('challenge_id, progress')
+          .eq('user_id', user.uid);
+        
+        if (participations && participations.length > 0) {
+          console.log('[Profile] DB participations found:', participations.length);
+          participations.forEach(p => {
+            dbProgressMap[p.challenge_id] = p.progress;
+          });
 
-      if (participations && participations.length > 0) {
-        const challengeIds = participations.map((p) => p.challenge_id);
+          // Add DB challenges that aren't in store
+          const storeIds = new Set(joinedFromStore.map(c => c.id));
+          const missingIds = participations
+            .map(p => p.challenge_id)
+            .filter(id => !storeIds.has(id));
 
-        // Step 2: Fetch challenges by IDs
-        const { data: challengesData, error: chalError } = await supabase
-          .from('challenges')
-          .select('*')
-          .in('id', challengeIds);
+          if (missingIds.length > 0) {
+            const { data: missingChallenges } = await supabase
+              .from('challenges')
+              .select('*')
+              .in('id', missingIds);
+            
+            if (missingChallenges) {
+              missingChallenges.forEach(c => {
+                joinedFromStore.push({
+                  ...c,
+                  joined: true,
+                  progress: dbProgressMap[c.id] || 0,
+                });
+              });
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.warn('[Profile] DB participations query failed:', dbErr.message);
+      }
 
-        if (chalError) throw chalError;
-        console.log('[Profile] Challenges fetched:', challengesData?.length || 0);
+      // Merge progress from DB
+      const allJoined = joinedFromStore.map(c => ({
+        ...c,
+        progress: c.progress || dbProgressMap[c.id] || 0,
+      }));
 
-        // Step 3: Fetch checkins for each challenge
-        const enriched = (await Promise.all((challengesData || []).map(async (challenge) => {
-          const participation = participations.find((p) => p.challenge_id === challenge.id);
-          const { data: checkins } = await supabase
+      console.log('[Profile] Total joined challenges:', allJoined.length);
+
+      if (allJoined.length > 0) {
+        // Fetch checkins from challenge_checkins table
+        let allDbCheckins = [];
+        try {
+          const { data: dbCheckins } = await supabase
             .from('challenge_checkins')
-            .select('photo_url, created_at, activity_title')
-            .eq('challenge_id', challenge.id)
+            .select('challenge_id, photo_url, created_at, activity_title')
             .eq('user_id', user.uid)
             .order('created_at', { ascending: false });
+          allDbCheckins = dbCheckins || [];
+        } catch {
+          console.warn('[Profile] challenge_checkins query failed');
+        }
+
+        // Fallback: also fetch desafio posts from videos table as alternate photo source
+        let desafioPosts = [];
+        try {
+          const { data: videoPosts } = await supabase
+            .from('videos')
+            .select('video_url, caption, created_at, category')
+            .eq('user_id', user.uid)
+            .eq('category', 'desafio')
+            .order('created_at', { ascending: false });
+          desafioPosts = videoPosts || [];
+        } catch {
+          console.warn('[Profile] desafio posts query failed');
+        }
+        console.log('[Profile] Desafio posts found:', desafioPosts.length);
+
+        const enriched = allJoined.map((challenge) => {
+          // Get checkins from DB
+          let checkins = allDbCheckins
+            .filter(c => c.challenge_id === challenge.id)
+            .map(c => ({ photo_url: c.photo_url, created_at: c.created_at, activity_title: c.activity_title }));
+
+          // If no DB checkins, try to match desafio posts by challenge title in caption
+          if (checkins.length === 0 && desafioPosts.length > 0) {
+            const titleLower = (challenge.title || '').toLowerCase();
+            const matchedPosts = desafioPosts.filter(p => 
+              (p.caption || '').toLowerCase().includes(titleLower)
+            );
+            if (matchedPosts.length > 0) {
+              checkins = matchedPosts.map(p => ({
+                photo_url: p.video_url,
+                created_at: p.created_at,
+                activity_title: 'Check-in',
+              }));
+            }
+          }
+
+          // Update progress: use max of store progress, db progress, or checkin count
+          const effectiveProgress = Math.max(
+            challenge.progress || 0,
+            dbProgressMap[challenge.id] || 0,
+            checkins.length
+          );
 
           return {
             ...challenge,
-            progress: participation?.progress || 0,
-            checkins: checkins || []
+            progress: effectiveProgress,
+            checkins,
           };
-        }))).filter(Boolean);
-        console.log('[Profile] Enriched challenges:', enriched.length);
+        });
+
         setProfileChallenges(enriched);
       } else {
         setProfileChallenges([]);
@@ -383,17 +464,23 @@ export default function ProfileScreen() {
     }
   }, [user]);
 
+  // Load challenges: first populate rankingStore, then load profile challenges
   useEffect(() => {
     if (user?.uid) {
-      loadProfileChallenges();
+      // Ensure fetchChallenges completes first so rankingStore has joined data
+      fetchChallenges().then(() => {
+        loadProfileChallenges();
+      });
     }
-  }, [user?.uid, loadProfileChallenges]);
+  }, [user?.uid, fetchChallenges, loadProfileChallenges]);
 
   useEffect(() => {
     if (activeProfileTab === 'challenges' && user?.uid) {
-      loadProfileChallenges();
+      fetchChallenges().then(() => {
+        loadProfileChallenges();
+      });
     }
-  }, [activeProfileTab, user?.uid, loadProfileChallenges]);
+  }, [activeProfileTab, user?.uid, fetchChallenges, loadProfileChallenges]);
 
   // Fetch posts
   useEffect(() => {
