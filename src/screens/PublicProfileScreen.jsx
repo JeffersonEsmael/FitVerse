@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, Trophy, Flame, Target, Dumbbell, Zap, Star, Plus, Check } from 'lucide-react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, Trophy, Flame, Target, Dumbbell, Zap, Star, Plus, Check, X } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -80,6 +80,131 @@ function BadgeCard({ badge, unlocked, index }) {
   );
 }
 
+function ChallengePostCard({ challenge, navigate }) {
+  const photos = challenge.checkins || [];
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState(null);
+
+  const progressPct = Math.min(100, Math.round(((challenge.progress || 0) / (challenge.duration || 30)) * 100));
+  const isCompleted = progressPct >= 100;
+
+  const handlePrev = (e) => {
+    e.stopPropagation();
+    setActiveIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1));
+  };
+
+  const handleNext = (e) => {
+    e.stopPropagation();
+    setActiveIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0));
+  };
+
+  const handleTouchStart = (e) => {
+    setTouchStart(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e) => {
+    if (touchStart === null) return;
+    const diff = touchStart - e.changedTouches[0].clientX;
+    if (diff > 50) {
+      handleNext(e);
+    } else if (diff < -50) {
+      handlePrev(e);
+    }
+    setTouchStart(null);
+  };
+
+  return (
+    <motion.div
+      style={challengeStyles.card}
+      whileTap={{ scale: 0.99 }}
+      onClick={() => navigate('ranking', { params: { tab: 'challenges' } })}
+    >
+      {/* Header */}
+      <div style={challengeStyles.cardHeader}>
+        <span style={challengeStyles.cardIcon}>{challenge.icon || '🏆'}</span>
+        <div style={challengeStyles.cardInfo}>
+          <span style={challengeStyles.cardTitle}>{challenge.title}</span>
+          <span style={challengeStyles.cardSub}>
+            {isCompleted ? '✅ Concluído!' : `${challenge.progress || 0}/${challenge.duration || 30} dias`}
+          </span>
+        </div>
+        <span style={{ ...challengeStyles.pctBadge, color: challenge.color || '#00D4FF' }}>
+          {progressPct}%
+        </span>
+      </div>
+
+      {/* Carousel Body */}
+      <div 
+        style={tabStyles.carouselContainer}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {photos.length > 0 ? (
+          <>
+            <img
+              src={photos[activeIndex].photo_url}
+              alt={photos[activeIndex].activity_title || ''}
+              style={tabStyles.carouselImg}
+            />
+            <div style={tabStyles.carouselCaption}>
+              <span style={tabStyles.carouselCaptionText}>
+                {photos[activeIndex].activity_title || 'Treino Concluído'}
+              </span>
+              <span style={tabStyles.carouselDate}>
+                {new Date(photos[activeIndex].created_at).toLocaleDateString('pt-BR')}
+              </span>
+            </div>
+
+            {/* Nav Arrows */}
+            {photos.length > 1 && (
+              <>
+                <button onClick={handlePrev} style={{ ...tabStyles.arrowBtn, left: '12px' }}>‹</button>
+                <button onClick={handleNext} style={{ ...tabStyles.arrowBtn, right: '12px' }}>›</button>
+
+                {/* Indicators */}
+                <div style={tabStyles.indicators}>
+                  {photos.map((_, idx) => (
+                    <span
+                      key={idx}
+                      style={{
+                        ...tabStyles.dot,
+                        backgroundColor: idx === activeIndex ? (challenge.color || '#00D4FF') : 'rgba(255,255,255,0.3)',
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+          <div style={tabStyles.emptyCarousel}>
+            <span style={{ fontSize: '24px', marginBottom: '8px' }}>📸</span>
+            <span style={tabStyles.emptyCarouselText}>Nenhuma foto de check-in realizada ainda</span>
+            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '4px', textAlign: 'center', padding: '0 20px' }}>
+              Nenhuma comprovação visual para este desafio.
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Progress Track */}
+      <div style={challengeStyles.progressTrack}>
+        <motion.div
+          style={{
+            ...challengeStyles.progressFill,
+            background: isCompleted
+              ? 'linear-gradient(90deg, #39FF14, #00CC00)'
+              : `linear-gradient(90deg, ${challenge.color || '#00D4FF'}, ${challenge.color || '#00D4FF'}88)`,
+          }}
+          initial={{ width: 0 }}
+          animate={{ width: `${progressPct}%` }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
 export default function PublicProfileScreen() {
   const { user } = useAuthStore();
   const { navigate, goBack, screenParams, currentScreen } = useNavigationStore();
@@ -94,6 +219,9 @@ export default function PublicProfileScreen() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [gymBagVideos, setGymBagVideos] = useState([]);
+  const [showMedalsModal, setShowMedalsModal] = useState(false);
+  const [profileChallenges, setProfileChallenges] = useState([]);
+  const [isLoadingChallenges, setIsLoadingChallenges] = useState(true);
 
   const userId = screenParams?.userId;
 
@@ -220,6 +348,58 @@ export default function PublicProfileScreen() {
       });
     }
   };
+
+  const loadProfileChallenges = useCallback(async () => {
+    if (!userId) return;
+    setIsLoadingChallenges(true);
+    try {
+      const { data: participations, error: partError } = await supabase
+        .from('challenge_participants')
+        .select(`
+          progress,
+          challenge:challenges (*)
+        `)
+        .eq('user_id', userId);
+
+      if (partError) throw partError;
+
+      if (participations) {
+        const enriched = await Promise.all(participations.map(async (p) => {
+          const { data: checkins } = await supabase
+            .from('challenge_checkins')
+            .select('photo_url, created_at, activity_title')
+            .eq('challenge_id', p.challenge.id)
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+          return {
+            ...p.challenge,
+            progress: p.progress,
+            checkins: checkins || []
+          };
+        }));
+        setProfileChallenges(enriched);
+      } else {
+        setProfileChallenges([]);
+      }
+    } catch (err) {
+      console.error('Error loading public profile challenges:', err);
+    } finally {
+      setIsLoadingChallenges(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId) {
+      loadProfileChallenges();
+    }
+  }, [userId, loadProfileChallenges]);
+
+  useEffect(() => {
+    if (activeTab === 'challenges' && userId) {
+      loadProfileChallenges();
+    }
+  }, [activeTab, userId, loadProfileChallenges]);
 
   // Compute badges for this user
   const badges = useMemo(() => {
@@ -351,7 +531,7 @@ export default function PublicProfileScreen() {
           <div style={{ ...styles.statsGrid, width: '100%', marginTop: '16px', marginBottom: 0 }}>
             <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
             <StatBox label="Ranking" value={`#${profile.rank_position || '-'}`} icon={Award} color="#FFD700" />
-            <StatBox label="Medalhas" value={unlockedCount} icon={Trophy} color="#FF9500" />
+            <StatBox label="Medalhas" value={unlockedCount} icon={Trophy} color="#FF9500" onClick={() => setShowMedalsModal(true)} />
           </div>
         </motion.div>
 
@@ -364,11 +544,11 @@ export default function PublicProfileScreen() {
             <Grid3x3 size={18} /> Vídeos
           </button>
           <button
-            style={{ ...styles.contentTab, ...(activeTab === 'badges' ? styles.contentTabActive : {}) }}
-            onClick={() => setActiveTab('badges')}
+            style={{ ...styles.contentTab, ...(activeTab === 'challenges' ? styles.contentTabActive : {}) }}
+            onClick={() => setActiveTab('challenges')}
           >
-            <Award size={18} /> Medalhas
-            {unlockedCount > 0 && <span style={styles.badgeCountChip}>{unlockedCount}</span>}
+            <Trophy size={18} /> Desafios
+            {profileChallenges.length > 0 && <span style={styles.badgeCountChip}>{profileChallenges.length}</span>}
           </button>
         </div>
 
@@ -405,32 +585,92 @@ export default function PublicProfileScreen() {
           </div>
         )}
 
-        {/* Content - Badges */}
-        {activeTab === 'badges' && (
-          <div style={badgeStyles.grid}>
-            <div style={badgeStyles.summary}>
-              <div style={badgeStyles.summaryIcon}>
-                <Trophy size={24} color="#FFD700" />
+        {/* Content - Challenges */}
+        {activeTab === 'challenges' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
+            {isLoadingChallenges ? (
+              <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)', padding: '40px 0' }}>
+                Carregando desafios...
               </div>
-              <div style={badgeStyles.summaryInfo}>
-                <span style={badgeStyles.summaryTitle}>{unlockedCount} de {badges.length} medalhas</span>
-                <div style={badgeStyles.progressBar}>
-                  <motion.div
-                    style={{ ...badgeStyles.progressFill, width: `${(unlockedCount / badges.length) * 100}%` }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(unlockedCount / badges.length) * 100}%` }}
-                    transition={{ duration: 1, ease: 'easeOut' }}
-                  />
-                </div>
+            ) : profileChallenges.length === 0 ? (
+              <div style={styles.emptyGrid}>
+                <Trophy size={32} color="rgba(255,255,255,0.4)" />
+                <span style={styles.emptyGridText}>Nenhum desafio ativo</span>
               </div>
-            </div>
-            {badges.map((badge, i) => (
-              <BadgeCard key={badge.id} badge={badge} unlocked={badge.unlocked} index={i} />
-            ))}
+            ) : (
+              profileChallenges.map((challenge) => (
+                <ChallengePostCard key={challenge.id} challenge={challenge} navigate={navigate} />
+              ))
+            )}
           </div>
         )}
       </div>
 
+      {/* MODAL: Medalhas (Badges) */}
+      <AnimatePresence>
+        {showMedalsModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              style={modalStyles.backdrop}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMedalsModal(false)}
+            />
+            {/* Sheet */}
+            <motion.div
+              style={modalStyles.sheet}
+              initial={{ y: '100%', x: '-50%' }}
+              animate={{ y: 0, x: '-50%' }}
+              exit={{ y: '100%', x: '-50%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+            >
+              <div style={modalStyles.handle} />
+              
+              <div style={modalStyles.headerRow}>
+                <div style={{ ...modalStyles.iconBg, backgroundColor: 'rgba(255,215,0,0.1)' }}>
+                  <Trophy size={24} color="#FFD700" />
+                </div>
+                <div style={modalStyles.headerInfo}>
+                  <h3 style={modalStyles.title}>Medalhas de @{profile.username}</h3>
+                  <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontFamily: "'Inter', sans-serif" }}>
+                    {unlockedCount} de {badges.length} conquistas
+                  </span>
+                </div>
+                <button style={modalStyles.closeBtn} onClick={() => setShowMedalsModal(false)}>
+                  <X size={20} color="#fff" />
+                </button>
+              </div>
+
+              {/* Progress Bar */}
+              <div style={{ padding: '16px 0 8px 0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={modalStyles.progressBarTrack}>
+                  <motion.div
+                    style={{
+                      ...modalStyles.progressBarFill,
+                      backgroundColor: '#FFD700',
+                      width: `${(unlockedCount / badges.length) * 100}%`,
+                    }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(unlockedCount / badges.length) * 100}%` }}
+                    transition={{ duration: 0.8 }}
+                  />
+                </div>
+              </div>
+
+              {/* Body */}
+              <div style={{ ...modalStyles.body, overflowY: 'auto' }}>
+                <div style={badgeStyles.grid}>
+                  {badges.map((badge, i) => (
+                    <BadgeCard key={badge.id} badge={badge} unlocked={badge.unlocked} index={i} />
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </ScreenWrapper>
   );
 }
@@ -627,4 +867,243 @@ const badgeStyles = {
   name: { fontSize: '14px', fontWeight: 700, fontFamily: "'Outfit', sans-serif", textAlign: 'center' },
   description: { fontSize: '12px', color: 'rgba(255,255,255,0.4)', textAlign: 'center', fontFamily: "'Inter', sans-serif" },
   unlockedBadge: { position: 'absolute', top: '12px', right: '12px', width: '22px', height: '22px', borderRadius: '50%', background: 'linear-gradient(135deg, #39FF14, #00CC00)', color: '#0A0A0F', fontSize: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(57,255,20,0.4)' },
+};
+
+const challengeStyles = {
+  card: {
+    padding: '16px',
+    borderRadius: '20px',
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    backdropFilter: 'blur(20px)',
+    cursor: 'pointer',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+  },
+  cardHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  cardIcon: {
+    fontSize: '28px',
+    flexShrink: 0,
+  },
+  cardInfo: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+  },
+  cardTitle: {
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+  },
+  cardSub: {
+    fontSize: '12px',
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: "'Inter', sans-serif",
+  },
+  pctBadge: {
+    fontSize: '16px',
+    fontWeight: 800,
+    fontFamily: "'Outfit', sans-serif",
+    flexShrink: 0,
+  },
+  progressTrack: {
+    height: '6px',
+    borderRadius: '3px',
+    background: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: '3px',
+    boxShadow: '0 0 8px rgba(0,212,255,0.3)',
+  },
+};
+
+const modalStyles = {
+  backdrop: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.6)',
+    zIndex: 9999,
+    backdropFilter: 'blur(10px)',
+  },
+  sheet: {
+    position: 'fixed',
+    bottom: 0,
+    left: '50%',
+    width: '100%',
+    maxWidth: '500px',
+    background: '#0A0A0F',
+    borderTop: '1px solid rgba(255,255,255,0.1)',
+    borderTopLeftRadius: '32px',
+    borderTopRightRadius: '32px',
+    padding: '20px',
+    zIndex: 10000,
+    display: 'flex',
+    flexDirection: 'column',
+    maxHeight: '80vh',
+    boxSizing: 'border-box',
+  },
+  handle: {
+    width: '36px',
+    height: '4px',
+    background: 'rgba(255,255,255,0.15)',
+    borderRadius: '2px',
+    alignSelf: 'center',
+    marginBottom: '12px',
+  },
+  headerRow: {
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'center',
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
+    paddingBottom: '14px',
+    width: '100%',
+  },
+  iconBg: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    flex: 1,
+  },
+  title: {
+    fontSize: '18px',
+    fontWeight: 800,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    margin: 0,
+  },
+  closeBtn: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px',
+  },
+  body: {
+    flex: 1,
+    paddingTop: '12px',
+    paddingBottom: '12px',
+  },
+  progressBarTrack: {
+    width: '100%',
+    height: '6px',
+    background: 'rgba(255,255,255,0.05)',
+    borderRadius: '3px',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: '3px',
+    transition: 'width 0.5s ease-out',
+  },
+};
+
+const tabStyles = {
+  carouselContainer: {
+    position: 'relative',
+    width: '100%',
+    height: '320px',
+    borderRadius: '16px',
+    overflow: 'hidden',
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  carouselImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  carouselCaption: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    background: 'linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%)',
+    padding: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+  },
+  carouselCaptionText: {
+    fontSize: '13px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+  },
+  carouselDate: {
+    fontSize: '11px',
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: "'Inter', sans-serif",
+  },
+  arrowBtn: {
+    position: 'absolute',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'rgba(0,0,0,0.5)',
+    border: 'none',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    color: '#fff',
+    fontSize: '18px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backdropFilter: 'blur(5px)',
+    zIndex: 10,
+  },
+  indicators: {
+    position: 'absolute',
+    bottom: '12px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    gap: '6px',
+    zIndex: 10,
+  },
+  dot: {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    transition: 'all 0.2s',
+  },
+  emptyCarousel: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '20px',
+    boxSizing: 'border-box',
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))',
+  },
+  emptyCarouselText: {
+    fontSize: '13px',
+    color: 'rgba(255,255,255,0.6)',
+    fontWeight: 600,
+    fontFamily: "'Outfit', sans-serif",
+    textAlign: 'center',
+  },
 };

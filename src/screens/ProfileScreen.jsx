@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
@@ -76,6 +76,131 @@ function BadgeCard({ badge, unlocked, index }) {
   );
 }
 
+function ChallengePostCard({ challenge, navigate }) {
+  const photos = challenge.checkins || [];
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState(null);
+
+  const progressPct = Math.min(100, Math.round(((challenge.progress || 0) / (challenge.duration || 30)) * 100));
+  const isCompleted = progressPct >= 100;
+
+  const handlePrev = (e) => {
+    e.stopPropagation();
+    setActiveIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1));
+  };
+
+  const handleNext = (e) => {
+    e.stopPropagation();
+    setActiveIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0));
+  };
+
+  const handleTouchStart = (e) => {
+    setTouchStart(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e) => {
+    if (touchStart === null) return;
+    const diff = touchStart - e.changedTouches[0].clientX;
+    if (diff > 50) {
+      handleNext(e);
+    } else if (diff < -50) {
+      handlePrev(e);
+    }
+    setTouchStart(null);
+  };
+
+  return (
+    <motion.div
+      style={challengeStyles.card}
+      whileTap={{ scale: 0.99 }}
+      onClick={() => navigate('ranking', { params: { tab: 'challenges' } })}
+    >
+      {/* Header */}
+      <div style={challengeStyles.cardHeader}>
+        <span style={challengeStyles.cardIcon}>{challenge.icon || '🏆'}</span>
+        <div style={challengeStyles.cardInfo}>
+          <span style={challengeStyles.cardTitle}>{challenge.title}</span>
+          <span style={challengeStyles.cardSub}>
+            {isCompleted ? '✅ Concluído!' : `${challenge.progress || 0}/${challenge.duration || 30} dias`}
+          </span>
+        </div>
+        <span style={{ ...challengeStyles.pctBadge, color: challenge.color || '#00D4FF' }}>
+          {progressPct}%
+        </span>
+      </div>
+
+      {/* Carousel Body */}
+      <div 
+        style={tabStyles.carouselContainer}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {photos.length > 0 ? (
+          <>
+            <img
+              src={photos[activeIndex].photo_url}
+              alt={photos[activeIndex].activity_title || ''}
+              style={tabStyles.carouselImg}
+            />
+            <div style={tabStyles.carouselCaption}>
+              <span style={tabStyles.carouselCaptionText}>
+                {photos[activeIndex].activity_title || 'Treino Concluído'}
+              </span>
+              <span style={tabStyles.carouselDate}>
+                {new Date(photos[activeIndex].created_at).toLocaleDateString('pt-BR')}
+              </span>
+            </div>
+
+            {/* Nav Arrows */}
+            {photos.length > 1 && (
+              <>
+                <button onClick={handlePrev} style={{ ...tabStyles.arrowBtn, left: '12px' }}>‹</button>
+                <button onClick={handleNext} style={{ ...tabStyles.arrowBtn, right: '12px' }}>›</button>
+
+                {/* Indicators */}
+                <div style={tabStyles.indicators}>
+                  {photos.map((_, idx) => (
+                    <span
+                      key={idx}
+                      style={{
+                        ...tabStyles.dot,
+                        backgroundColor: idx === activeIndex ? (challenge.color || '#00D4FF') : 'rgba(255,255,255,0.3)',
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+          <div style={tabStyles.emptyCarousel}>
+            <span style={{ fontSize: '24px', marginBottom: '8px' }}>📸</span>
+            <span style={tabStyles.emptyCarouselText}>Nenhuma foto de check-in realizada ainda</span>
+            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '4px', textAlign: 'center', padding: '0 20px' }}>
+              Realize check-ins diários com foto para criar seu diário visual do desafio!
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Progress Track */}
+      <div style={challengeStyles.progressTrack}>
+        <motion.div
+          style={{
+            ...challengeStyles.progressFill,
+            background: isCompleted
+              ? 'linear-gradient(90deg, #39FF14, #00CC00)'
+              : `linear-gradient(90deg, ${challenge.color || '#00D4FF'}, ${challenge.color || '#00D4FF'}88)`,
+          }}
+          initial={{ width: 0 }}
+          animate={{ width: `${progressPct}%` }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
 export default function ProfileScreen() {
   const { user, profile, isProfileLoading, refreshProfile } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
@@ -87,11 +212,9 @@ export default function ProfileScreen() {
   const [postsLoaded, setPostsLoaded] = useState(false);
   const [gymBagVideos, setGymBagVideos] = useState([]);
   const [gymBagLoaded, setGymBagLoaded] = useState(false);
-  const [checkinPhotos, setCheckinPhotos] = useState({});
   const [showMedalsModal, setShowMedalsModal] = useState(false);
-
-  // Active challenges that the user has joined
-  const activeChallenges = challenges.filter(c => c.joined);
+  const [profileChallenges, setProfileChallenges] = useState([]);
+  const [isLoadingChallenges, setIsLoadingChallenges] = useState(true);
   
   const p = profile || {};
 
@@ -156,25 +279,57 @@ export default function ProfileScreen() {
     }
   }, [user?.uid, refreshProfile, fetchUserPosts, fetchGymBagVideos, fetchChallenges]);
 
-  // Fetch check-in photos for active challenges
-  useEffect(() => {
-    if (user?.uid && activeChallenges.length > 0) {
-      activeChallenges.forEach(async (challenge) => {
-        try {
-          const { data } = await supabase
+  const loadProfileChallenges = useCallback(async () => {
+    if (!user?.uid) return;
+    setIsLoadingChallenges(true);
+    try {
+      const { data: participations, error: partError } = await supabase
+        .from('challenge_participants')
+        .select(`
+          progress,
+          challenge:challenges (*)
+        `)
+        .eq('user_id', user.uid);
+
+      if (partError) throw partError;
+
+      if (participations) {
+        const enriched = await Promise.all(participations.map(async (p) => {
+          const { data: checkins } = await supabase
             .from('challenge_checkins')
             .select('photo_url, created_at, activity_title')
-            .eq('challenge_id', challenge.id)
+            .eq('challenge_id', p.challenge.id)
             .eq('user_id', user.uid)
-            .order('created_at', { ascending: false })
-            .limit(10);
-          if (data && data.length > 0) {
-            setCheckinPhotos(prev => ({ ...prev, [challenge.id]: data.filter(d => d.photo_url) }));
-          }
-        } catch { /* ignore */ }
-      });
+            .order('created_at', { ascending: false });
+
+          return {
+            ...p.challenge,
+            progress: p.progress,
+            checkins: checkins || []
+          };
+        }));
+        setProfileChallenges(enriched);
+      } else {
+        setProfileChallenges([]);
+      }
+    } catch (err) {
+      console.error('Error loading profile challenges:', err);
+    } finally {
+      setIsLoadingChallenges(false);
     }
-  }, [user?.uid, activeChallenges.length]);
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (user?.uid) {
+      loadProfileChallenges();
+    }
+  }, [user?.uid, loadProfileChallenges]);
+
+  useEffect(() => {
+    if (activeProfileTab === 'challenges' && user?.uid) {
+      loadProfileChallenges();
+    }
+  }, [activeProfileTab, user?.uid, loadProfileChallenges]);
 
   // Fetch posts
   useEffect(() => {
@@ -405,7 +560,11 @@ export default function ProfileScreen() {
         {/* Content - Challenges */}
         {activeProfileTab === 'challenges' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
-            {activeChallenges.length === 0 ? (
+            {isLoadingChallenges ? (
+              <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)', padding: '40px 0' }}>
+                Carregando desafios...
+              </div>
+            ) : profileChallenges.length === 0 ? (
               <div style={styles.emptyGrid}>
                 <Trophy size={32} color="rgba(255,255,255,0.4)" />
                 <span style={styles.emptyGridText}>Nenhum desafio ativo</span>
@@ -428,58 +587,9 @@ export default function ProfileScreen() {
                 </button>
               </div>
             ) : (
-              activeChallenges.map((challenge) => {
-                const progressPct = Math.min(100, Math.round(((challenge.progress || 0) / (challenge.duration || 30)) * 100));
-                const photos = checkinPhotos[challenge.id] || [];
-                const isCompleted = progressPct >= 100;
-                return (
-                  <motion.div
-                    key={challenge.id}
-                    style={challengeStyles.card}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => navigate('ranking', { params: { tab: 'challenges' } })}
-                  >
-                    <div style={challengeStyles.cardHeader}>
-                      <span style={challengeStyles.cardIcon}>{challenge.icon || '🏆'}</span>
-                      <div style={challengeStyles.cardInfo}>
-                        <span style={challengeStyles.cardTitle}>{challenge.title}</span>
-                        <span style={challengeStyles.cardSub}>
-                          {isCompleted ? '✅ Concluído!' : `${challenge.progress || 0}/${challenge.duration || 30} dias`}
-                        </span>
-                      </div>
-                      <span style={{ ...challengeStyles.pctBadge, color: challenge.color || '#00D4FF' }}>
-                        {progressPct}%
-                      </span>
-                    </div>
-
-                    {/* Carousel with check-in photos */}
-                    {photos.length > 0 && (
-                      <div style={challengeStyles.photosRow}>
-                        {photos.map((photo, i) => (
-                          <div key={i} style={challengeStyles.photoThumb}>
-                            <img src={photo.photo_url} alt={photo.activity_title || ''} style={challengeStyles.photoImg} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Progress bar on the bottom */}
-                    <div style={challengeStyles.progressTrack}>
-                      <motion.div
-                        style={{
-                          ...challengeStyles.progressFill,
-                          background: isCompleted
-                            ? 'linear-gradient(90deg, #39FF14, #00CC00)'
-                            : `linear-gradient(90deg, ${challenge.color || '#00D4FF'}, ${challenge.color || '#00D4FF'}88)`,
-                        }}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progressPct}%` }}
-                        transition={{ duration: 0.8, ease: 'easeOut' }}
-                      />
-                    </div>
-                  </motion.div>
-                );
-              })
+              profileChallenges.map((challenge) => (
+                <ChallengePostCard key={challenge.id} challenge={challenge} navigate={navigate} />
+              ))
             )}
           </div>
         )}
@@ -1063,5 +1173,99 @@ const modalStyles = {
     height: '100%',
     borderRadius: '3px',
     transition: 'width 0.5s ease-out',
+  },
+};
+
+const tabStyles = {
+  carouselContainer: {
+    position: 'relative',
+    width: '100%',
+    height: '320px',
+    borderRadius: '16px',
+    overflow: 'hidden',
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  carouselImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  carouselCaption: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    background: 'linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%)',
+    padding: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+  },
+  carouselCaptionText: {
+    fontSize: '13px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+  },
+  carouselDate: {
+    fontSize: '11px',
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: "'Inter', sans-serif",
+  },
+  arrowBtn: {
+    position: 'absolute',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'rgba(0,0,0,0.5)',
+    border: 'none',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    color: '#fff',
+    fontSize: '18px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backdropFilter: 'blur(5px)',
+    zIndex: 10,
+  },
+  indicators: {
+    position: 'absolute',
+    bottom: '12px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    gap: '6px',
+    zIndex: 10,
+  },
+  dot: {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    transition: 'all 0.2s',
+  },
+  emptyCarousel: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '20px',
+    boxSizing: 'border-box',
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))',
+  },
+  emptyCarouselText: {
+    fontSize: '13px',
+    color: 'rgba(255,255,255,0.6)',
+    fontWeight: 600,
+    fontFamily: "'Outfit', sans-serif",
+    textAlign: 'center',
   },
 };
