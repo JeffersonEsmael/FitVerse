@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X } from 'lucide-react';
+import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Layers } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -76,13 +76,22 @@ function BadgeCard({ badge, unlocked, index }) {
   );
 }
 
-function ChallengePostCard({ challenge, navigate }) {
+function ChallengeCarousel({ challenge }) {
   const photos = challenge.checkins || [];
   const [activeIndex, setActiveIndex] = useState(0);
   const [touchStart, setTouchStart] = useState(null);
 
-  const progressPct = Math.min(100, Math.round(((challenge.progress || 0) / (challenge.duration || 30)) * 100));
-  const isCompleted = progressPct >= 100;
+  if (photos.length === 0) {
+    return (
+      <div style={tabStyles.emptyCarousel}>
+        <span style={{ fontSize: '32px', marginBottom: '8px' }}>📸</span>
+        <span style={tabStyles.emptyCarouselText}>Nenhuma foto de check-in realizada ainda</span>
+        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '4px', textAlign: 'center', padding: '0 20px' }}>
+          Realize check-ins diários com foto para criar seu diário visual do desafio!
+        </span>
+      </div>
+    );
+  }
 
   const handlePrev = (e) => {
     e.stopPropagation();
@@ -110,94 +119,44 @@ function ChallengePostCard({ challenge, navigate }) {
   };
 
   return (
-    <motion.div
-      style={challengeStyles.card}
-      whileTap={{ scale: 0.99 }}
-      onClick={() => navigate('ranking', { params: { tab: 'challenges' } })}
+    <div 
+      style={tabStyles.carouselContainer}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
-      {/* Header */}
-      <div style={challengeStyles.cardHeader}>
-        <span style={challengeStyles.cardIcon}>{challenge.icon || '🏆'}</span>
-        <div style={challengeStyles.cardInfo}>
-          <span style={challengeStyles.cardTitle}>{challenge.title}</span>
-          <span style={challengeStyles.cardSub}>
-            {isCompleted ? '✅ Concluído!' : `${challenge.progress || 0}/${challenge.duration || 30} dias`}
-          </span>
-        </div>
-        <span style={{ ...challengeStyles.pctBadge, color: challenge.color || '#00D4FF' }}>
-          {progressPct}%
+      <img
+        src={photos[activeIndex].photo_url}
+        alt={photos[activeIndex].activity_title || ''}
+        style={tabStyles.carouselImg}
+      />
+      <div style={tabStyles.carouselCaption}>
+        <span style={tabStyles.carouselCaptionText}>
+          {photos[activeIndex].activity_title || 'Treino Concluído'}
+        </span>
+        <span style={tabStyles.carouselDate}>
+          {new Date(photos[activeIndex].created_at).toLocaleDateString('pt-BR')}
         </span>
       </div>
 
-      {/* Carousel Body */}
-      <div 
-        style={tabStyles.carouselContainer}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        {photos.length > 0 ? (
-          <>
-            <img
-              src={photos[activeIndex].photo_url}
-              alt={photos[activeIndex].activity_title || ''}
-              style={tabStyles.carouselImg}
-            />
-            <div style={tabStyles.carouselCaption}>
-              <span style={tabStyles.carouselCaptionText}>
-                {photos[activeIndex].activity_title || 'Treino Concluído'}
-              </span>
-              <span style={tabStyles.carouselDate}>
-                {new Date(photos[activeIndex].created_at).toLocaleDateString('pt-BR')}
-              </span>
-            </div>
+      {photos.length > 1 && (
+        <>
+          <button onClick={handlePrev} style={{ ...tabStyles.arrowBtn, left: '12px' }}>‹</button>
+          <button onClick={handleNext} style={{ ...tabStyles.arrowBtn, right: '12px' }}>›</button>
 
-            {/* Nav Arrows */}
-            {photos.length > 1 && (
-              <>
-                <button onClick={handlePrev} style={{ ...tabStyles.arrowBtn, left: '12px' }}>‹</button>
-                <button onClick={handleNext} style={{ ...tabStyles.arrowBtn, right: '12px' }}>›</button>
-
-                {/* Indicators */}
-                <div style={tabStyles.indicators}>
-                  {photos.map((_, idx) => (
-                    <span
-                      key={idx}
-                      style={{
-                        ...tabStyles.dot,
-                        backgroundColor: idx === activeIndex ? (challenge.color || '#00D4FF') : 'rgba(255,255,255,0.3)',
-                      }}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-          </>
-        ) : (
-          <div style={tabStyles.emptyCarousel}>
-            <span style={{ fontSize: '24px', marginBottom: '8px' }}>📸</span>
-            <span style={tabStyles.emptyCarouselText}>Nenhuma foto de check-in realizada ainda</span>
-            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '4px', textAlign: 'center', padding: '0 20px' }}>
-              Realize check-ins diários com foto para criar seu diário visual do desafio!
-            </span>
+          <div style={tabStyles.indicators}>
+            {photos.map((_, idx) => (
+              <span
+                key={idx}
+                style={{
+                  ...tabStyles.dot,
+                  backgroundColor: idx === activeIndex ? (challenge.color || '#00D4FF') : 'rgba(255,255,255,0.3)',
+                }}
+              />
+            ))}
           </div>
-        )}
-      </div>
-
-      {/* Progress Track */}
-      <div style={challengeStyles.progressTrack}>
-        <motion.div
-          style={{
-            ...challengeStyles.progressFill,
-            background: isCompleted
-              ? 'linear-gradient(90deg, #39FF14, #00CC00)'
-              : `linear-gradient(90deg, ${challenge.color || '#00D4FF'}, ${challenge.color || '#00D4FF'}88)`,
-          }}
-          initial={{ width: 0 }}
-          animate={{ width: `${progressPct}%` }}
-          transition={{ duration: 0.8, ease: 'easeOut' }}
-        />
-      </div>
-    </motion.div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -216,6 +175,7 @@ export default function ProfileScreen() {
   const [showMedalsModal, setShowMedalsModal] = useState(false);
   const [profileChallenges, setProfileChallenges] = useState([]);
   const [isLoadingChallenges, setIsLoadingChallenges] = useState(true);
+  const [selectedChallenge, setSelectedChallenge] = useState(null);
   
   const p = profile || {};
 
@@ -589,9 +549,68 @@ export default function ProfileScreen() {
                 </button>
               </div>
             ) : (
-              profileChallenges.map((challenge) => (
-                <ChallengePostCard key={challenge.id} challenge={challenge} navigate={navigate} />
-              ))
+              <div style={styles.challengeGrid}>
+                {profileChallenges.map((challenge) => {
+                  const photos = challenge.checkins || [];
+                  const progressPct = Math.min(100, Math.round(((challenge.progress || 0) / (challenge.duration || 30)) * 100));
+                  const isCompleted = progressPct >= 100;
+                  
+                  return (
+                    <motion.div
+                      key={challenge.id}
+                      style={styles.challengeGridCard}
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => setSelectedChallenge(challenge)}
+                    >
+                      {/* Capa */}
+                      {photos.length > 0 ? (
+                        <img
+                          src={photos[0].photo_url}
+                          alt=""
+                          style={styles.cardCoverImg}
+                        />
+                      ) : (
+                        <div style={{
+                          ...styles.cardGradientPlaceholder,
+                          background: `linear-gradient(135deg, ${challenge.color || '#00D4FF'}30, ${challenge.color || '#00D4FF'}08)`,
+                        }}>
+                          <span style={styles.cardPlaceholderEmoji}>{challenge.icon || '🏆'}</span>
+                          <span style={styles.cardPlaceholderText}>Sem check-ins</span>
+                        </div>
+                      )}
+                      
+                      {/* Overlay */}
+                      <div style={styles.cardOverlay} />
+                      
+                      {/* Conteúdo sobreposto */}
+                      <div style={styles.cardContent}>
+                        {/* Indicador de Carrossel */}
+                        {photos.length > 1 ? (
+                          <div style={styles.carouselBadge}>
+                            <Layers size={12} color="#fff" />
+                          </div>
+                        ) : <div />}
+                        
+                        {/* Título do desafio */}
+                        <span style={styles.cardTitleOverlay}>{challenge.title}</span>
+                      </div>
+                      
+                      {/* Barra de progresso */}
+                      <div style={styles.challengeProgressTrackGrid}>
+                        <div
+                          style={{
+                            ...styles.challengeProgressFillGrid,
+                            background: isCompleted
+                              ? 'linear-gradient(90deg, #39FF14, #00CC00)'
+                              : `linear-gradient(90deg, ${challenge.color || '#00D4FF'}, ${challenge.color || '#00D4FF'}88)`,
+                            width: `${progressPct}%`,
+                          }}
+                        />
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}
@@ -657,6 +676,113 @@ export default function ProfileScreen() {
                     <BadgeCard key={badge.id} badge={badge} unlocked={badge.unlocked} index={i} />
                   ))}
                 </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL: Detalhes do Desafio */}
+      <AnimatePresence>
+        {selectedChallenge && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              style={modalStyles.backdrop}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedChallenge(null)}
+            />
+            {/* Sheet */}
+            <motion.div
+              style={modalStyles.sheet}
+              initial={{ y: '100%', x: '-50%' }}
+              animate={{ y: 0, x: '-50%' }}
+              exit={{ y: '100%', x: '-50%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+            >
+              <div style={modalStyles.handle} />
+              
+              <div style={modalStyles.headerRow}>
+                <div style={{ ...modalStyles.iconBg, backgroundColor: `${selectedChallenge.color || '#00D4FF'}15` }}>
+                  <span style={{ fontSize: '24px' }}>{selectedChallenge.icon || '🏆'}</span>
+                </div>
+                <div style={modalStyles.headerInfo}>
+                  <h3 style={modalStyles.title}>{selectedChallenge.title}</h3>
+                  <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontFamily: "'Inter', sans-serif" }}>
+                    {selectedChallenge.progress || 0} de {selectedChallenge.duration || 30} dias concluídos
+                  </span>
+                </div>
+                <button style={modalStyles.closeBtn} onClick={() => setSelectedChallenge(null)}>
+                  <X size={20} color="#fff" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div style={{ ...modalStyles.body, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Carousel */}
+                <ChallengeCarousel challenge={selectedChallenge} />
+
+                {/* Progress Bar & Details */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>Progresso Geral</span>
+                    <span style={{ fontSize: '14px', fontWeight: 800, color: selectedChallenge.color || '#00D4FF' }}>
+                      {Math.min(100, Math.round(((selectedChallenge.progress || 0) / (selectedChallenge.duration || 30)) * 100))}%
+                    </span>
+                  </div>
+                  <div style={modalStyles.progressBarTrack}>
+                    <motion.div
+                      style={{
+                        ...modalStyles.progressBarFill,
+                        background: Math.round(((selectedChallenge.progress || 0) / (selectedChallenge.duration || 30)) * 100) >= 100
+                          ? 'linear-gradient(90deg, #39FF14, #00CC00)'
+                          : `linear-gradient(90deg, ${selectedChallenge.color || '#00D4FF'}, ${selectedChallenge.color || '#00D4FF'}88)`,
+                        width: `${Math.min(100, Math.round(((selectedChallenge.progress || 0) / (selectedChallenge.duration || 30)) * 100))}%`,
+                      }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, Math.round(((selectedChallenge.progress || 0) / (selectedChallenge.duration || 30)) * 100))}%` }}
+                      transition={{ duration: 0.8 }}
+                    />
+                  </div>
+                </div>
+
+                {/* Description / Rules */}
+                {selectedChallenge.description && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(255,255,255,0.02)', padding: '14px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Regras & Descrição</span>
+                    <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', margin: 0, lineHeight: '1.4', whiteSpace: 'pre-line' }}>{selectedChallenge.description}</p>
+                  </div>
+                )}
+
+                {/* Action button */}
+                <button
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    borderRadius: '16px',
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    fontFamily: "'Outfit', sans-serif",
+                    marginTop: '8px'
+                  }}
+                  onClick={() => {
+                    setSelectedChallenge(null);
+                    navigate('ranking', { params: { tab: 'challenges' } });
+                  }}
+                >
+                  <Trophy size={16} color={selectedChallenge.color || '#00D4FF'} />
+                  Ver Classificação
+                </button>
               </div>
             </motion.div>
           </>
@@ -838,6 +964,115 @@ const styles = {
     flex: 1,
     height: '100%',
     position: 'relative'
+  },
+  challengeGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '8px',
+    marginTop: '8px',
+    marginBottom: '20px',
+  },
+  challengeGridCard: {
+    aspectRatio: '9/16',
+    borderRadius: '16px',
+    background: 'rgba(255, 255, 255, 0.03)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    position: 'relative',
+    overflow: 'hidden',
+    cursor: 'pointer',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+  },
+  cardCoverImg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    zIndex: 1,
+  },
+  cardGradientPlaceholder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '8px',
+    zIndex: 1,
+  },
+  cardPlaceholderEmoji: {
+    fontSize: '28px',
+    marginBottom: '4px',
+  },
+  cardPlaceholderText: {
+    fontSize: '10px',
+    color: 'rgba(255, 255, 255, 0.4)',
+    textAlign: 'center',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+  cardOverlay: {
+    position: 'absolute',
+    inset: 0,
+    background: 'linear-gradient(180deg, rgba(0,0,0,0.1) 0%, transparent 40%, rgba(0,0,0,0.85) 100%)',
+    zIndex: 2,
+  },
+  cardContent: {
+    position: 'relative',
+    zIndex: 3,
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    padding: '8px',
+    boxSizing: 'border-box',
+  },
+  carouselBadge: {
+    alignSelf: 'flex-end',
+    background: 'rgba(0, 0, 0, 0.5)',
+    backdropFilter: 'blur(4px)',
+    border: '1px solid rgba(255, 255, 255, 0.15)',
+    borderRadius: '6px',
+    padding: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardTitleOverlay: {
+    fontSize: '11px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    lineHeight: '1.2',
+    marginTop: 'auto',
+    marginBottom: '6px',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden',
+    textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+  },
+  challengeProgressTrackGrid: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '4px',
+    background: 'rgba(255, 255, 255, 0.15)',
+    zIndex: 4,
+    overflow: 'hidden',
+  },
+  challengeProgressFillGrid: {
+    height: '100%',
   }
 };
 
