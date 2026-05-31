@@ -103,16 +103,23 @@ export default function AuthScreen() {
       >
         <div style={styles.logoSection}>
           <div style={styles.logoIconContainer}>
-            <svg width="48" height="48" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              {/* Asa superior direita */}
-              <path d="M 46 47 C 62 38, 79 32, 92 34 C 84 46, 68 56, 46 47 Z" fill="white" />
-              {/* Asa inferior esquerda */}
-              <path d="M 54 53 C 38 62, 21 68, 8 66 C 16 54, 32 44, 54 53 Z" fill="white" />
+            <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="23" cy="25" r="5" fill="white" />
+              <path 
+                d="M 36 25 H 68 A 9 9 0 0 1 77 34 A 9 9 0 0 1 68 43 H 50 A 9 9 0 0 0 41 52 A 9 9 0 0 0 50 61 H 60 A 9 9 0 0 1 69 70 A 9 9 0 0 1 60 79 H 46 A 11 11 0 0 0 35 90" 
+                stroke="white" 
+                strokeWidth="12" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+              />
             </svg>
           </div>
-          <h1 style={styles.logo}>Myora</h1>
+          <h1 style={styles.logo}>
+            <span style={{ fontWeight: 300, fontStyle: 'italic' }}>flow</span>
+            <span style={{ fontWeight: 800 }}>rise</span>
+          </h1>
           <p style={styles.tagline}>
-            {mode === 'login' ? 'Bem-vindo de volta!' : 'Crie sua conta fitness'}
+            {mode === 'login' ? 'Mova-se. Inspire. Repita.' : 'Crie sua conta fitness'}
           </p>
         </div>
 

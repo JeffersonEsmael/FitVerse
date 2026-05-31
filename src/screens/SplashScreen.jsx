@@ -60,9 +60,15 @@ export default function SplashScreen() {
         transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }}
       >
         <div style={styles.logoIcon}>
-          <svg width="60" height="60" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M92,38 C80,38 52,44 14,64 C50,56 78,48 92,38 Z" fill="white" />
-            <path d="M8,62 C20,62 48,56 86,36 C50,44 22,52 8,62 Z" fill="white" />
+          <svg width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="23" cy="25" r="5" fill="white" />
+            <path 
+              d="M 36 25 H 68 A 9 9 0 0 1 77 34 A 9 9 0 0 1 68 43 H 50 A 9 9 0 0 0 41 52 A 9 9 0 0 0 50 61 H 60 A 9 9 0 0 1 69 70 A 9 9 0 0 1 60 79 H 46 A 11 11 0 0 0 35 90" 
+              stroke="white" 
+              strokeWidth="12" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+            />
           </svg>
         </div>
       </motion.div>
@@ -74,7 +80,8 @@ export default function SplashScreen() {
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.6, duration: 0.6 }}
       >
-        Myora
+        <span style={{ fontWeight: 300, fontStyle: 'italic' }}>flow</span>
+        <span style={{ fontWeight: 900 }}>rise</span>
       </motion.h1>
 
       <motion.p
