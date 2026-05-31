@@ -1,6 +1,6 @@
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlusCircle, Video, AlertCircle, X } from 'lucide-react';
+import { PlusCircle, Video, AlertCircle, X, ArrowLeft } from 'lucide-react';
 import VideoCard from '../components/feed/VideoCard';
 import StoreView from '../components/store/StoreView';
 import { useFeedStore } from '../stores/feedStore';
@@ -171,9 +171,15 @@ export default function FeedScreen() {
 
       {/* ── Top tabs ──────────────────────────────────────── */}
       <div style={styles.topBar}>
-        <button style={styles.createBtnTop} onClick={() => navigate('create')}>
-          <PlusCircle size={28} color="#00D4FF" />
-        </button>
+        {activeTab === 'store' ? (
+          <button style={styles.createBtnTop} onClick={() => setActiveTab('forYou')}>
+            <ArrowLeft size={28} color="#fff" />
+          </button>
+        ) : (
+          <button style={styles.createBtnTop} onClick={() => navigate('create')}>
+            <PlusCircle size={28} color="#00D4FF" />
+          </button>
+        )}
 
         <div style={styles.tabContainer}>
           <button
