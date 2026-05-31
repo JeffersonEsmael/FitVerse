@@ -14,11 +14,11 @@ function formatNum(n) {
 
 const medals = ['🥇', '🥈', '🥉'];
 
-function PodiumCard({ user, position }) {
-  const sizes = [{ h: 140, w: 90 }, { h: 160, w: 100 }, { h: 120, w: 90 }];
+function PodiumCard({ user, position, isChallenge }) {
+  const sizes = [{ h: 160, w: 100 }, { h: 140, w: 90 }, { h: 120, w: 90 }];
   const s = sizes[position];
-  const colors = ['#C0C0C0', '#FFD700', '#CD7F32'];
-  const glows = ['rgba(192,192,192,0.3)', 'rgba(255,215,0,0.4)', 'rgba(205,127,50,0.3)'];
+  const colors = ['#FFD700', '#C0C0C0', '#CD7F32'];
+  const glows = ['rgba(255,215,0,0.4)', 'rgba(192,192,192,0.3)', 'rgba(205,127,50,0.3)'];
 
   return (
     <motion.div
@@ -36,15 +36,17 @@ function PodiumCard({ user, position }) {
         <span style={podStyles.medal}>{medals[position]}</span>
       </div>
       <span style={podStyles.name}>{user.displayName?.split(' ')[0]}</span>
-      <span style={{ ...podStyles.points, color: colors[position] }}>{formatNum(user.points)} pts</span>
+      <span style={{ ...podStyles.points, color: colors[position] }}>
+        {isChallenge ? `${user.points} dias` : `${formatNum(user.points)} pts`}
+      </span>
       <div style={{ ...podStyles.bar, height: s.h, background: `linear-gradient(180deg, ${colors[position]}22, ${colors[position]}08)`, borderTop: `2px solid ${colors[position]}` }}>
-        <span style={{ ...podStyles.pos, color: colors[position] }}>#{position + 1}</span>
+        <span style={{ ...podStyles.pos, color: colors[position] }}>{position + 1}</span>
       </div>
     </motion.div>
   );
 }
 
-function RankRow({ user, position }) {
+function RankRow({ user, position, isChallenge }) {
   const TrendIcon = user.trend === 'up' ? TrendingUp : user.trend === 'down' ? TrendingDown : Minus;
   const trendColor = user.trend === 'up' ? '#39FF14' : user.trend === 'down' ? '#FF2D55' : '#6C6C88';
   const isHighlighted = user.username === 'fituser';
@@ -57,7 +59,7 @@ function RankRow({ user, position }) {
       transition={{ delay: position * 0.05 }}
       whileHover={{ background: 'rgba(255,255,255,0.04)' }}
     >
-      <span style={rowStyles.pos}>#{position + 1}</span>
+      <span style={rowStyles.pos}>{position + 1}</span>
       <div style={rowStyles.avatar}>
         {user.photoURL ? <img src={user.photoURL} alt="" style={podStyles.avatarImg} /> : (
           <div style={rowStyles.avatarPlaceholder}>{user.displayName?.charAt(0)}</div>
@@ -72,8 +74,10 @@ function RankRow({ user, position }) {
         </div>
       </div>
       <div style={rowStyles.right}>
-        <span style={rowStyles.points}>{formatNum(user.points)}</span>
-        <TrendIcon size={14} color={trendColor} />
+        <span style={rowStyles.points}>
+          {isChallenge ? `${user.points} dias` : formatNum(user.points)}
+        </span>
+        {!isChallenge && <TrendIcon size={14} color={trendColor} />}
       </div>
     </motion.div>
   );
@@ -86,6 +90,7 @@ export default function RankingScreen() {
 
   const [activeMainTab, setActiveMainTab] = useState('challenges'); // 'challenges' | 'ranking'
   const [selectedChallenge, setSelectedChallenge] = useState(null);
+  const [selectedChallengeId, setSelectedChallengeId] = useState(null);
   
   // Check-in state modal
   const [showCheckInModal, setShowCheckInModal] = useState(false);
@@ -100,8 +105,35 @@ export default function RankingScreen() {
   const [participants, setParticipants] = useState([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
 
-  const top3 = leaderboard.slice(0, 3);
-  const rest = leaderboard.slice(3);
+  const isChallengeRanking = !!selectedChallengeId;
+  const activeChallenge = challenges.find(c => c.id === selectedChallengeId);
+
+  const activeLeaderboard = isChallengeRanking
+    ? participants.map(p => ({
+        uid: p.userId,
+        displayName: p.displayName,
+        username: p.username,
+        photoURL: p.photoURL,
+        points: p.progress, // maps progress to points
+        progress: p.progress,
+        streak: p.progress,
+        level: 1,
+        trend: 'same',
+        badges: [],
+      }))
+    : leaderboard;
+
+  const top3 = activeLeaderboard.slice(0, 3);
+  const rest = activeLeaderboard.slice(3);
+
+  let displayRank = userRank;
+  let displayPoints = userPoints;
+
+  if (isChallengeRanking) {
+    const userIndex = participants.findIndex(p => p.userId === user?.uid);
+    displayRank = userIndex !== -1 ? userIndex + 1 : '-';
+    displayPoints = userIndex !== -1 ? participants[userIndex].progress : 0;
+  }
 
   // Split challenges list
   const completedChallenges = challenges.filter(c => (c.joined || c.creator_id === user?.uid) && (c.progress || 0) >= (c.duration || 30));
@@ -118,7 +150,17 @@ export default function RankingScreen() {
     if (screenParams?.tab) {
       setActiveMainTab(screenParams.tab); // eslint-disable-line react-hooks/set-state-in-effect
     }
+    if (screenParams?.challengeId) {
+      setSelectedChallengeId(screenParams.challengeId);
+    }
   }, [screenParams]);
+
+  // Load participants for the main filtered challenge ranking
+  useEffect(() => {
+    if (selectedChallengeId) {
+      loadParticipants(selectedChallengeId);
+    }
+  }, [selectedChallengeId]);
 
   async function loadParticipants(challengeId) {
     setLoadingParticipants(true);
@@ -399,40 +441,91 @@ export default function RankingScreen() {
         {/* Tab content: RANKING */}
         {activeMainTab === 'ranking' && (
           <div>
-            {/* Period tabs */}
-            <div style={styles.tabs}>
-              {['weekly', 'monthly'].map((p) => (
-                <button
-                  key={p}
-                  style={{ ...styles.tab, ...(period === p ? styles.tabActive : {}) }}
-                  onClick={() => setPeriod(p)}
-                >
-                  {p === 'weekly' ? 'Semanal' : 'Mensal'}
-                </button>
-              ))}
+            {/* Challenge selector dropdown */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '16px',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '16px',
+              padding: '8px 16px',
+              backdropFilter: 'blur(20px)',
+            }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', fontFamily: "'Outfit', sans-serif" }}>
+                Filtrar Placar:
+              </span>
+              <select
+                value={selectedChallengeId || 'global'}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedChallengeId(val === 'global' ? null : val);
+                }}
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '10px',
+                  color: '#fff',
+                  padding: '6px 12px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  outline: 'none',
+                  cursor: 'pointer',
+                  fontFamily: "'Outfit', sans-serif",
+                }}
+              >
+                <option value="global">🌐 Geral (Amigos)</option>
+                {challenges.filter(c => c.joined || c.creator_id === user?.uid).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.icon} {c.title}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            {/* Period tabs (only shown for global ranking) */}
+            {!isChallengeRanking && (
+              <div style={styles.tabs}>
+                {['weekly', 'monthly'].map((p) => (
+                  <button
+                    key={p}
+                    style={{ ...styles.tab, ...(period === p ? styles.tabActive : {}) }}
+                    onClick={() => setPeriod(p)}
+                  >
+                    {p === 'weekly' ? 'Semanal' : 'Mensal'}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Your rank banner */}
             <motion.div style={styles.myRank} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
               <div style={styles.myRankLeft}>
                 <span style={styles.myRankLabel}>Sua Posição</span>
-                <span style={styles.myRankPos}>#{userRank}</span>
+                <span style={styles.myRankPos}>{displayRank}</span>
               </div>
               <div style={styles.myRankRight}>
-                <span style={styles.myRankPts}>{formatNum(userPoints)} pts</span>
-                <Star size={16} color="#FFD700" />
+                <span style={styles.myRankPts}>
+                  {isChallengeRanking ? `${displayPoints} dias` : `${formatNum(displayPoints)} pts`}
+                </span>
+                {isChallengeRanking ? (
+                  <span style={{ fontSize: '18px' }}>{activeChallenge?.icon || '🏆'}</span>
+                ) : (
+                  <Star size={16} color="#FFD700" />
+                )}
               </div>
             </motion.div>
 
             {/* Podium */}
             <div style={styles.podium}>
-              {[1, 0, 2].map((pos) => top3[pos] && <PodiumCard key={pos} user={top3[pos]} position={pos} />)}
+              {[1, 0, 2].map((pos) => top3[pos] && <PodiumCard key={pos} user={top3[pos]} position={pos} isChallenge={isChallengeRanking} />)}
             </div>
 
             {/* Leaderboard */}
             <div style={styles.leaderboard}>
               {rest.map((user, i) => (
-                <RankRow key={user.uid} user={user} position={i + 3} />
+                <RankRow key={user.uid} user={user} position={i + 3} isChallenge={isChallengeRanking} />
               ))}
             </div>
           </div>
@@ -523,7 +616,7 @@ export default function RankingScreen() {
                       ) : (
                         participants.map((p, idx) => (
                           <div key={p.userId} style={modalStyles.memberRow}>
-                            <span style={modalStyles.memberPos}>#{idx + 1}</span>
+                            <span style={modalStyles.memberPos}>{idx + 1}</span>
                             <div style={modalStyles.memberAvatar}>
                               {p.photoURL ? <img src={p.photoURL} alt="" style={modalStyles.avatarImg} /> : (
                                 <div style={modalStyles.avatarPlaceholder}>{p.displayName?.charAt(0)}</div>
@@ -566,6 +659,36 @@ export default function RankingScreen() {
                         🎉 Desafio Concluído! Excelente trabalho!
                       </div>
                     )}
+
+                    {/* Ver Classificação Completa Button */}
+                    <button
+                      style={{
+                        width: '100%',
+                        padding: '14px',
+                        borderRadius: '12px',
+                        background: 'rgba(255,255,255,0.08)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: '#fff',
+                        fontWeight: 700,
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        fontFamily: "'Outfit', sans-serif",
+                        marginTop: '12px'
+                      }}
+                      onClick={() => {
+                        const cid = selectedChallenge.id;
+                        setSelectedChallenge(null);
+                        setSelectedChallengeId(cid);
+                        setActiveMainTab('ranking');
+                      }}
+                    >
+                      <Trophy size={16} color={selectedChallenge.color || '#00D4FF'} />
+                      Ver Classificação Completa
+                    </button>
                   </>
                 ) : (
                   <motion.button

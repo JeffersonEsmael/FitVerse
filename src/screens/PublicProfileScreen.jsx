@@ -816,7 +816,7 @@ export default function PublicProfileScreen() {
                   }}
                   onClick={() => {
                     setSelectedChallenge(null);
-                    navigate('ranking', { params: { tab: 'challenges' } });
+                    navigate('ranking', { params: { tab: 'ranking', challengeId: selectedChallenge.id } });
                   }}
                 >
                   <Trophy size={16} color={selectedChallenge.color || '#00D4FF'} />

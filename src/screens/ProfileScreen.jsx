@@ -738,15 +738,41 @@ export default function ProfileScreen() {
                 </button>
               </div>
             ) : (
-              <div style={styles.challengeGrid}>
-                {profileChallenges.map((challenge) => (
-                  <ProfileChallengeCard
-                    key={challenge.id}
-                    challenge={challenge}
-                    onClick={() => setSelectedChallenge(challenge)}
-                  />
-                ))}
-              </div>
+              <>
+                <div style={styles.challengeGrid}>
+                  {profileChallenges.map((challenge) => (
+                    <ProfileChallengeCard
+                      key={challenge.id}
+                      challenge={challenge}
+                      onClick={() => setSelectedChallenge(challenge)}
+                    />
+                  ))}
+                </div>
+                <button
+                  style={{
+                    alignSelf: 'center',
+                    marginTop: '16px',
+                    padding: '12px 24px',
+                    borderRadius: '16px',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    fontFamily: "'Outfit', sans-serif",
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    marginBottom: '20px',
+                  }}
+                  onClick={() => navigate('ranking', { params: { tab: 'challenges' } })}
+                >
+                  <Trophy size={16} color="#FFD700" />
+                  Descobrir mais Desafios
+                </button>
+              </>
             )}
           </div>
         )}
@@ -957,7 +983,7 @@ export default function ProfileScreen() {
                   }}
                   onClick={() => {
                     setSelectedChallenge(null);
-                    navigate('ranking', { params: { tab: 'challenges' } });
+                    navigate('ranking', { params: { tab: 'ranking', challengeId: selectedChallenge.id } });
                   }}
                 >
                   <Trophy size={16} color={selectedChallenge.color || '#00D4FF'} />

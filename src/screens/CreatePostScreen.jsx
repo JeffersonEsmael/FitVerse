@@ -53,6 +53,51 @@ export default function CreatePostScreen() {
   const [category, setCategory] = useState('treino');
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [showMusicSelector, setShowMusicSelector] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState('9/16');
+
+  const getClosestAspectRatio = (width, height) => {
+    const ratio = width / height;
+    const standards = [
+      { label: '16/9', value: 16 / 9 },
+      { label: '1/1', value: 1 / 1 },
+      { label: '4/5', value: 4 / 5 },
+      { label: '2/3', value: 2 / 3 },
+      { label: '9/16', value: 9 / 16 }
+    ];
+    let closest = standards[0];
+    let minDiff = Math.abs(ratio - standards[0].value);
+    for (let i = 1; i < standards.length; i++) {
+      const diff = Math.abs(ratio - standards[i].value);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = standards[i];
+      }
+    }
+    return closest.label;
+  };
+
+  useEffect(() => {
+    if (!preview) {
+      setAspectRatio('9/16');
+      return;
+    }
+
+    if (mediaType === 'image') {
+      const img = new Image();
+      img.src = preview;
+      img.onload = () => {
+        const closest = getClosestAspectRatio(img.width, img.height);
+        setAspectRatio(closest);
+      };
+    } else if (mediaType === 'video') {
+      const video = document.createElement('video');
+      video.src = preview;
+      video.onloadedmetadata = () => {
+        const closest = getClosestAspectRatio(video.videoWidth, video.videoHeight);
+        setAspectRatio(closest);
+      };
+    }
+  }, [preview, mediaType]);
 
   // Camera recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -498,11 +543,11 @@ export default function CreatePostScreen() {
           {/* Content Preview/Input Area */}
           {preview ? (
             /* Locked Content Preview */
-            <div style={styles.previewWrap}>
+            <div style={{ ...styles.previewWrap, aspectRatio }}>
               {mediaType === 'video' ? (
-                <video src={preview} style={styles.previewMedia} controls playsInline />
+                <video src={preview} style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} controls playsInline />
               ) : (
-                <img src={preview} alt="Preview" style={styles.previewMedia} />
+                <img src={preview} alt="Preview" style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} />
               )}
               <button
                 style={styles.removeBtn}
