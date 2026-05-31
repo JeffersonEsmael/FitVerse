@@ -127,12 +127,30 @@ export const useFeedStore = create(
     }
   },
 
-  incrementViews: (videoId) => {
+  incrementViews: async (videoId) => {
     set((state) => ({
       videos: state.videos.map((v) =>
-        v.id === videoId ? { ...v, views: v.views + 1 } : v
+        v.id === videoId ? { ...v, views: (v.views || 0) + 1 } : v
       ),
     }));
+
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('videos')
+        .select('views')
+        .eq('id', videoId)
+        .maybeSingle();
+
+      if (!fetchError && data) {
+        const currentViews = data.views || 0;
+        await supabase
+          .from('videos')
+          .update({ views: currentViews + 1 })
+          .eq('id', videoId);
+      }
+    } catch (dbErr) {
+      console.error('[Feed] incrementViews DB error:', dbErr.message);
+    }
   },
 
   // ─── Fetch posts from Supabase ───────────────────────────

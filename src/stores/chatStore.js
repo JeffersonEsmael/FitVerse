@@ -153,6 +153,30 @@ export const useChatStore = create((set, get) => ({
         })
         .eq('id', conversationId);
 
+      // Create notification for the recipient
+      try {
+        const conv = get().conversations.find(c => c.id === conversationId);
+        let recipientId = conv?.participantIds?.find(id => id !== senderId);
+
+        if (!recipientId) {
+          const { data: convData } = await supabase
+            .from('conversations')
+            .select('participant_ids')
+            .eq('id', conversationId)
+            .maybeSingle();
+          if (convData) {
+            recipientId = convData.participant_ids?.find(id => id !== senderId);
+          }
+        }
+
+        if (recipientId) {
+          const { useSocialStore } = await import('./socialStore');
+          await useSocialStore.getState().createNotification(recipientId, senderId, 'message', conversationId);
+        }
+      } catch (notifErr) {
+        console.error('Failed to create message notification:', notifErr);
+      }
+
       return { success: true };
     } catch (error) {
       console.error('Error sending message:', error.message);

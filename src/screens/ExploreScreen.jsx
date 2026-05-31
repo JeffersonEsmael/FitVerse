@@ -5,6 +5,21 @@ import { useSocialStore } from '../stores/socialStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 
+// Utility to format views counts (e.g., 1,2k, 10k, 1,2M)
+function formatViews(views) {
+  if (!views || views < 0) return '0';
+  if (views < 1000) return `${views}`;
+  if (views < 1000000) {
+    const val = views / 1000;
+    const formatted = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1).replace('.', ',');
+    return `${formatted}k`;
+  } else {
+    const val = views / 1000000;
+    const formatted = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1).replace('.', ',');
+    return `${formatted}M`;
+  }
+}
+
 export default function ExploreScreen() {
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState('users');
@@ -170,7 +185,7 @@ export default function ExploreScreen() {
                       )}
                       <div style={styles.videoOverlay}>
                         <div style={styles.viewsBadge}>
-                          {post.media_type === 'image' ? <ImageIcon size={11} /> : <Play size={11} fill="white" />} {post.views || 0}
+                          <Play size={11} fill="white" stroke="none" /> {formatViews(post.views)}
                         </div>
                         <span style={styles.thumbCaption}>{post.caption}</span>
                       </div>

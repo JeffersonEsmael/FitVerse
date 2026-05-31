@@ -65,19 +65,28 @@ export default function VideoCard({ video, isActive, index }) {
   };
 
   useEffect(() => {
-    if (!isVideo) return;
-    const el = videoRef.current;
-    if (!el) return;
-
     if (isActive) {
-      el.currentTime = 0;
-      setProgress(0);
-      el.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+      // Increment views count (local and DB)
+      useFeedStore.getState().incrementViews(video.id);
+
+      if (isVideo) {
+        const el = videoRef.current;
+        if (el) {
+          el.currentTime = 0;
+          setProgress(0);
+          el.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+        }
+      }
     } else {
-      el.pause();
-      setIsPlaying(false);
+      if (isVideo) {
+        const el = videoRef.current;
+        if (el) {
+          el.pause();
+          setIsPlaying(false);
+        }
+      }
     }
-  }, [isActive, isVideo]);
+  }, [isActive, isVideo, video.id]);
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {

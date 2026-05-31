@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera } from 'lucide-react';
+import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -10,6 +10,21 @@ import ScreenWrapper from '../components/layout/ScreenWrapper';
 import GymBagIcon from '../components/icons/GymBagIcon';
 import ShapeIcon from '../components/icons/ShapeIcon';
 import ProfileChallengeCard from '../components/profile/ProfileChallengeCard';
+
+// Utility to format views counts (e.g., 1,2k, 10k, 1,2M)
+function formatViews(views) {
+  if (!views || views < 0) return '0';
+  if (views < 1000) return `${views}`;
+  if (views < 1000000) {
+    const val = views / 1000;
+    const formatted = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1).replace('.', ',');
+    return `${formatted}k`;
+  } else {
+    const val = views / 1000000;
+    const formatted = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1).replace('.', ',');
+    return `${formatted}M`;
+  }
+}
 
 // Badge definitions with unlock criteria
 const BADGE_DEFINITIONS = [
@@ -666,7 +681,7 @@ export default function ProfileScreen() {
                   )}
                   <div style={styles.videoOverlay}>
                     <div style={styles.viewsBadge}>
-                      {post.mediaType === 'image' ? <ImageIcon size={10} /> : '▶'} {post.views || 0}
+                      <Play size={10} fill="#fff" stroke="none" /> {formatViews(post.views)}
                     </div>
                   </div>
                 </motion.div>
@@ -699,7 +714,7 @@ export default function ProfileScreen() {
                   )}
                   <div style={styles.videoOverlay}>
                     <div style={styles.viewsBadge}>
-                      {post.mediaType === 'image' ? <ImageIcon size={10} /> : '▶'} {post.views || 0}
+                      <Play size={10} fill="#fff" stroke="none" /> {formatViews(post.views)}
                     </div>
                   </div>
                 </motion.div>

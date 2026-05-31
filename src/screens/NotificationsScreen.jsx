@@ -20,6 +20,7 @@ const notifConfig = {
   mention: { text: 'mencionou você em um comentário', icon: AtSign, color: '#FF9500' },
   save: { text: 'salvou seu vídeo', icon: Heart, color: '#FF2D55' },
   boost: { text: 'deu boost no seu vídeo', icon: Award, color: '#FFD700' },
+  message: { text: 'te enviou uma mensagem', icon: MessageCircle, color: '#A855F7' },
 };
 
 // Group notifications by date: Today, This Week, Earlier
@@ -148,6 +149,8 @@ export default function NotificationsScreen() {
   const handleNotifClick = async (notif) => {
     if (notif.type === 'follow' && notif.sender_id) {
       navigate('public_profile', { params: { userId: notif.sender_id } });
+    } else if (notif.type === 'message' && notif.reference_id && notif.sender_id) {
+      navigate('messages', { params: { conversationId: notif.reference_id, otherUserId: notif.sender_id } });
     } else if (['shape', 'comment', 'save', 'boost', 'mention'].includes(notif.type)) {
       // For video-related notifs, navigate to the video if reference_id is available
       if (notif.reference_id) {
