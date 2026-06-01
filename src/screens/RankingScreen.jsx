@@ -547,12 +547,12 @@ export default function RankingScreen() {
             {/* Sheet */}
             <motion.div
               style={modalStyles.sheet}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
+              initial={{ y: '100%', x: '-50%' }}
+              animate={{ y: 0, x: '-50%' }}
+              exit={{ y: '100%', x: '-50%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
             >
-              <div style={modalStyles.handle} />
+               <div style={modalStyles.handle} />
               
               <div style={modalStyles.headerRow}>
                 <div style={{ ...modalStyles.iconBg, backgroundColor: `${selectedChallenge.color}15` }}>
@@ -924,7 +924,8 @@ const modalStyles = {
   memberName: { fontSize: '13px', fontWeight: 600, color: '#fff', flex: 1 },
   memberProgress: { fontSize: '12px', fontWeight: 700 },
   // Check-In Modal Form
-  checkInModal: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '90%', maxWidth: '420px', background: '#0F0F15', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '20px', zIndex: 101000, display: 'flex', flexDirection: 'column', gap: '16px', boxSizing: 'border-box' },
+
+  checkInModal: { position: 'fixed', top: 0, bottom: 0, left: 0, right: 0, margin: 'auto', height: 'fit-content', width: '90%', maxWidth: '420px', background: '#0F0F15', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '20px', zIndex: 101000, display: 'flex', flexDirection: 'column', gap: '16px', boxSizing: 'border-box' },
   checkInHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px' },
   checkInTitle: { fontSize: '16px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0 },
   checkInForm: { display: 'flex', flexDirection: 'column', gap: '14px' },

@@ -1625,12 +1625,15 @@ const modalStyles = {
     borderRadius: '3px',
     transition: 'width 0.5s ease-out',
   },
-  // Check-In Modal Form
+
   checkInModal: {
     position: 'fixed',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    margin: 'auto',
+    height: 'fit-content',
     width: '90%',
     maxWidth: '420px',
     background: '#0F0F15',
