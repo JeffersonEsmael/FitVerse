@@ -585,6 +585,10 @@ export default function ProfileScreen() {
     );
   }
 
+  const lastCheckIn = checkins[0];
+  const todayStr = new Date().toLocaleDateString('pt-BR');
+  const checkedInToday = lastCheckIn && new Date(lastCheckIn.created_at).toLocaleDateString('pt-BR') === todayStr;
+
   return (
     <ScreenWrapper screenKey="profile">
       {/* Liquid Bubble Animated Backgrounds */}
@@ -672,6 +676,7 @@ export default function ProfileScreen() {
 
         {/* Quick access */}
         <div style={styles.quickAccess}>
+          {/* NutriScan */}
           <motion.button
             style={styles.quickBtn}
             onClick={() => navigate('nutriscan')}
@@ -684,63 +689,32 @@ export default function ProfileScreen() {
               <span style={styles.quickTitle}>NutriScan</span>
               <span style={styles.quickDesc}>Escanear refeição com IA</span>
             </div>
-            <ChevronRight size={18} color="rgba(255,255,255,0.6)" />
           </motion.button>
-        </div>
 
-        {/* Check-in Academia */}
-        <div style={styles.gymCard}>
-          <div style={styles.gymCardHeader}>
-            <div style={styles.gymCardHeaderLeft}>
-              <MapPin size={22} color={p.gym_id ? "#39FF14" : "#00D4FF"} />
-              <div>
-                <h4 style={styles.gymCardTitle}>
-                  {p.gym_id 
-                    ? (gymsList.find(g => g.id === p.gym_id)?.name || 'Academia Parceira') 
-                    : 'Check-in de Academia'}
-                </h4>
-                {p.gym_id && (
-                  <span style={styles.gymCardSub}>
-                    Último check-in: {
-                      checkins[0] 
-                        ? new Date(checkins[0].created_at).toLocaleString('pt-BR', { 
-                            day: '2-digit', 
-                            month: '2-digit', 
-                            year: 'numeric', 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          }) 
-                        : 'Nenhum'
-                    }
-                  </span>
-                )}
-              </div>
-            </div>
-            {p.gym_id && (
-              <span style={styles.gymStatValueStreak}>
-                🔥 {p.streak || 0} {p.streak === 1 ? 'dia' : 'dias'}
-              </span>
-            )}
-          </div>
-
-          {!p.gym_id && (
-            <p style={styles.gymCardDesc}>
-              Escaneie o QR Code da sua academia para registrar sua presença diária e iniciar seu streak!
-            </p>
-          )}
-
+          {/* Gym Check-in */}
           <motion.button
-            style={styles.gymCheckinBtn}
-            whileTap={{ scale: 0.98 }}
+            style={styles.quickBtn}
             onClick={() => {
               setCheckinSuccessMessage('');
               setCheckinErrorMessage('');
               setManualTokenInput('');
               setShowQrScanModal(true);
             }}
+            whileTap={{ scale: 0.97 }}
           >
-            <QrCode size={20} color="#0A0A0F" />
-            <span style={{ color: '#0A0A0F', fontWeight: 800 }}>Fazer Check-in por QR Code</span>
+            <div style={{ ...styles.quickIcon, background: 'rgba(57,255,20,0.15)' }}>
+              <QrCode size={20} color="#39FF14" />
+            </div>
+            <div style={styles.quickInfo}>
+              <span style={styles.quickTitle}>Check-in</span>
+              <span style={styles.quickDesc}>
+                {checkedInToday 
+                  ? `Concluído! 🔥 ${p.streak || 0}d` 
+                  : p.gym_id 
+                    ? `🔥 ${p.streak || 0} dias ativos` 
+                    : 'Escaneie o QR Code'}
+              </span>
+            </div>
           </motion.button>
         </div>
 
