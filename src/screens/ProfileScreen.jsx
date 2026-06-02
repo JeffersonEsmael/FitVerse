@@ -689,106 +689,60 @@ export default function ProfileScreen() {
         </div>
 
         {/* Check-in Academia */}
-        {!p.gym_id || showChangeGymList ? (
-          <div style={styles.gymCard}>
-            <div style={styles.gymCardHeader}>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <MapPin size={20} color="#00D4FF" />
-                <h4 style={styles.gymCardTitle}>Conectar Academia</h4>
+        <div style={styles.gymCard}>
+          <div style={styles.gymCardHeader}>
+            <div style={styles.gymCardHeaderLeft}>
+              <MapPin size={22} color={p.gym_id ? "#39FF14" : "#00D4FF"} />
+              <div>
+                <h4 style={styles.gymCardTitle}>
+                  {p.gym_id 
+                    ? (gymsList.find(g => g.id === p.gym_id)?.name || 'Academia Parceira') 
+                    : 'Check-in de Academia'}
+                </h4>
+                {p.gym_id && (
+                  <span style={styles.gymCardSub}>
+                    Último check-in: {
+                      checkins[0] 
+                        ? new Date(checkins[0].created_at).toLocaleString('pt-BR', { 
+                            day: '2-digit', 
+                            month: '2-digit', 
+                            year: 'numeric', 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          }) 
+                        : 'Nenhum'
+                    }
+                  </span>
+                )}
               </div>
             </div>
-            <p style={styles.gymCardDesc}>Escolha uma academia parceira para registrar seus check-ins e acumular seu streak diário!</p>
-            
-            <div style={styles.gymOptionsList}>
-              {gymsList.map(gym => (
-                <div key={gym.id} style={styles.gymOptionItem}>
-                  <div style={styles.gymOptionInfo}>
-                    <span style={styles.gymOptionName}>{gym.name}</span>
-                    <span style={styles.gymOptionAddr}>{gym.address}</span>
-                  </div>
-                  <motion.button
-                    style={styles.gymConnectBtn}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => {
-                      linkUserToGym(user.uid, gym.id);
-                      setShowChangeGymList(false);
-                    }}
-                  >
-                    Vincular
-                  </motion.button>
-                </div>
-              ))}
-            </div>
-
-            {showChangeGymList && p.gym_id && (
-              <button
-                style={styles.gymCancelBtn}
-                onClick={() => setShowChangeGymList(false)}
-              >
-                Voltar
-              </button>
+            {p.gym_id && (
+              <span style={styles.gymStatValueStreak}>
+                🔥 {p.streak || 0} {p.streak === 1 ? 'dia' : 'dias'}
+              </span>
             )}
           </div>
-        ) : (
-          (() => {
-            const userGym = gymsList.find(g => g.id === p.gym_id);
-            const lastCheckIn = checkins[0];
-            const lastCheckInStr = lastCheckIn 
-              ? new Date(lastCheckIn.created_at).toLocaleString('pt-BR', { 
-                  day: '2-digit', 
-                  month: '2-digit', 
-                  year: 'numeric', 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                }) 
-              : 'Nenhum check-in realizado';
 
-            return (
-              <div style={styles.gymCard}>
-                <div style={styles.gymCardHeader}>
-                  <div style={styles.gymCardHeaderLeft}>
-                    <MapPin size={22} color="#39FF14" />
-                    <div>
-                      <h4 style={styles.gymCardTitle}>{userGym ? userGym.name : 'Academia Parceira'}</h4>
-                      <span style={styles.gymCardSub}>{userGym ? userGym.address : ''}</span>
-                    </div>
-                  </div>
-                  <button 
-                    style={styles.gymChangeLink} 
-                    onClick={() => setShowChangeGymList(true)}
-                  >
-                    Alterar
-                  </button>
-                </div>
+          {!p.gym_id && (
+            <p style={styles.gymCardDesc}>
+              Escaneie o QR Code da sua academia para registrar sua presença diária e iniciar seu streak!
+            </p>
+          )}
 
-                <div style={styles.gymStatsRow}>
-                  <div style={styles.gymStatBox}>
-                    <span style={styles.gymStatLabel}>Último Check-in</span>
-                    <span style={styles.gymStatValue}>{lastCheckInStr}</span>
-                  </div>
-                  <div style={styles.gymStatBox}>
-                    <span style={styles.gymStatLabel}>Streak Atual</span>
-                    <span style={styles.gymStatValueStreak}>🔥 {p.streak || 0} dias</span>
-                  </div>
-                </div>
-
-                <motion.button
-                  style={styles.gymCheckinBtn}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    setCheckinSuccessMessage('');
-                    setCheckinErrorMessage('');
-                    setManualTokenInput('');
-                    setShowQrScanModal(true);
-                  }}
-                >
-                  <QrCode size={20} color="#0A0A0F" />
-                  <span style={{ color: '#0A0A0F', fontWeight: 800 }}>Fazer Check-in por QR Code</span>
-                </motion.button>
-              </div>
-            );
-          })()
-        )}
+          <motion.button
+            style={styles.gymCheckinBtn}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => {
+              setCheckinSuccessMessage('');
+              setCheckinErrorMessage('');
+              setManualTokenInput('');
+              setShowQrScanModal(true);
+            }}
+          >
+            <QrCode size={20} color="#0A0A0F" />
+            <span style={{ color: '#0A0A0F', fontWeight: 800 }}>Fazer Check-in por QR Code</span>
+          </motion.button>
+        </div>
 
         {/* Content tabs */}
         <div style={styles.contentTabs}>

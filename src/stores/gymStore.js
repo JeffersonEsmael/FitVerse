@@ -162,14 +162,12 @@ export const useGymStore = create((set, get) => ({
       const localList = [newCheckin, ...get()._getLocalCheckins(userId)];
       localStorage.setItem(`${LOCAL_STORAGE_CHECKINS_KEY}_${userId}`, JSON.stringify(localList));
 
-      // 5. Update user profile details (streak and gym_id link if not set)
+      // 5. Update user profile details (streak and gym_id link)
       const profileUpdates = {
         streak: newStreak,
-        last_active_date: new Date().toISOString()
+        last_active_date: new Date().toISOString(),
+        gym_id: gym.id
       };
-      if (!authState.profile?.gym_id) {
-        profileUpdates.gym_id = gym.id;
-      }
       await authState.updateProfile(profileUpdates);
 
       // Refresh state
