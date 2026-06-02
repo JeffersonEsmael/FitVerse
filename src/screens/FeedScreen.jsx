@@ -2,7 +2,7 @@ import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlusCircle, Video, AlertCircle, X, ArrowLeft } from 'lucide-react';
 import VideoCard from '../components/feed/VideoCard';
-import StoreView from '../components/store/StoreView';
+import ChallengesView from '../components/feed/ChallengesView';
 import { useFeedStore } from '../stores/feedStore';
 import { useNavigationStore } from '../stores/navigationStore';
 
@@ -171,7 +171,7 @@ export default function FeedScreen() {
 
       {/* ── Top tabs ──────────────────────────────────────── */}
       <div style={styles.topBar}>
-        {activeTab === 'store' ? (
+        {activeTab === 'challenges' ? (
           <button style={styles.createBtnTop} onClick={() => setActiveTab('forYou')}>
             <ArrowLeft size={28} color="#fff" />
           </button>
@@ -197,26 +197,26 @@ export default function FeedScreen() {
           </button>
           <div style={styles.tabDivider} />
           <button
-            style={{ ...styles.tabBtn, ...(activeTab === 'store' ? styles.tabActive : {}) }}
-            onClick={() => setActiveTab('store')}
+            style={{ ...styles.tabBtn, ...(activeTab === 'challenges' ? styles.tabActive : {}) }}
+            onClick={() => setActiveTab('challenges')}
           >
-            Loja
+            Desafios
           </button>
         </div>
       </div>
 
       {/* ── Content Area ─────────────────────────────────── */}
         <AnimatePresence mode="wait" custom={direction}>
-          {activeTab === 'store' ? (
+          {activeTab === 'challenges' ? (
             <motion.div
-              key="store"
+              key="challenges"
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -50 }}
               transition={{ duration: 0.3 }}
               style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
             >
-              <StoreView />
+              <ChallengesView />
             </motion.div>
           ) : videos.length === 0 ? (
             <motion.div
@@ -270,7 +270,7 @@ export default function FeedScreen() {
         </AnimatePresence>
 
       {/* Video counter */}
-      {activeTab !== 'store' && videos.length > 0 && (
+      {activeTab !== 'challenges' && videos.length > 0 && (
         <div style={styles.counter}>
           {currentIndex + 1} / {videos.length}
         </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, ChevronRight, Music, Play, Video, Image as ImageIcon, Users, Trophy } from 'lucide-react';
+import { Search, ChevronRight, Music, Play, Video, Image as ImageIcon, Users, Trophy, Dumbbell } from 'lucide-react';
 import { useSocialStore } from '../stores/socialStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
@@ -99,7 +99,7 @@ export default function ExploreScreen() {
                   : activeTab === 'videos'
                   ? 'Pesquisar vídeos, dicas ou treinos...'
                   : activeTab === 'sounds'
-                  ? 'Pesquisar músicas, áudios ou sons...'
+                  ? 'Pesquisar exercícios...'
                   : 'Pesquisar desafios fitness...'
               }
               value={query}
@@ -120,7 +120,7 @@ export default function ExploreScreen() {
                   clearSearch();
                 }}
               >
-                {tab === 'users' ? 'Usuários' : tab === 'videos' ? 'Vídeos' : tab === 'sounds' ? 'Sons' : 'Desafios'}
+                {tab === 'users' ? 'Usuários' : tab === 'videos' ? 'Vídeos' : tab === 'sounds' ? 'Exercícios' : 'Desafios'}
               </button>
             ))}
           </div>
@@ -134,7 +134,7 @@ export default function ExploreScreen() {
             <div style={styles.centerMessage}>Nenhum resultado encontrado.</div>
           ) : query.length < 2 ? (
             <div style={styles.centerMessage}>
-              Digite pelo menos 2 caracteres para buscar {activeTab === 'users' ? 'usuários' : activeTab === 'videos' ? 'vídeos' : activeTab === 'sounds' ? 'sons' : 'desafios'}.
+              Digite pelo menos 2 caracteres para buscar {activeTab === 'users' ? 'usuários' : activeTab === 'videos' ? 'vídeos' : activeTab === 'sounds' ? 'exercícios' : 'desafios'}.
             </div>
           ) : (
             <div style={styles.resultsList}>
@@ -194,25 +194,27 @@ export default function ExploreScreen() {
                 </div>
               )}
 
-              {/* Tab: Sounds */}
+              {/* Tab: Exercícios */}
               {activeTab === 'sounds' && searchResults.map((sound) => (
                 <motion.div
                   key={sound.id}
                   style={styles.soundRow}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => handlePlaySound(sound.video_url)}
+                  onClick={() => {
+                    navigate('post_details', { params: { post: sound, allPosts: searchResults, startIndex: searchResults.indexOf(sound) } });
+                  }}
                 >
-                  <div style={styles.soundDisc}>
-                    <Music size={18} color="#00D4FF" />
+                  <div style={{ ...styles.soundDisc, background: 'rgba(57,255,20,0.1)' }}>
+                    <Dumbbell size={18} color="#39FF14" />
                   </div>
                   
                   <div style={styles.soundInfo}>
-                    <span style={styles.soundTitle}>Som Original — {sound.display_name || sound.username}</span>
-                    <span style={styles.soundCreator}>Criado por @{sound.username}</span>
-                    <span style={styles.soundDuration}>Contém áudio de alta fidelidade</span>
+                    <span style={styles.soundTitle}>{sound.caption || 'Exercício Fitness'}</span>
+                    <span style={styles.soundCreator}>Executado por @{sound.username || 'user'}</span>
+                    <span style={styles.soundDuration}>Toque para ver a execução em vídeo</span>
                   </div>
 
-                  <button style={styles.useSoundBtn}>Usar</button>
+                  <button style={{ ...styles.useSoundBtn, background: '#39FF14', color: '#0A0A0F', fontWeight: 'bold' }}>Ver</button>
                 </motion.div>
               ))}
 

@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play } from 'lucide-react';
+import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play, MoreVertical, Check } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useFeedStore } from '../stores/feedStore';
 import { useRankingStore } from '../stores/rankingStore';
+import { useWorkoutStore } from '../stores/workoutStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
-import GymBagIcon from '../components/icons/GymBagIcon';
 import ShapeIcon from '../components/icons/ShapeIcon';
 import ProfileChallengeCard from '../components/profile/ProfileChallengeCard';
 
@@ -182,14 +182,43 @@ export default function ProfileScreen() {
   const { user, profile, isProfileLoading, refreshProfile } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
   const currentScreen = useNavigationStore((s) => s.currentScreen);
-  const { fetchUserPosts, fetchGymBagVideos } = useFeedStore();
+  const { fetchUserPosts } = useFeedStore();
   const { fetchChallenges, performCheckIn } = useRankingStore();
+  
+  const {
+    seriesList,
+    activeSeriesId,
+    fetchSeries,
+    createSeries,
+    updateSeries,
+    setActiveSeries,
+    toggleExerciseDone,
+    incrementWorkoutProgress,
+    deleteSeries
+  } = useWorkoutStore();
   
   const [activeProfileTab, setActiveProfileTab] = useState('videos');
   const [userPosts, setUserPosts] = useState([]);
   const [postsLoaded, setPostsLoaded] = useState(false);
-  const [gymBagVideos, setGymBagVideos] = useState([]);
-  const [gymBagLoaded, setGymBagLoaded] = useState(false);
+  
+  // Minha Série Modal states
+  const [showEditSeriesModal, setShowEditSeriesModal] = useState(false);
+  const [showCreateSeriesModal, setShowCreateSeriesModal] = useState(false);
+  const [seriesModalName, setSeriesModalName] = useState('');
+  const [seriesModalFrequency, setSeriesModalFrequency] = useState('3x por semana');
+  const [seriesModalTotal, setSeriesModalTotal] = useState(30);
+  const [seriesModalExercises, setSeriesModalExercises] = useState([]);
+  
+  // Local state for editing an exercise inside form
+  const [tempExerciseName, setTempExerciseName] = useState('');
+  const [tempExerciseSets, setTempExerciseSets] = useState(4);
+  const [tempExerciseReps, setTempExerciseReps] = useState('10');
+  const [tempExerciseWeight, setTempExerciseWeight] = useState(0);
+
+  // Profile Options Menu (3 pontinhos)
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [showSavedModal, setShowSavedModal] = useState(false);
+
   const [showMedalsModal, setShowMedalsModal] = useState(false);
   const [profileChallenges, setProfileChallenges] = useState([]);
   const [isLoadingChallenges, setIsLoadingChallenges] = useState(true);
@@ -298,9 +327,9 @@ export default function ProfileScreen() {
   const badges = useMemo(() => {
     return BADGE_DEFINITIONS.map((badge) => ({
       ...badge,
-      unlocked: badge.check({ ...p, followers: followersCount }, userPosts, gymBagVideos),
+      unlocked: badge.check({ ...p, followers: followersCount }, userPosts, []),
     }));
-  }, [p, followersCount, userPosts, gymBagVideos]);
+  }, [p, followersCount, userPosts]);
 
   const unlockedCount = badges.filter((b) => b.unlocked).length;
 
@@ -336,13 +365,10 @@ export default function ProfileScreen() {
         setUserPosts(posts);
         setPostsLoaded(true);
       });
-      fetchGymBagVideos(user.uid).then((videos) => {
-        setGymBagVideos(videos);
-        setGymBagLoaded(true);
-      });
+      fetchSeries(user.uid);
       fetchChallenges();
     }
-  }, [currentScreen, user?.uid, refreshProfile, fetchUserPosts, fetchGymBagVideos, fetchChallenges]);
+  }, [currentScreen, user?.uid, refreshProfile, fetchUserPosts, fetchSeries, fetchChallenges]);
 
   const loadProfileChallenges = useCallback(async () => {
     if (!user?.uid) return;
@@ -507,16 +533,12 @@ export default function ProfileScreen() {
     }
   }, [activeProfileTab, user?.uid, postsLoaded, fetchUserPosts]);
 
-  // Fetch gym bag
+  // Fetch series
   useEffect(() => {
-    if (activeProfileTab === 'gymbag' && user?.uid && !gymBagLoaded) {
-      setGymBagLoaded(false);
-      fetchGymBagVideos(user.uid).then((videos) => {
-        setGymBagVideos(videos);
-        setGymBagLoaded(true);
-      });
+    if (activeProfileTab === 'serie' && user?.uid) {
+      fetchSeries(user.uid);
     }
-  }, [activeProfileTab, user?.uid, gymBagLoaded, fetchGymBagVideos]);
+  }, [activeProfileTab, user?.uid, fetchSeries]);
 
   const handleDM = () => {
     navigate('conversations');
@@ -560,9 +582,43 @@ export default function ProfileScreen() {
             <Plus size={24} color="#fff" />
           </button>
           <h2 style={styles.title}>Perfil</h2>
-          <button style={styles.headerBtnRight} onClick={() => navigate('settings')}>
-            <Settings size={22} color="#fff" />
+          <button style={styles.headerBtnRight} onClick={() => setShowOptionsMenu(!showOptionsMenu)}>
+            <MoreVertical size={24} color="#fff" />
           </button>
+
+          {/* Options Menu (3 pontinhos) */}
+          <AnimatePresence>
+            {showOptionsMenu && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowOptionsMenu(false)} />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  style={styles.dropdownMenu}
+                >
+                  <div
+                    style={styles.dropdownItem}
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      navigate('settings');
+                    }}
+                  >
+                    Configurações
+                  </div>
+                  <div
+                    style={{ ...styles.dropdownItem, borderTop: '1px solid rgba(255,255,255,0.05)' }}
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      setShowSavedModal(true);
+                    }}
+                  >
+                    Salvos
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Profile card - Glassmorphism */}
@@ -589,11 +645,17 @@ export default function ProfileScreen() {
             </div>
 
             <div style={styles.avatarContainerRight}>
+              {/* Streak Badge */}
+              <div style={styles.streakBadge}>
+                🔥 {p.streak || 0}
+              </div>
               <div style={styles.avatar}>
                 {p.avatar_url ? <img src={p.avatar_url} alt="" style={styles.avatarImg} /> : (
                   <div style={styles.avatarPlaceholder}>{p.display_name?.charAt(0) || '?'}</div>
                 )}
               </div>
+              {/* Mastery Title */}
+              <span style={styles.masteryTitle}>Maromba</span>
             </div>
           </div>
 
@@ -612,7 +674,7 @@ export default function ProfileScreen() {
           <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0 }}>
             <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
             <StatBox label="Medalhas" value={totalMedalsCount} icon={Award} color="#FFD700" onClick={() => setShowMedalsModal(true)} />
-            <StatBox label="Mensagem" value="Chat" icon={MessageCircle} color="#00D4FF" onClick={handleDM} />
+            <StatBox label="Minha Série" value="Série" icon={Dumbbell} color="#00D4FF" onClick={() => setActiveProfileTab('serie')} />
           </div>
         </motion.div>
 
@@ -643,17 +705,17 @@ export default function ProfileScreen() {
             <Grid3x3 size={18} /> Vídeos
           </button>
           <button
-            style={{ ...styles.contentTab, ...(activeProfileTab === 'gymbag' ? styles.contentTabActive : {}) }}
-            onClick={() => setActiveProfileTab('gymbag')}
-          >
-            <GymBagIcon filled={false} size={18} color={activeProfileTab === 'gymbag' ? '#fff' : 'rgba(255,255,255,0.6)'} /> Gym Bag
-          </button>
-          <button
             style={{ ...styles.contentTab, ...(activeProfileTab === 'challenges' ? styles.contentTabActive : {}) }}
             onClick={() => setActiveProfileTab('challenges')}
           >
             <Trophy size={18} /> Desafios
             {profileChallenges.length > 0 && <span style={styles.badgeCountChip}>{profileChallenges.length}</span>}
+          </button>
+          <button
+            style={{ ...styles.contentTab, ...(activeProfileTab === 'serie' ? styles.contentTabActive : {}) }}
+            onClick={() => setActiveProfileTab('serie')}
+          >
+            <Dumbbell size={18} /> Série
           </button>
         </div>
 
@@ -690,36 +752,187 @@ export default function ProfileScreen() {
           </div>
         )}
 
-        {/* Content - Gym Bag */}
-        {activeProfileTab === 'gymbag' && (
-          <div style={styles.videoGrid}>
-            {gymBagVideos.length === 0 && gymBagLoaded ? (
-              <div style={styles.emptyGrid}>
-                <GymBagIcon filled={false} size={32} color="rgba(255,255,255,0.4)" />
-                <span style={styles.emptyGridText}>Posts salvos aparecerão aqui</span>
-              </div>
-            ) : (
-              gymBagVideos.map((post, idx) => (
-                <motion.div
-                  key={post.id}
-                  style={styles.videoThumb}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  onClick={() => navigate('post_details', { params: { post, allPosts: gymBagVideos, startIndex: idx } })}
+        {/* Content - Série */}
+        {activeProfileTab === 'serie' && (
+          <div style={workoutStyles.container}>
+            {seriesList.length === 0 ? (
+              <div style={workoutStyles.emptyState}>
+                <Dumbbell size={48} color="rgba(255,255,255,0.2)" />
+                <span style={workoutStyles.emptyTitle}>Nenhuma Série Cadastrada</span>
+                <span style={workoutStyles.emptyText}>Crie uma série de treinos para começar a acompanhar seu progresso e ganhar XP!</span>
+                <button
+                  style={workoutStyles.createBtn}
+                  onClick={() => {
+                    setSeriesModalName('');
+                    setSeriesModalFrequency('3x por semana');
+                    setSeriesModalTotal(30);
+                    setSeriesModalExercises([
+                      { id: 'ex_new_1', name: 'Exercício 1', sets: 4, reps: '10', weight: 10, done_today: false }
+                    ]);
+                    setShowCreateSeriesModal(true);
+                  }}
                 >
-                  {post.mediaType === 'image' ? (
-                    <img src={post.videoUrl} alt="" style={styles.thumbMedia} />
-                  ) : (
-                    <video src={post.videoUrl} style={styles.thumbMedia} muted preload="metadata" />
+                  Criar Série
+                </button>
+              </div>
+            ) : (() => {
+              const activeSeries = seriesList.find(s => s.id === activeSeriesId) || seriesList[0];
+              if (!activeSeries) return null;
+              const pct = Math.round(((activeSeries.progress_completed || 0) / (activeSeries.progress_total || 30)) * 100);
+
+              return (
+                <div style={workoutStyles.activeSeriesContainer}>
+                  {/* Select active series dropdown if multiple */}
+                  {seriesList.length > 1 && (
+                    <div style={workoutStyles.selectorRow}>
+                      <span style={workoutStyles.selectorLabel}>Alternar Série:</span>
+                      <select
+                        value={activeSeriesId || ''}
+                        onChange={(e) => setActiveSeries(user?.uid, e.target.value)}
+                        style={workoutStyles.selectorSelect}
+                      >
+                        {seriesList.map(s => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   )}
-                  <div style={styles.videoOverlay}>
-                    <div style={styles.viewsBadge}>
-                      <Play size={10} fill="#fff" stroke="none" /> {formatViews(post.views)}
+
+                  {/* Series Header Card */}
+                  <div style={workoutStyles.headerCard}>
+                    <div style={workoutStyles.headerTop}>
+                      <div>
+                        <h4 style={workoutStyles.seriesTitle}>{activeSeries.name}</h4>
+                        <span style={workoutStyles.seriesFreq}>{activeSeries.weekly_frequency}</span>
+                      </div>
+                      <div style={workoutStyles.headerActions}>
+                        <button
+                          style={workoutStyles.headerActionBtn}
+                          onClick={() => {
+                            setSeriesModalName(activeSeries.name);
+                            setSeriesModalFrequency(activeSeries.weekly_frequency);
+                            setSeriesModalTotal(activeSeries.progress_total);
+                            setSeriesModalExercises(activeSeries.exercises || []);
+                            setShowEditSeriesModal(true);
+                          }}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          style={{ ...workoutStyles.headerActionBtn, background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)' }}
+                          onClick={() => {
+                            setSeriesModalName('');
+                            setSeriesModalFrequency('3x por semana');
+                            setSeriesModalTotal(30);
+                            setSeriesModalExercises([
+                              { id: 'ex_new_1', name: 'Exercício 1', sets: 4, reps: '10', weight: 10, done_today: false }
+                            ]);
+                            setShowCreateSeriesModal(true);
+                          }}
+                        >
+                          Nova
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div style={workoutStyles.progressSection}>
+                      <div style={workoutStyles.progressLabels}>
+                        <span style={workoutStyles.progressLabel}>Progresso Geral</span>
+                        <span style={workoutStyles.progressVal}>{activeSeries.progress_completed || 0}/{activeSeries.progress_total || 30} treinos</span>
+                      </div>
+                      <div style={workoutStyles.progressTrack}>
+                        <motion.div
+                          style={{ ...workoutStyles.progressFill, width: `${Math.min(100, pct)}%` }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(100, pct)}%` }}
+                          transition={{ duration: 0.5 }}
+                        />
+                      </div>
                     </div>
                   </div>
-                </motion.div>
-              ))
-            )}
+
+                  {/* Exercises List Header */}
+                  <div style={workoutStyles.exercisesHeader}>
+                    <h5 style={workoutStyles.exercisesTitle}>Exercícios de Hoje</h5>
+                    <span style={workoutStyles.exercisesCount}>{activeSeries.exercises?.length || 0} exercícios</span>
+                  </div>
+
+                  {/* Exercises Grid/List */}
+                  <div style={workoutStyles.exercisesList}>
+                    {(!activeSeries.exercises || activeSeries.exercises.length === 0) ? (
+                      <div style={workoutStyles.noExercisesCard}>
+                        <span>Nenhum exercício cadastrado nesta série.</span>
+                        <button
+                          style={workoutStyles.addExerciseInlineBtn}
+                          onClick={() => {
+                            setSeriesModalName(activeSeries.name);
+                            setSeriesModalFrequency(activeSeries.weekly_frequency);
+                            setSeriesModalTotal(activeSeries.progress_total);
+                            setSeriesModalExercises(activeSeries.exercises || []);
+                            setShowEditSeriesModal(true);
+                          }}
+                        >
+                          Adicionar Exercícios
+                        </button>
+                      </div>
+                    ) : (
+                      activeSeries.exercises.map((ex) => {
+                        return (
+                          <div
+                            key={ex.id}
+                            style={{
+                              ...workoutStyles.exerciseCard,
+                              ...(ex.done_today ? workoutStyles.exerciseCardDone : {}),
+                            }}
+                          >
+                            <div style={workoutStyles.exerciseInfo}>
+                              <span style={workoutStyles.exerciseName}>{ex.name}</span>
+                              <span style={workoutStyles.exerciseMeta}>
+                                {ex.sets} séries x {ex.reps} reps {ex.weight > 0 ? `• ${ex.weight}kg` : ''}
+                              </span>
+                            </div>
+
+                            <button
+                              style={{
+                                ...workoutStyles.doneBtn,
+                                ...(ex.done_today ? workoutStyles.doneBtnActive : {}),
+                              }}
+                              onClick={() => toggleExerciseDone(user?.uid, activeSeries.id, ex.id)}
+                            >
+                              {ex.done_today ? <Check size={16} color="#000" strokeWidth={3} /> : 'Fazer'}
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Concluir Treino Button */}
+                  {activeSeries.exercises?.length > 0 && (
+                    <motion.button
+                      style={{
+                        ...workoutStyles.finishWorkoutBtn,
+                        opacity: activeSeries.exercises.some(ex => ex.done_today) ? 1 : 0.5,
+                      }}
+                      whileTap={activeSeries.exercises.some(ex => ex.done_today) ? { scale: 0.97 } : {}}
+                      onClick={() => {
+                        if (!activeSeries.exercises.some(ex => ex.done_today)) {
+                          alert('Marque pelo menos um exercício como feito antes de concluir o treino!');
+                          return;
+                        }
+                        incrementWorkoutProgress(user?.uid, activeSeries.id);
+                        alert('Treino concluído com sucesso! +150 XP adicionados! 💪🔥');
+                      }}
+                    >
+                      Concluir Treino de Hoje
+                    </motion.button>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -1112,6 +1325,458 @@ export default function ProfileScreen() {
           </>
         )}
       </AnimatePresence>
+
+      {/* MODAL: Salvos (Em breve) */}
+      <AnimatePresence>
+        {showSavedModal && (
+          <>
+            <motion.div
+              style={modalStyles.backdrop}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSavedModal(false)}
+            />
+            <motion.div
+              style={{ ...modalStyles.checkInModal, zIndex: 100002 }}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <div style={modalStyles.checkInHeader}>
+                <h3 style={modalStyles.checkInTitle}>Itens Salvos</h3>
+                <button style={modalStyles.closeBtn} onClick={() => setShowSavedModal(false)}>
+                  <X size={20} color="#fff" />
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '30px 10px', gap: '12px' }}>
+                <span style={{ fontSize: '36px' }}>📌</span>
+                <span style={{ fontSize: '15px', color: '#fff', fontWeight: 700, fontFamily: "'Outfit', sans-serif" }}>Em Breve</span>
+                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', textAlign: 'center', margin: 0, fontFamily: "'Inter', sans-serif" }}>
+                  A função de salvar publicações e treinos favoritos estará disponível em uma próxima atualização!
+                </p>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL: Criar Série */}
+      <AnimatePresence>
+        {showCreateSeriesModal && (
+          <>
+            <motion.div
+              style={modalStyles.backdrop}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCreateSeriesModal(false)}
+            />
+            <motion.div
+              style={{ ...modalStyles.workoutModal, zIndex: 100002 }}
+              initial={{ y: '100px', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100px', opacity: 0 }}
+            >
+              <div style={modalStyles.checkInHeader}>
+                <h3 style={modalStyles.checkInTitle}>Criar Nova Série</h3>
+                <button style={modalStyles.closeBtn} onClick={() => setShowCreateSeriesModal(false)}>
+                  <X size={20} color="#fff" />
+                </button>
+              </div>
+              <div style={{ ...modalStyles.modalScrollBody, display: 'flex', flexDirection: 'column', gap: '14px', padding: '16px 0' }}>
+                <div style={modalStyles.checkInField}>
+                  <label style={modalStyles.checkInLabel}>Nome da Série</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Hipertrofia A ou Treino de Pernas"
+                    value={seriesModalName}
+                    onChange={(e) => setSeriesModalName(e.target.value)}
+                    style={modalStyles.checkInInput}
+                  />
+                </div>
+                <div style={modalStyles.checkInField}>
+                  <label style={modalStyles.checkInLabel}>Frequência Semanal</label>
+                  <select
+                    value={seriesModalFrequency}
+                    onChange={(e) => setSeriesModalFrequency(e.target.value)}
+                    style={modalStyles.checkInInput}
+                  >
+                    <option value="1x por semana">1x por semana</option>
+                    <option value="2x por semana">2x por semana</option>
+                    <option value="3x por semana">3x por semana</option>
+                    <option value="4x por semana">4x por semana</option>
+                    <option value="5x por semana">5x por semana</option>
+                    <option value="6x por semana">6x por semana</option>
+                    <option value="Diário">Diário</option>
+                  </select>
+                </div>
+                <div style={modalStyles.checkInField}>
+                  <label style={modalStyles.checkInLabel}>Meta Total de Treinos</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={seriesModalTotal}
+                    onChange={(e) => setSeriesModalTotal(Math.max(1, parseInt(e.target.value) || 30))}
+                    style={modalStyles.checkInInput}
+                  />
+                </div>
+
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '14px' }}>
+                  <label style={modalStyles.checkInLabel}>Adicionar Exercício</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '12px' }}>
+                    <input
+                      type="text"
+                      placeholder="Nome do Exercício"
+                      value={tempExerciseName}
+                      onChange={(e) => setTempExerciseName(e.target.value)}
+                      style={modalStyles.checkInInput}
+                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Séries</span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={tempExerciseSets}
+                          onChange={(e) => setTempExerciseSets(Math.max(1, parseInt(e.target.value) || 4))}
+                          style={modalStyles.checkInInput}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Reps</span>
+                        <input
+                          type="text"
+                          value={tempExerciseReps}
+                          onChange={(e) => setTempExerciseReps(e.target.value)}
+                          style={modalStyles.checkInInput}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Carga (kg)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={tempExerciseWeight}
+                          onChange={(e) => setTempExerciseWeight(Math.max(0, parseFloat(e.target.value) || 0))}
+                          style={modalStyles.checkInInput}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      style={{
+                        padding: '10px',
+                        background: '#00D4FF',
+                        border: 'none',
+                        borderRadius: '8px',
+                        color: '#000',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        marginTop: '4px',
+                        fontFamily: "'Outfit', sans-serif"
+                      }}
+                      onClick={() => {
+                        if (!tempExerciseName.trim()) {
+                          alert('Informe o nome do exercício!');
+                          return;
+                        }
+                        const newEx = {
+                          id: `ex_new_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                          name: tempExerciseName,
+                          sets: tempExerciseSets,
+                          reps: tempExerciseReps,
+                          weight: tempExerciseWeight,
+                          done_today: false
+                        };
+                        setSeriesModalExercises([...seriesModalExercises, newEx]);
+                        setTempExerciseName('');
+                      }}
+                    >
+                      + Adicionar à Lista
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={modalStyles.checkInLabel}>Exercícios Adicionados ({seriesModalExercises.length})</span>
+                  {seriesModalExercises.length === 0 ? (
+                    <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Nenhum exercício adicionado ainda</span>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto' }}>
+                      {seriesModalExercises.map((ex, idx) => (
+                        <div key={ex.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: '8px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '13px', color: '#fff', fontWeight: 600 }}>{ex.name}</span>
+                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{ex.sets}x{ex.reps} • {ex.weight}kg</span>
+                          </div>
+                          <button
+                            type="button"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                            onClick={() => {
+                              setSeriesModalExercises(seriesModalExercises.filter((_, i) => i !== idx));
+                            }}
+                          >
+                            <X size={16} color="#FF2D55" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <motion.button
+                style={{ ...modalStyles.confirmBtn, background: '#39FF14', color: '#000', marginTop: '10px' }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  if (!seriesModalName.trim()) {
+                    alert('Informe o nome da série!');
+                    return;
+                  }
+                  if (seriesModalExercises.length === 0) {
+                    alert('Adicione pelo menos um exercício à série!');
+                    return;
+                  }
+                  createSeries(user?.uid, seriesModalName, seriesModalFrequency, seriesModalTotal, seriesModalExercises);
+                  setShowCreateSeriesModal(false);
+                  alert('Série criada com sucesso!');
+                }}
+              >
+                Salvar Série
+              </motion.button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL: Editar Série */}
+      <AnimatePresence>
+        {showEditSeriesModal && (
+          <>
+            <motion.div
+              style={modalStyles.backdrop}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowEditSeriesModal(false)}
+            />
+            <motion.div
+              style={{ ...modalStyles.workoutModal, zIndex: 100002 }}
+              initial={{ y: '100px', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100px', opacity: 0 }}
+            >
+              <div style={modalStyles.checkInHeader}>
+                <h3 style={modalStyles.checkInTitle}>Editar Série</h3>
+                <button style={modalStyles.closeBtn} onClick={() => setShowEditSeriesModal(false)}>
+                  <X size={20} color="#fff" />
+                </button>
+              </div>
+              <div style={{ ...modalStyles.modalScrollBody, display: 'flex', flexDirection: 'column', gap: '14px', padding: '16px 0' }}>
+                <div style={modalStyles.checkInField}>
+                  <label style={modalStyles.checkInLabel}>Nome da Série</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Hipertrofia A ou Treino de Pernas"
+                    value={seriesModalName}
+                    onChange={(e) => setSeriesModalName(e.target.value)}
+                    style={modalStyles.checkInInput}
+                  />
+                </div>
+                <div style={modalStyles.checkInField}>
+                  <label style={modalStyles.checkInLabel}>Frequência Semanal</label>
+                  <select
+                    value={seriesModalFrequency}
+                    onChange={(e) => setSeriesModalFrequency(e.target.value)}
+                    style={modalStyles.checkInInput}
+                  >
+                    <option value="1x por semana">1x por semana</option>
+                    <option value="2x por semana">2x por semana</option>
+                    <option value="3x por semana">3x por semana</option>
+                    <option value="4x por semana">4x por semana</option>
+                    <option value="5x por semana">5x por semana</option>
+                    <option value="6x por semana">6x por semana</option>
+                    <option value="Diário">Diário</option>
+                  </select>
+                </div>
+                <div style={modalStyles.checkInField}>
+                  <label style={modalStyles.checkInLabel}>Meta Total de Treinos</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={seriesModalTotal}
+                    onChange={(e) => setSeriesModalTotal(Math.max(1, parseInt(e.target.value) || 30))}
+                    style={modalStyles.checkInInput}
+                  />
+                </div>
+
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '14px' }}>
+                  <label style={modalStyles.checkInLabel}>Adicionar Exercício</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '12px' }}>
+                    <input
+                      type="text"
+                      placeholder="Nome do Exercício"
+                      value={tempExerciseName}
+                      onChange={(e) => setTempExerciseName(e.target.value)}
+                      style={modalStyles.checkInInput}
+                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Séries</span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={tempExerciseSets}
+                          onChange={(e) => setTempExerciseSets(Math.max(1, parseInt(e.target.value) || 4))}
+                          style={modalStyles.checkInInput}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Reps</span>
+                        <input
+                          type="text"
+                          value={tempExerciseReps}
+                          onChange={(e) => setTempExerciseReps(e.target.value)}
+                          style={modalStyles.checkInInput}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Carga (kg)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={tempExerciseWeight}
+                          onChange={(e) => setTempExerciseWeight(Math.max(0, parseFloat(e.target.value) || 0))}
+                          style={modalStyles.checkInInput}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      style={{
+                        padding: '10px',
+                        background: '#00D4FF',
+                        border: 'none',
+                        borderRadius: '8px',
+                        color: '#000',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        marginTop: '4px',
+                        fontFamily: "'Outfit', sans-serif"
+                      }}
+                      onClick={() => {
+                        if (!tempExerciseName.trim()) {
+                          alert('Informe o nome do exercício!');
+                          return;
+                        }
+                        const newEx = {
+                          id: `ex_new_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                          name: tempExerciseName,
+                          sets: tempExerciseSets,
+                          reps: tempExerciseReps,
+                          weight: tempExerciseWeight,
+                          done_today: false
+                        };
+                        setSeriesModalExercises([...seriesModalExercises, newEx]);
+                        setTempExerciseName('');
+                      }}
+                    >
+                      + Adicionar à Lista
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={modalStyles.checkInLabel}>Exercícios da Série ({seriesModalExercises.length})</span>
+                  {seriesModalExercises.length === 0 ? (
+                    <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Nenhum exercício nesta série</span>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto' }}>
+                      {seriesModalExercises.map((ex, idx) => (
+                        <div key={ex.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: '8px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '13px', color: '#fff', fontWeight: 600 }}>{ex.name}</span>
+                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{ex.sets}x{ex.reps} • {ex.weight}kg</span>
+                          </div>
+                          <button
+                            type="button"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                            onClick={() => {
+                              setSeriesModalExercises(seriesModalExercises.filter((_, i) => i !== idx));
+                            }}
+                          >
+                            <X size={16} color="#FF2D55" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  style={{
+                    flex: 1,
+                    padding: '14px',
+                    borderRadius: '12px',
+                    background: '#FF2D55',
+                    border: 'none',
+                    color: '#fff',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    fontFamily: "'Outfit', sans-serif"
+                  }}
+                  onClick={() => {
+                    const confirmDel = window.confirm('Deseja realmente excluir esta série?');
+                    if (confirmDel) {
+                      deleteSeries(user?.uid, activeSeriesId);
+                      setShowEditSeriesModal(false);
+                      alert('Série excluída com sucesso!');
+                    }
+                  }}
+                >
+                  Excluir Série
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    flex: 1.5,
+                    padding: '14px',
+                    borderRadius: '12px',
+                    background: '#39FF14',
+                    border: 'none',
+                    color: '#000',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    fontFamily: "'Outfit', sans-serif"
+                  }}
+                  onClick={() => {
+                    if (!seriesModalName.trim()) {
+                      alert('Informe o nome da série!');
+                      return;
+                    }
+                    if (seriesModalExercises.length === 0) {
+                      alert('A série precisa ter pelo menos um exercício!');
+                      return;
+                    }
+                    updateSeries(user?.uid, activeSeriesId, {
+                      name: seriesModalName,
+                      weekly_frequency: seriesModalFrequency,
+                      progress_total: seriesModalTotal,
+                      exercises: seriesModalExercises
+                    });
+                    setShowEditSeriesModal(false);
+                    alert('Série atualizada!');
+                  }}
+                >
+                  Salvar
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </ScreenWrapper>
   );
 }
@@ -1166,6 +1831,36 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     flexShrink: 0,
+  },
+  streakBadge: {
+    position: 'absolute',
+    top: '-8px',
+    left: '-8px',
+    zIndex: 10,
+    background: 'linear-gradient(135deg, #FF9500, #FF6B00)',
+    color: '#fff',
+    fontSize: '11px',
+    fontWeight: '800',
+    padding: '4px 8px',
+    borderRadius: '12px',
+    boxShadow: '0 4px 10px rgba(255,107,0,0.4)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '2px',
+    fontFamily: "'Outfit', sans-serif",
+  },
+  masteryTitle: {
+    fontSize: '11px',
+    fontWeight: '800',
+    color: '#39FF14',
+    background: 'rgba(57,255,20,0.1)',
+    border: '1px solid rgba(57,255,20,0.2)',
+    padding: '2px 10px',
+    borderRadius: '10px',
+    marginTop: '6px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    fontFamily: "'Outfit', sans-serif",
   },
   usernameLeft: {
     fontSize: '18px',
@@ -1740,6 +2435,28 @@ const modalStyles = {
     cursor: 'pointer',
     fontFamily: "'Outfit', sans-serif"
   },
+  workoutModal: {
+    position: 'fixed',
+    bottom: 0,
+    left: '50%',
+    width: '100%',
+    maxWidth: '450px',
+    transform: 'translateX(-50%)',
+    background: '#0F0F15',
+    borderTop: '1px solid rgba(255,255,255,0.1)',
+    borderTopLeftRadius: '28px',
+    borderTopRightRadius: '28px',
+    padding: '20px',
+    display: 'flex',
+    flexDirection: 'column',
+    maxHeight: '90vh',
+    boxSizing: 'border-box'
+  },
+  modalScrollBody: {
+    overflowY: 'auto',
+    flex: 1,
+    paddingRight: '4px'
+  },
 };
 
 const tabStyles = {
@@ -1834,4 +2551,274 @@ const tabStyles = {
     fontFamily: "'Outfit', sans-serif",
     textAlign: 'center',
   },
+};
+
+const workoutStyles = {
+  container: {
+    padding: '8px 0 20px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px'
+  },
+  emptyState: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+    padding: '40px 16px',
+    background: 'rgba(255,255,255,0.02)',
+    borderRadius: '24px',
+    border: '1px solid rgba(255,255,255,0.05)',
+    textAlign: 'center'
+  },
+  emptyTitle: {
+    fontSize: '16px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif"
+  },
+  emptyText: {
+    fontSize: '13px',
+    color: 'rgba(255,255,255,0.5)',
+    lineHeight: '1.4',
+    maxWidth: '280px'
+  },
+  createBtn: {
+    padding: '12px 24px',
+    borderRadius: '12px',
+    background: '#39FF14',
+    border: 'none',
+    color: '#000',
+    fontWeight: 700,
+    fontSize: '14px',
+    cursor: 'pointer',
+    fontFamily: "'Outfit', sans-serif",
+    marginTop: '8px',
+    boxShadow: '0 4px 12px rgba(57,255,20,0.3)'
+  },
+  activeSeriesContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px'
+  },
+  selectorRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    background: 'rgba(255,255,255,0.03)',
+    padding: '10px 14px',
+    borderRadius: '14px',
+    border: '1px solid rgba(255,255,255,0.05)'
+  },
+  selectorLabel: {
+    fontSize: '13px',
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: 600,
+    fontFamily: "'Inter', sans-serif"
+  },
+  selectorSelect: {
+    background: 'none',
+    border: 'none',
+    color: '#00D4FF',
+    fontSize: '14px',
+    fontWeight: 700,
+    fontFamily: "'Outfit', sans-serif",
+    outline: 'none',
+    cursor: 'pointer'
+  },
+  headerCard: {
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '24px',
+    padding: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px'
+  },
+  headerTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start'
+  },
+  seriesTitle: {
+    fontSize: '18px',
+    fontWeight: 800,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    margin: 0
+  },
+  seriesFreq: {
+    fontSize: '12px',
+    color: '#00D4FF',
+    fontWeight: 600,
+    fontFamily: "'Inter', sans-serif",
+    marginTop: '2px',
+    display: 'inline-block'
+  },
+  headerActions: {
+    display: 'flex',
+    gap: '6px'
+  },
+  headerActionBtn: {
+    padding: '6px 12px',
+    borderRadius: '10px',
+    background: 'rgba(0,212,255,0.15)',
+    border: '1px solid rgba(0,212,255,0.3)',
+    color: '#00D4FF',
+    fontSize: '12px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    fontFamily: "'Outfit', sans-serif"
+  },
+  progressSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px'
+  },
+  progressLabels: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: '12px',
+    fontFamily: "'Inter', sans-serif"
+  },
+  progressLabel: {
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: 500
+  },
+  progressVal: {
+    color: '#fff',
+    fontWeight: 700
+  },
+  progressTrack: {
+    width: '100%',
+    height: '6px',
+    background: 'rgba(255,255,255,0.05)',
+    borderRadius: '3px',
+    overflow: 'hidden'
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: '3px',
+    background: 'linear-gradient(90deg, #00D4FF, #0088CC)',
+    boxShadow: '0 0 8px rgba(0,212,255,0.4)'
+  },
+  exercisesHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: '4px'
+  },
+  exercisesTitle: {
+    fontSize: '15px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    margin: 0
+  },
+  exercisesCount: {
+    fontSize: '12px',
+    color: 'rgba(255,255,255,0.4)',
+    fontFamily: "'Inter', sans-serif"
+  },
+  exercisesList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px'
+  },
+  noExercisesCard: {
+    padding: '20px',
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px dashed rgba(255,255,255,0.1)',
+    borderRadius: '16px',
+    textAlign: 'center',
+    fontSize: '13px',
+    color: 'rgba(255,255,255,0.5)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '10px'
+  },
+  addExerciseInlineBtn: {
+    padding: '8px 16px',
+    borderRadius: '10px',
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.15)',
+    color: '#fff',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: "'Outfit', sans-serif"
+  },
+  exerciseCard: {
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    borderRadius: '16px',
+    padding: '14px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    transition: 'all 0.2s ease'
+  },
+  exerciseCardDone: {
+    background: 'rgba(57,255,20,0.03)',
+    borderColor: 'rgba(57,255,20,0.15)'
+  },
+  exerciseInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    flex: 1,
+    paddingRight: '12px'
+  },
+  exerciseName: {
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif"
+  },
+  exerciseMeta: {
+    fontSize: '12px',
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: "'Inter', sans-serif"
+  },
+  doneBtn: {
+    padding: '8px 16px',
+    borderRadius: '10px',
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.15)',
+    color: '#fff',
+    fontSize: '12px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    fontFamily: "'Outfit', sans-serif",
+    minWidth: '70px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxSizing: 'border-box'
+  },
+  doneBtnActive: {
+    background: '#39FF14',
+    border: '1px solid #39FF14',
+    color: '#000',
+    boxShadow: '0 0 10px rgba(57,255,20,0.3)'
+  },
+  finishWorkoutBtn: {
+    width: '100%',
+    padding: '16px',
+    borderRadius: '16px',
+    background: 'linear-gradient(90deg, #39FF14 0%, #00CC00 100%)',
+    border: 'none',
+    color: '#000',
+    fontWeight: 800,
+    fontSize: '14px',
+    cursor: 'pointer',
+    fontFamily: "'Outfit', sans-serif",
+    boxShadow: '0 6px 16px rgba(57,255,20,0.25)',
+    marginTop: '10px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  }
 };

@@ -200,6 +200,7 @@ export default function PublicProfileScreen() {
   const [profileChallenges, setProfileChallenges] = useState([]);
   const [isLoadingChallenges, setIsLoadingChallenges] = useState(true);
   const [selectedChallenge, setSelectedChallenge] = useState(null);
+  const [activeWorkoutSeries, setActiveWorkoutSeries] = useState(null);
 
   const userId = screenParams?.userId;
 
@@ -223,6 +224,51 @@ export default function PublicProfileScreen() {
         fetchUserPosts(userId),
         checkIfFollowing(user?.uid, userId)
       ]);
+      
+      // Fetch public active workout series
+      let activeWS = null;
+      try {
+        const { data: wsData } = await supabase
+          .from('workout_series')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (wsData) {
+          activeWS = {
+            id: wsData.id,
+            name: wsData.name,
+            weekly_frequency: wsData.weekly_frequency,
+            progress_completed: wsData.progress_completed || 0,
+            progress_total: wsData.progress_total || 30,
+            exercises: Array.isArray(wsData.exercises) ? wsData.exercises : []
+          };
+        } else {
+          // Check local storage fallback for simulated mock data if public profile has local cached series
+          const cached = localStorage.getItem(`fitverse-workout-series-fallback_${userId}`);
+          if (cached) {
+            const list = JSON.parse(cached);
+            activeWS = list.find(s => s.is_active) || list[0];
+          } else {
+            // Static mock for demo public profile
+            activeWS = {
+              name: 'Hipertrofia - Push/Pull/Legs',
+              weekly_frequency: '3x por semana',
+              progress_completed: 12,
+              progress_total: 30,
+              exercises: [
+                { id: 'ex_1', name: 'Supino Reto (Barra)', sets: 4, reps: '8-10', weight: 80, done_today: true },
+                { id: 'ex_2', name: 'Desenvolvimento Militar', sets: 4, reps: '8-10', weight: 45, done_today: false },
+                { id: 'ex_3', name: 'Tríceps Testa', sets: 3, reps: '10-12', weight: 30, done_today: false },
+                { id: 'ex_4', name: 'Elevação Lateral', sets: 4, reps: '12-15', weight: 14, done_today: false },
+              ]
+            };
+          }
+        }
+      } catch (wsErr) {
+        console.warn('Error loading public active workout series:', wsErr);
+      }
       
       // Secondary dynamic counts fetch to bypass RLS column update lags
       let followersCount = profData?.followers || 0;
@@ -265,6 +311,7 @@ export default function PublicProfileScreen() {
       setUserPosts(postsData);
       setGymBagVideos(gymBagData);
       setIsFollowing(followingStatus);
+      setActiveWorkoutSeries(activeWS);
       setIsLoading(false);
     };
 
@@ -535,6 +582,10 @@ export default function PublicProfileScreen() {
             </div>
 
             <div style={styles.avatarContainerRight}>
+              {/* Streak Badge */}
+              <div style={styles.streakBadge}>
+                🔥 {profile.streak || 0}
+              </div>
               <div style={styles.avatar}>
                 {profile.avatar_url ? <img src={profile.avatar_url} alt="" style={styles.avatarImg} /> : (
                   <div style={styles.avatarPlaceholder}>{profile.display_name?.charAt(0) || '?'}</div>
@@ -564,6 +615,8 @@ export default function PublicProfileScreen() {
                   )}
                 </motion.button>
               )}
+              {/* Mastery Title */}
+              <span style={styles.masteryTitle}>Maromba</span>
             </div>
           </div>
 
@@ -571,25 +624,11 @@ export default function PublicProfileScreen() {
             {profile.bio && <p style={styles.bioCenter}>{profile.bio}</p>}
           </div>
 
-          {/* Prominent Message button (Follow button is now the green '+' on avatar) */}
-          {user?.uid !== profile.id && (
-            <div style={styles.actionRow}>
-              <motion.button
-                style={styles.messageBtn}
-                onClick={handleMessage}
-                whileTap={{ scale: 0.95 }}
-              >
-                <MessageCircle size={16} />
-                <span>Mensagem</span>
-              </motion.button>
-            </div>
-          )}
-
           {/* Stats inside profile card */}
-          <div style={{ ...styles.statsGrid, width: '100%', marginTop: '16px', marginBottom: 0 }}>
+          <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0 }}>
             <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
-            <StatBox label="Ranking" value={`#${profile.rank_position || '-'}`} icon={Award} color="#FFD700" />
-            <StatBox label="Medalhas" value={totalMedalsCount} icon={Trophy} color="#FF9500" onClick={() => setShowMedalsModal(true)} />
+            <StatBox label="Medalhas" value={totalMedalsCount} icon={Award} color="#FFD700" onClick={() => setShowMedalsModal(true)} />
+            <StatBox label="Chat" value="Conversar" icon={MessageCircle} color="#00D4FF" onClick={handleMessage} />
           </div>
         </motion.div>
 
@@ -607,6 +646,12 @@ export default function PublicProfileScreen() {
           >
             <Trophy size={18} /> Desafios
             {profileChallenges.length > 0 && <span style={styles.badgeCountChip}>{profileChallenges.length}</span>}
+          </button>
+          <button
+            style={{ ...styles.contentTab, ...(activeTab === 'serie' ? styles.contentTabActive : {}) }}
+            onClick={() => setActiveTab('serie')}
+          >
+            <Dumbbell size={18} /> Série
           </button>
         </div>
 
@@ -664,6 +709,94 @@ export default function PublicProfileScreen() {
                     onClick={() => setSelectedChallenge(challenge)}
                   />
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Content - Série (Read-only) */}
+        {activeTab === 'serie' && (
+          <div style={workoutStyles.container}>
+            {!activeWorkoutSeries ? (
+              <div style={workoutStyles.emptyState}>
+                <Dumbbell size={48} color="rgba(255,255,255,0.2)" />
+                <span style={workoutStyles.emptyTitle}>Nenhuma Série Ativa</span>
+                <span style={workoutStyles.emptyText}>Este usuário ainda não configurou uma série de treinos ativa.</span>
+              </div>
+            ) : (
+              <div style={workoutStyles.activeSeriesContainer}>
+                {/* Series Header Card */}
+                <div style={workoutStyles.headerCard}>
+                  <div style={workoutStyles.headerTop}>
+                    <div>
+                      <h4 style={workoutStyles.seriesTitle}>{activeWorkoutSeries.name}</h4>
+                      <span style={workoutStyles.seriesFreq}>{activeWorkoutSeries.weekly_frequency}</span>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div style={workoutStyles.progressSection}>
+                    <div style={workoutStyles.progressLabels}>
+                      <span style={workoutStyles.progressLabel}>Progresso do Usuário</span>
+                      <span style={workoutStyles.progressVal}>
+                        {activeWorkoutSeries.progress_completed || 0}/{activeWorkoutSeries.progress_total || 30} treinos
+                      </span>
+                    </div>
+                    <div style={workoutStyles.progressTrack}>
+                      <motion.div
+                        style={{
+                          ...workoutStyles.progressFill,
+                          width: `${Math.min(100, Math.round(((activeWorkoutSeries.progress_completed || 0) / (activeWorkoutSeries.progress_total || 30)) * 100))}%`
+                        }}
+                        initial={{ width: 0 }}
+                        animate={{
+                          width: `${Math.min(100, Math.round(((activeWorkoutSeries.progress_completed || 0) / (activeWorkoutSeries.progress_total || 30)) * 100))}%`
+                        }}
+                        transition={{ duration: 0.5 }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Exercises List Header */}
+                <div style={workoutStyles.exercisesHeader}>
+                  <h5 style={workoutStyles.exercisesTitle}>Exercícios da Série</h5>
+                  <span style={workoutStyles.exercisesCount}>{activeWorkoutSeries.exercises?.length || 0} exercícios</span>
+                </div>
+
+                {/* Exercises Grid/List */}
+                <div style={workoutStyles.exercisesList}>
+                  {(!activeWorkoutSeries.exercises || activeWorkoutSeries.exercises.length === 0) ? (
+                    <div style={workoutStyles.noExercisesCard}>
+                      <span>Nenhum exercício cadastrado nesta série.</span>
+                    </div>
+                  ) : (
+                    activeWorkoutSeries.exercises.map((ex) => (
+                      <div
+                        key={ex.id}
+                        style={{
+                          ...workoutStyles.exerciseCard,
+                          ...(ex.done_today ? workoutStyles.exerciseCardDone : {}),
+                        }}
+                      >
+                        <div style={workoutStyles.exerciseInfo}>
+                          <span style={workoutStyles.exerciseName}>{ex.name}</span>
+                          <span style={workoutStyles.exerciseMeta}>
+                            {ex.sets} séries x {ex.reps} reps {ex.weight > 0 ? `• ${ex.weight}kg` : ''}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            ...workoutStyles.readOnlyBadge,
+                            ...(ex.done_today ? workoutStyles.readOnlyBadgeDone : {}),
+                          }}
+                        >
+                          {ex.done_today ? 'Concluído' : 'Pendente'}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -895,6 +1028,36 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     flexShrink: 0,
+  },
+  streakBadge: {
+    position: 'absolute',
+    top: '-8px',
+    left: '-8px',
+    zIndex: 10,
+    background: 'linear-gradient(135deg, #FF9500, #FF6B00)',
+    color: '#fff',
+    fontSize: '11px',
+    fontWeight: '800',
+    padding: '4px 8px',
+    borderRadius: '12px',
+    boxShadow: '0 4px 10px rgba(255,107,0,0.4)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '2px',
+    fontFamily: "'Outfit', sans-serif",
+  },
+  masteryTitle: {
+    fontSize: '11px',
+    fontWeight: '800',
+    color: '#39FF14',
+    background: 'rgba(57,255,20,0.1)',
+    border: '1px solid rgba(57,255,20,0.2)',
+    padding: '2px 10px',
+    borderRadius: '10px',
+    marginTop: '6px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    fontFamily: "'Outfit', sans-serif",
   },
   usernameLeft: {
     fontSize: '18px',
@@ -1329,4 +1492,185 @@ const tabStyles = {
     fontFamily: "'Outfit', sans-serif",
     textAlign: 'center',
   },
+};
+
+const workoutStyles = {
+  container: {
+    padding: '8px 0 20px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px'
+  },
+  emptyState: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+    padding: '40px 16px',
+    background: 'rgba(255,255,255,0.02)',
+    borderRadius: '24px',
+    border: '1px solid rgba(255,255,255,0.05)',
+    textAlign: 'center'
+  },
+  emptyTitle: {
+    fontSize: '16px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif"
+  },
+  emptyText: {
+    fontSize: '13px',
+    color: 'rgba(255,255,255,0.5)',
+    lineHeight: '1.4',
+    maxWidth: '280px'
+  },
+  activeSeriesContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px'
+  },
+  headerCard: {
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '24px',
+    padding: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px'
+  },
+  headerTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start'
+  },
+  seriesTitle: {
+    fontSize: '18px',
+    fontWeight: 800,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    margin: 0
+  },
+  seriesFreq: {
+    fontSize: '12px',
+    color: '#00D4FF',
+    fontWeight: 600,
+    fontFamily: "'Inter', sans-serif",
+    marginTop: '2px',
+    display: 'inline-block'
+  },
+  progressSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px'
+  },
+  progressLabels: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: '12px',
+    fontFamily: "'Inter', sans-serif"
+  },
+  progressLabel: {
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: 500
+  },
+  progressVal: {
+    color: '#fff',
+    fontWeight: 700
+  },
+  progressTrack: {
+    width: '100%',
+    height: '6px',
+    background: 'rgba(255,255,255,0.05)',
+    borderRadius: '3px',
+    overflow: 'hidden'
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: '3px',
+    background: 'linear-gradient(90deg, #00D4FF, #0088CC)',
+    boxShadow: '0 0 8px rgba(0,212,255,0.4)'
+  },
+  exercisesHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: '4px'
+  },
+  exercisesTitle: {
+    fontSize: '15px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    margin: 0
+  },
+  exercisesCount: {
+    fontSize: '12px',
+    color: 'rgba(255,255,255,0.4)',
+    fontFamily: "'Inter', sans-serif"
+  },
+  exercisesList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px'
+  },
+  noExercisesCard: {
+    padding: '20px',
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px dashed rgba(255,255,255,0.1)',
+    borderRadius: '16px',
+    textAlign: 'center',
+    fontSize: '13px',
+    color: 'rgba(255,255,255,0.5)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '10px'
+  },
+  exerciseCard: {
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    borderRadius: '16px',
+    padding: '14px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    transition: 'all 0.2s ease'
+  },
+  exerciseCardDone: {
+    background: 'rgba(57,255,20,0.03)',
+    borderColor: 'rgba(57,255,20,0.15)'
+  },
+  exerciseInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    flex: 1,
+    paddingRight: '12px'
+  },
+  exerciseName: {
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif"
+  },
+  exerciseMeta: {
+    fontSize: '12px',
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: "'Inter', sans-serif"
+  },
+  readOnlyBadge: {
+    padding: '6px 12px',
+    borderRadius: '8px',
+    background: 'rgba(255,255,255,0.05)',
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: '11px',
+    fontWeight: 700,
+    fontFamily: "'Outfit', sans-serif"
+  },
+  readOnlyBadgeDone: {
+    background: 'rgba(57,255,20,0.1)',
+    color: '#39FF14',
+    border: '1px solid rgba(57,255,20,0.2)'
+  }
 };
