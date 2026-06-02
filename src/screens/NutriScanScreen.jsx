@@ -1,9 +1,50 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Zap, Clock, Target, ChevronRight, Utensils, ArrowLeft } from 'lucide-react';
+import { Camera, Zap, Clock, Target, ChevronRight, Utensils, ArrowLeft, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
 import { useNutriStore } from '../stores/nutriStore';
 import { useNavigationStore } from '../stores/navigationStore';
+import { useAuthStore } from '../stores/authStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
+
+const compressImage = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to Base64 JPEG with 0.7 quality
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        resolve(compressedBase64);
+      };
+      img.onerror = (err) => reject(new Error('Erro ao carregar imagem para compressão: ' + err.message));
+    };
+    reader.onerror = (err) => reject(new Error('Erro ao ler o arquivo: ' + err.message));
+  });
+};
 
 function MacroChart({ totals, goals }) {
   const size = 140;
@@ -125,8 +166,56 @@ function MealItem({ meal, index }) {
 }
 
 export default function NutriScanScreen() {
-  const { meals, dailyGoals, dailyTotals, lastScanResult, isScanning, simulateScan, clearScanResult } = useNutriStore();
+  const { 
+    meals, 
+    dailyGoals, 
+    dailyTotals, 
+    lastScanResult, 
+    isScanning, 
+    scanMealWithVision, 
+    clearScanResult,
+    error: storeError
+  } = useNutriStore();
   const { goBack } = useNavigationStore();
+  const { user } = useAuthStore();
+
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [localError, setLocalError] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const triggerFileSelect = () => {
+    if (isScanning) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLocalError(null);
+    clearScanResult();
+
+    try {
+      const compressedBase64 = await compressImage(file);
+      setSelectedImage(compressedBase64);
+      await scanMealWithVision(compressedBase64, user?.uid);
+    } catch (err) {
+      console.error(err);
+      setLocalError(err.message || 'Ocorreu um erro ao processar a imagem.');
+    }
+
+    if (e.target) {
+      e.target.value = '';
+    }
+  };
+
+  const handleCancelOrClear = () => {
+    setSelectedImage(null);
+    setLocalError(null);
+    clearScanResult();
+  };
+
+  const activeError = localError || storeError;
 
   return (
     <ScreenWrapper screenKey="nutriscan">
@@ -143,28 +232,81 @@ export default function NutriScanScreen() {
           <p style={styles.subtitle}>Escaneie sua refeição com IA</p>
         </div>
 
-        {/* Scan button */}
-        <div style={styles.scanSection}>
-          <motion.button
-            style={styles.scanBtn}
-            onClick={() => { clearScanResult(); simulateScan(); }}
-            disabled={isScanning}
-            whileTap={{ scale: 0.95 }}
-            animate={isScanning ? { boxShadow: ['0 0 20px rgba(57,255,20,0.3)', '0 0 40px rgba(57,255,20,0.6)', '0 0 20px rgba(57,255,20,0.3)'] } : {}}
-            transition={isScanning ? { repeat: Infinity, duration: 1 } : {}}
+        {/* Scan section / Upload Card / Preview */}
+        {!selectedImage ? (
+          <div style={styles.scanSection}>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/*"
+              style={{ display: 'none' }}
+            />
+            <motion.div
+              style={styles.uploadCard}
+              onClick={triggerFileSelect}
+              whileHover={{ scale: 1.02, borderColor: 'rgba(57,255,20,0.5)', boxShadow: '0 0 25px rgba(57,255,20,0.15)' }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <div style={styles.uploadGlow} />
+              <Camera size={36} color="#39FF14" style={{ marginBottom: '12px' }} />
+              <span style={styles.uploadTitle}>Escanear Prato com Visão</span>
+              <span style={styles.uploadDesc}>Tire uma foto ou faça upload da sua refeição</span>
+            </motion.div>
+          </div>
+        ) : (
+          <div style={styles.previewContainer}>
+            <div style={styles.imageWrapper}>
+              <img src={selectedImage} alt="Refeição" style={styles.previewImage} />
+              
+              {/* Laser Line Scanning Animation */}
+              {isScanning && (
+                <>
+                  <motion.div
+                    style={styles.laserLine}
+                    animate={{ top: ['0%', '100%', '0%'] }}
+                    transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+                  />
+                  <div style={styles.scanningOverlay}>
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+                      style={{ marginBottom: '12px' }}
+                    >
+                      <Zap size={32} color="#39FF14" />
+                    </motion.div>
+                    <span style={styles.scanningText}>Identificando macros com Kimi K2.5...</span>
+                  </div>
+                </>
+              )}
+
+              {/* Clear Image Button when not scanning */}
+              {!isScanning && (
+                <button style={styles.clearBtn} onClick={handleCancelOrClear}>
+                  <Trash2 size={16} color="#FF2D55" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Error message */}
+        {activeError && (
+          <motion.div
+            style={styles.errorCard}
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
           >
-            {isScanning ? (
-              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
-                <Zap size={32} color="#fff" />
-              </motion.div>
-            ) : (
-              <Camera size={32} color="#fff" />
-            )}
-          </motion.button>
-          <span style={styles.scanLabel}>
-            {isScanning ? 'Analisando...' : 'Toque para escanear'}
-          </span>
-        </div>
+            <AlertCircle size={20} color="#FF2D55" style={{ flexShrink: 0 }} />
+            <div style={styles.errorInfo}>
+              <span style={styles.errorTitle}>Erro no Escaneamento</span>
+              <p style={styles.errorDesc}>{activeError}</p>
+              <button style={styles.retryBtn} onClick={triggerFileSelect}>
+                <RefreshCw size={12} style={{ marginRight: '6px' }} /> Tentar Novamente
+              </button>
+            </div>
+          </motion.div>
+        )}
 
         {/* Scan result */}
         <AnimatePresence>
@@ -218,13 +360,107 @@ const styles = {
   title: { fontSize: '24px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0 },
   subtitle: { fontSize: '14px', color: '#6C6C88', fontFamily: "'Inter', sans-serif" },
   scanSection: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '24px' },
-  scanBtn: {
-    width: '88px', height: '88px', borderRadius: '50%',
-    background: 'linear-gradient(135deg, #39FF14, #00CC44)',
-    border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    boxShadow: '0 0 30px rgba(57,255,20,0.3)',
+  uploadCard: {
+    width: '100%',
+    padding: '32px 20px',
+    borderRadius: '20px',
+    border: '2px dashed rgba(57,255,20,0.2)',
+    background: 'rgba(57,255,20,0.02)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    position: 'relative',
+    overflow: 'hidden',
+    transition: 'all 0.3s ease',
   },
-  scanLabel: { fontSize: '14px', color: '#B0B0C8', fontWeight: 500, fontFamily: "'Inter', sans-serif" },
+  uploadGlow: {
+    position: 'absolute',
+    top: '-50%', left: '-50%', width: '200%', height: '200%',
+    background: 'radial-gradient(circle, rgba(57,255,20,0.05) 0%, transparent 60%)',
+    pointerEvents: 'none',
+  },
+  uploadTitle: { fontSize: '16px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif", marginBottom: '4px' },
+  uploadDesc: { fontSize: '12px', color: '#6C6C88', fontFamily: "'Inter', sans-serif", textAlign: 'center' },
+  previewContainer: { width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '24px' },
+  imageWrapper: {
+    position: 'relative',
+    width: '100%',
+    maxHeight: '300px',
+    borderRadius: '16px',
+    overflow: 'hidden',
+    border: '1px solid rgba(255,255,255,0.1)',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+  },
+  previewImage: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
+  laserLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: '4px',
+    background: 'linear-gradient(90deg, transparent, #39FF14 20%, #39FF14 80%, transparent)',
+    boxShadow: '0 0 12px rgba(57,255,20,0.8), 0 0 25px rgba(57,255,20,0.5)',
+    zIndex: 10,
+    pointerEvents: 'none',
+  },
+  scanningOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    background: 'rgba(0,0,0,0.65)',
+    backdropFilter: 'blur(3px)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+  },
+  scanningText: { fontSize: '14px', color: '#39FF14', fontWeight: 600, fontFamily: "'Inter', sans-serif" },
+  clearBtn: {
+    position: 'absolute',
+    top: '12px',
+    right: '12px',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    background: 'rgba(0,0,0,0.7)',
+    border: '1px solid rgba(255,255,255,0.15)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backdropFilter: 'blur(5px)',
+    transition: 'all 0.2s ease',
+    zIndex: 12,
+  },
+  errorCard: {
+    display: 'flex',
+    gap: '12px',
+    background: 'rgba(255,45,85,0.06)',
+    border: '1px solid rgba(255,45,85,0.15)',
+    borderRadius: '16px',
+    padding: '16px',
+    marginBottom: '24px',
+    alignItems: 'flex-start',
+  },
+  errorInfo: { display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 },
+  errorTitle: { fontSize: '14px', fontWeight: 700, color: '#FF2D55', fontFamily: "'Outfit', sans-serif" },
+  errorDesc: { fontSize: '12px', color: '#B0B0C8', fontFamily: "'Inter', sans-serif", margin: 0, lineHeight: 1.4 },
+  retryBtn: {
+    background: 'rgba(255,45,85,0.15)',
+    color: '#FF2D55',
+    border: '1px solid rgba(255,45,85,0.2)',
+    padding: '6px 12px',
+    borderRadius: '8px',
+    fontSize: '11px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    marginTop: '6px',
+    alignSelf: 'flex-start',
+    fontFamily: "'Inter', sans-serif",
+  },
   dailySection: { marginBottom: '24px' },
   sectionTitle: { fontSize: '18px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif", marginBottom: '12px' },
   summaryCard: { background: 'rgba(255,255,255,0.04)', borderRadius: '16px', padding: '20px', border: '1px solid rgba(255,255,255,0.06)' },
