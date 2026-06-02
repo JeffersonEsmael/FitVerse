@@ -215,9 +215,7 @@ export default function ProfileScreen() {
   const [tempExerciseReps, setTempExerciseReps] = useState('10');
   const [tempExerciseWeight, setTempExerciseWeight] = useState(0);
 
-  // Profile Options Menu (3 pontinhos)
-  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
-  const [showSavedModal, setShowSavedModal] = useState(false);
+
 
   const [showMedalsModal, setShowMedalsModal] = useState(false);
   const [profileChallenges, setProfileChallenges] = useState([]);
@@ -582,43 +580,9 @@ export default function ProfileScreen() {
             <Plus size={24} color="#fff" />
           </button>
           <h2 style={styles.title}>Perfil</h2>
-          <button style={styles.headerBtnRight} onClick={() => setShowOptionsMenu(!showOptionsMenu)}>
+          <button style={styles.headerBtnRight} onClick={() => navigate('settings')}>
             <MoreVertical size={24} color="#fff" />
           </button>
-
-          {/* Options Menu (3 pontinhos) */}
-          <AnimatePresence>
-            {showOptionsMenu && (
-              <>
-                <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowOptionsMenu(false)} />
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                  style={styles.dropdownMenu}
-                >
-                  <div
-                    style={styles.dropdownItem}
-                    onClick={() => {
-                      setShowOptionsMenu(false);
-                      navigate('settings');
-                    }}
-                  >
-                    Configurações
-                  </div>
-                  <div
-                    style={{ ...styles.dropdownItem, borderTop: '1px solid rgba(255,255,255,0.05)' }}
-                    onClick={() => {
-                      setShowOptionsMenu(false);
-                      setShowSavedModal(true);
-                    }}
-                  >
-                    Salvos
-                  </div>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
         </div>
 
         {/* Profile card - Glassmorphism */}
@@ -1326,40 +1290,7 @@ export default function ProfileScreen() {
         )}
       </AnimatePresence>
 
-      {/* MODAL: Salvos (Em breve) */}
-      <AnimatePresence>
-        {showSavedModal && (
-          <>
-            <motion.div
-              style={modalStyles.backdrop}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowSavedModal(false)}
-            />
-            <motion.div
-              style={{ ...modalStyles.checkInModal, zIndex: 100002 }}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-            >
-              <div style={modalStyles.checkInHeader}>
-                <h3 style={modalStyles.checkInTitle}>Itens Salvos</h3>
-                <button style={modalStyles.closeBtn} onClick={() => setShowSavedModal(false)}>
-                  <X size={20} color="#fff" />
-                </button>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '30px 10px', gap: '12px' }}>
-                <span style={{ fontSize: '36px' }}>📌</span>
-                <span style={{ fontSize: '15px', color: '#fff', fontWeight: 700, fontFamily: "'Outfit', sans-serif" }}>Em Breve</span>
-                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', textAlign: 'center', margin: 0, fontFamily: "'Inter', sans-serif" }}>
-                  A função de salvar publicações e treinos favoritos estará disponível em uma próxima atualização!
-                </p>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+
 
       {/* MODAL: Criar Série */}
       <AnimatePresence>

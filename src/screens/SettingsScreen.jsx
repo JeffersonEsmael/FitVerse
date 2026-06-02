@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, User, Lock, LogOut, ChevronRight, Shield, Bell, Ban } from 'lucide-react';
+import { ChevronLeft, User, Lock, LogOut, ChevronRight, Shield, Bell, Ban, Bookmark } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
@@ -30,6 +30,14 @@ export default function SettingsScreen() {
       description: 'Conta pública ou privada',
       color: '#39FF14',
       onClick: () => navigate('privacy_settings'),
+    },
+    {
+      id: 'saved_items',
+      icon: Bookmark,
+      title: 'Itens Salvos',
+      description: 'Vídeos que você salvou no feed',
+      color: '#FFD700',
+      onClick: () => navigate('saved_items'),
     },
     {
       id: 'security_settings',
