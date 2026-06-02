@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, User, Lock, LogOut, ChevronRight, Shield, Bell, Ban, Bookmark } from 'lucide-react';
+import { ChevronLeft, User, Lock, LogOut, ChevronRight, Shield, Bell, Ban, Bookmark, LayoutDashboard } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
@@ -62,6 +62,14 @@ export default function SettingsScreen() {
       description: 'Lista de bloqueados e restrições',
       color: '#FF2D55',
       onClick: () => navigate('blocked_users'),
+    },
+    {
+      id: 'gym_admin',
+      icon: LayoutDashboard,
+      title: 'Painel da Academia (Gestor)',
+      description: 'Gerenciar QR Code e ver check-ins',
+      color: '#39FF14',
+      onClick: () => navigate('gym_admin'),
     },
     {
       id: 'logout',

@@ -25,6 +25,7 @@ import MessagesScreen from './screens/MessagesScreen';
 import PublicProfileScreen from './screens/PublicProfileScreen';
 import PostDetailsScreen from './screens/PostDetailsScreen';
 import SavedItemsScreen from './screens/SavedItemsScreen';
+import GymAdminScreen from './screens/GymAdminScreen';
 
 // Screens that show the bottom nav
 const NAV_SCREENS = ['feed', 'explore', 'conversations', 'notifications', 'profile', 'public_profile'];
@@ -51,6 +52,7 @@ const SCREENS = {
   messages: MessagesScreen,
   post_details: PostDetailsScreen,
   saved_items: SavedItemsScreen,
+  gym_admin: GymAdminScreen,
 };
 
 export default function App() {

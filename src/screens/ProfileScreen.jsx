@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play, MoreVertical, Check } from 'lucide-react';
+import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play, MoreVertical, Check, MapPin, QrCode, Calendar, Shield } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useFeedStore } from '../stores/feedStore';
 import { useRankingStore } from '../stores/rankingStore';
 import { useWorkoutStore } from '../stores/workoutStore';
+import { useGymStore } from '../stores/gymStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import ShapeIcon from '../components/icons/ShapeIcon';
 import ProfileChallengeCard from '../components/profile/ProfileChallengeCard';
@@ -196,6 +197,31 @@ export default function ProfileScreen() {
     incrementWorkoutProgress,
     deleteSeries
   } = useWorkoutStore();
+
+  const {
+    gymsList,
+    checkins,
+    isLoading: isGymLoading,
+    error: gymError,
+    fetchGyms,
+    fetchUserCheckins,
+    linkUserToGym,
+    performGymCheckin
+  } = useGymStore();
+
+  const [showQrScanModal, setShowQrScanModal] = useState(false);
+  const [manualTokenInput, setManualTokenInput] = useState('');
+  const [checkinSuccessMessage, setCheckinSuccessMessage] = useState('');
+  const [checkinErrorMessage, setCheckinErrorMessage] = useState('');
+  const [isPerformingScan, setIsPerformingScan] = useState(false);
+  const [showChangeGymList, setShowChangeGymList] = useState(false);
+
+  useEffect(() => {
+    fetchGyms();
+    if (user?.uid) {
+      fetchUserCheckins(user.uid);
+    }
+  }, [user?.uid, fetchGyms, fetchUserCheckins]);
   
   const [activeProfileTab, setActiveProfileTab] = useState('videos');
   const [userPosts, setUserPosts] = useState([]);
@@ -610,9 +636,11 @@ export default function ProfileScreen() {
 
             <div style={styles.avatarContainerRight}>
               {/* Streak Badge */}
-              <div style={styles.streakBadge}>
-                🔥 {p.streak || 0}
-              </div>
+              {p.streak >= 3 && (
+                <div style={styles.streakBadge}>
+                  🔥 {p.streak}
+                </div>
+              )}
               <div style={styles.avatar}>
                 {p.avatar_url ? <img src={p.avatar_url} alt="" style={styles.avatarImg} /> : (
                   <div style={styles.avatarPlaceholder}>{p.display_name?.charAt(0) || '?'}</div>
@@ -659,6 +687,108 @@ export default function ProfileScreen() {
             <ChevronRight size={18} color="rgba(255,255,255,0.6)" />
           </motion.button>
         </div>
+
+        {/* Check-in Academia */}
+        {!p.gym_id || showChangeGymList ? (
+          <div style={styles.gymCard}>
+            <div style={styles.gymCardHeader}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <MapPin size={20} color="#00D4FF" />
+                <h4 style={styles.gymCardTitle}>Conectar Academia</h4>
+              </div>
+            </div>
+            <p style={styles.gymCardDesc}>Escolha uma academia parceira para registrar seus check-ins e acumular seu streak diário!</p>
+            
+            <div style={styles.gymOptionsList}>
+              {gymsList.map(gym => (
+                <div key={gym.id} style={styles.gymOptionItem}>
+                  <div style={styles.gymOptionInfo}>
+                    <span style={styles.gymOptionName}>{gym.name}</span>
+                    <span style={styles.gymOptionAddr}>{gym.address}</span>
+                  </div>
+                  <motion.button
+                    style={styles.gymConnectBtn}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      linkUserToGym(user.uid, gym.id);
+                      setShowChangeGymList(false);
+                    }}
+                  >
+                    Vincular
+                  </motion.button>
+                </div>
+              ))}
+            </div>
+
+            {showChangeGymList && p.gym_id && (
+              <button
+                style={styles.gymCancelBtn}
+                onClick={() => setShowChangeGymList(false)}
+              >
+                Voltar
+              </button>
+            )}
+          </div>
+        ) : (
+          (() => {
+            const userGym = gymsList.find(g => g.id === p.gym_id);
+            const lastCheckIn = checkins[0];
+            const lastCheckInStr = lastCheckIn 
+              ? new Date(lastCheckIn.created_at).toLocaleString('pt-BR', { 
+                  day: '2-digit', 
+                  month: '2-digit', 
+                  year: 'numeric', 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                }) 
+              : 'Nenhum check-in realizado';
+
+            return (
+              <div style={styles.gymCard}>
+                <div style={styles.gymCardHeader}>
+                  <div style={styles.gymCardHeaderLeft}>
+                    <MapPin size={22} color="#39FF14" />
+                    <div>
+                      <h4 style={styles.gymCardTitle}>{userGym ? userGym.name : 'Academia Parceira'}</h4>
+                      <span style={styles.gymCardSub}>{userGym ? userGym.address : ''}</span>
+                    </div>
+                  </div>
+                  <button 
+                    style={styles.gymChangeLink} 
+                    onClick={() => setShowChangeGymList(true)}
+                  >
+                    Alterar
+                  </button>
+                </div>
+
+                <div style={styles.gymStatsRow}>
+                  <div style={styles.gymStatBox}>
+                    <span style={styles.gymStatLabel}>Último Check-in</span>
+                    <span style={styles.gymStatValue}>{lastCheckInStr}</span>
+                  </div>
+                  <div style={styles.gymStatBox}>
+                    <span style={styles.gymStatLabel}>Streak Atual</span>
+                    <span style={styles.gymStatValueStreak}>🔥 {p.streak || 0} dias</span>
+                  </div>
+                </div>
+
+                <motion.button
+                  style={styles.gymCheckinBtn}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setCheckinSuccessMessage('');
+                    setCheckinErrorMessage('');
+                    setManualTokenInput('');
+                    setShowQrScanModal(true);
+                  }}
+                >
+                  <QrCode size={20} color="#0A0A0F" />
+                  <span style={{ color: '#0A0A0F', fontWeight: 800 }}>Fazer Check-in por QR Code</span>
+                </motion.button>
+              </div>
+            );
+          })()
+        )}
 
         {/* Content tabs */}
         <div style={styles.contentTabs}>
@@ -1708,6 +1838,175 @@ export default function ProfileScreen() {
           </>
         )}
       </AnimatePresence>
+
+      {/* MODAL: Leitor de QR Code Simulado */}
+      <AnimatePresence>
+        {showQrScanModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              style={modalStyles.backdrop}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                if (!isPerformingScan) setShowQrScanModal(false);
+              }}
+            />
+            {/* Modal Box */}
+            <motion.div
+              style={styles.scannerModal}
+              initial={{ scale: 0.9, opacity: 0, y: 50 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 50 }}
+            >
+              <div style={styles.scannerHeader}>
+                <h3 style={styles.scannerTitle}>Leitor de QR Code</h3>
+                <button
+                  style={styles.scannerCloseBtn}
+                  onClick={() => setShowQrScanModal(false)}
+                  disabled={isPerformingScan}
+                >
+                  <X size={20} color="#fff" />
+                </button>
+              </div>
+
+              {checkinSuccessMessage ? (
+                <div style={styles.scannerSuccessContainer}>
+                  <div style={styles.scannerSuccessIconBg}>
+                    <Check size={40} color="#0A0A0F" strokeWidth={3} />
+                  </div>
+                  <h4 style={styles.scannerSuccessTitle}>Presença Confirmada!</h4>
+                  <p style={styles.scannerSuccessDesc}>{checkinSuccessMessage}</p>
+                  <button
+                    style={styles.scannerSuccessBtn}
+                    onClick={() => {
+                      setShowQrScanModal(false);
+                      setCheckinSuccessMessage('');
+                    }}
+                  >
+                    Fechar
+                  </button>
+                </div>
+              ) : (
+                <div style={styles.scannerBody}>
+                  {/* Viewfinder simulation */}
+                  <div style={styles.viewfinderContainer}>
+                    <div style={styles.viewfinderCornerTL} />
+                    <div style={styles.viewfinderCornerTR} />
+                    <div style={styles.viewfinderCornerBL} />
+                    <div style={styles.viewfinderCornerBR} />
+                    <motion.div
+                      style={styles.scannerLaser}
+                      animate={{ top: ['0%', '98%', '0%'] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                    />
+                    {isPerformingScan ? (
+                      <span style={styles.viewfinderStatusText}>Processando check-in...</span>
+                    ) : (
+                      <span style={styles.viewfinderStatusText}>Aponte a câmera ou use a simulação abaixo</span>
+                    )}
+                  </div>
+
+                  {checkinErrorMessage && (
+                    <div style={styles.scannerErrorMsg}>
+                      ⚠️ {checkinErrorMessage}
+                    </div>
+                  )}
+
+                  {/* Manual token input */}
+                  <div style={styles.manualInputRow}>
+                    <input
+                      type="text"
+                      placeholder="Token do QR Code manualmente"
+                      value={manualTokenInput}
+                      onChange={(e) => setManualTokenInput(e.target.value)}
+                      style={styles.manualInput}
+                      disabled={isPerformingScan}
+                    />
+                    <button
+                      style={styles.manualInputBtn}
+                      onClick={async () => {
+                        if (!manualTokenInput.trim()) return;
+                        setIsPerformingScan(true);
+                        setCheckinErrorMessage('');
+                        try {
+                          const res = await performGymCheckin(user.uid, manualTokenInput.trim());
+                          if (res.success) {
+                            setCheckinSuccessMessage(
+                              `Check-in realizado com sucesso na unidade ${res.gym.name}! Seu streak atual é de ${res.newStreak} dias.`
+                            );
+                            // Refresh checkins history
+                            fetchUserCheckins(user.uid);
+                          }
+                        } catch (err) {
+                          setCheckinErrorMessage(err.message || 'Falha ao realizar check-in.');
+                        } finally {
+                          setIsPerformingScan(false);
+                        }
+                      }}
+                      disabled={isPerformingScan}
+                    >
+                      Confirmar
+                    </button>
+                  </div>
+
+                  {/* Fast Simulation Options */}
+                  <div style={styles.simulationContainer}>
+                    <span style={styles.simulationTitle}>Simular escaneamento físico:</span>
+                    <div style={styles.simulationButtons}>
+                      {gymsList.map(gym => (
+                        <button
+                          key={gym.id}
+                          style={styles.simBtn}
+                          disabled={isPerformingScan}
+                          onClick={async () => {
+                            setIsPerformingScan(true);
+                            setCheckinErrorMessage('');
+                            try {
+                              const res = await performGymCheckin(user.uid, gym.qr_code_token);
+                              if (res.success) {
+                                setCheckinSuccessMessage(
+                                  `Check-in realizado com sucesso na unidade ${res.gym.name}! Seu streak atual é de ${res.newStreak} dias.`
+                                );
+                                // Refresh checkins history
+                                fetchUserCheckins(user.uid);
+                              }
+                            } catch (err) {
+                              setCheckinErrorMessage(err.message || 'Falha ao realizar check-in.');
+                            } finally {
+                              setIsPerformingScan(false);
+                            }
+                          }}
+                        >
+                          Escanear QR {gym.name}
+                        </button>
+                      ))}
+                      <button
+                        style={styles.simBtnError}
+                        disabled={isPerformingScan}
+                        onClick={async () => {
+                          setIsPerformingScan(true);
+                          setCheckinErrorMessage('');
+                          try {
+                            await performGymCheckin(user.uid, 'token_invalido_teste');
+                          } catch (err) {
+                            setCheckinErrorMessage(err.message);
+                          } finally {
+                            setIsPerformingScan(false);
+                          }
+                        }}
+                      >
+                        Simular Token Inválido
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </ScreenWrapper>
   );
 }
@@ -2751,5 +3050,362 @@ const workoutStyles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center'
+  },
+  gymCard: {
+    padding: '20px',
+    background: 'rgba(255, 255, 255, 0.03)',
+    backdropFilter: 'blur(30px)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '24px',
+    marginBottom: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '14px',
+  },
+  gymCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  gymCardHeaderLeft: {
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'center',
+    flex: 1,
+  },
+  gymCardTitle: {
+    fontSize: '16px',
+    fontWeight: 800,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    margin: 0,
+  },
+  gymCardSub: {
+    fontSize: '12px',
+    color: 'rgba(255,255,255,0.4)',
+    fontFamily: "'Inter', sans-serif",
+    display: 'block',
+    marginTop: '2px',
+  },
+  gymCardDesc: {
+    fontSize: '13px',
+    color: 'rgba(255, 255, 255, 0.6)',
+    lineHeight: '1.4',
+    margin: 0,
+    fontFamily: "'Inter', sans-serif",
+  },
+  gymOptionsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    marginTop: '6px',
+  },
+  gymOptionItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '12px 14px',
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid rgba(255,255,255,0.05)',
+    borderRadius: '16px',
+    gap: '12px',
+  },
+  gymOptionInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+    flex: 1,
+  },
+  gymOptionName: {
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+  },
+  gymOptionAddr: {
+    fontSize: '11px',
+    color: 'rgba(255,255,255,0.4)',
+    fontFamily: "'Inter', sans-serif",
+  },
+  gymConnectBtn: {
+    padding: '8px 16px',
+    borderRadius: '10px',
+    background: '#00D4FF',
+    border: 'none',
+    color: '#0A0A0F',
+    fontWeight: 700,
+    fontSize: '12px',
+    cursor: 'pointer',
+    fontFamily: "'Outfit', sans-serif",
+  },
+  gymCancelBtn: {
+    background: 'none',
+    border: 'none',
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    alignSelf: 'center',
+    fontFamily: "'Outfit', sans-serif",
+    marginTop: '6px',
+  },
+  gymChangeLink: {
+    background: 'none',
+    border: 'none',
+    color: '#00D4FF',
+    fontSize: '13px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    fontFamily: "'Outfit', sans-serif",
+  },
+  gymStatsRow: {
+    display: 'flex',
+    gap: '12px',
+    marginTop: '4px',
+  },
+  gymStatBox: {
+    flex: 1,
+    padding: '12px',
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid rgba(255,255,255,0.05)',
+    borderRadius: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  gymStatLabel: {
+    fontSize: '10px',
+    color: 'rgba(255,255,255,0.4)',
+    fontWeight: 600,
+    fontFamily: "'Inter', sans-serif",
+    textTransform: 'uppercase',
+  },
+  gymStatValue: {
+    fontSize: '13px',
+    color: '#fff',
+    fontWeight: 700,
+    fontFamily: "'Outfit', sans-serif",
+  },
+  gymStatValueStreak: {
+    fontSize: '13px',
+    color: '#FF9500',
+    fontWeight: 800,
+    fontFamily: "'Outfit', sans-serif",
+  },
+  gymCheckinBtn: {
+    width: '100%',
+    padding: '14px',
+    borderRadius: '16px',
+    background: 'linear-gradient(90deg, #39FF14 0%, #00FF66 100%)',
+    border: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    cursor: 'pointer',
+    boxShadow: '0 4px 15px rgba(57,255,20,0.3)',
+    marginTop: '4px',
+  },
+  scannerModal: {
+    position: 'fixed',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '90%',
+    maxWidth: '440px',
+    background: '#0A0A0F',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '32px',
+    padding: '24px',
+    zIndex: 100000,
+    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+    boxSizing: 'border-box',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  scannerHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px',
+  },
+  scannerTitle: {
+    fontSize: '18px',
+    fontWeight: 800,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    margin: 0,
+  },
+  scannerCloseBtn: {
+    background: 'rgba(255,255,255,0.05)',
+    border: 'none',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+  },
+  scannerBody: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+  },
+  viewfinderContainer: {
+    position: 'relative',
+    width: '100%',
+    height: '200px',
+    background: '#040406',
+    border: '1px solid rgba(255,255,255,0.05)',
+    borderRadius: '20px',
+    overflow: 'hidden',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewfinderCornerTL: { position: 'absolute', top: '16px', left: '16px', width: '20px', height: '20px', borderTop: '3px solid #39FF14', borderLeft: '3px solid #39FF14', borderTopLeftRadius: '4px' },
+  viewfinderCornerTR: { position: 'absolute', top: '16px', right: '16px', width: '20px', height: '20px', borderTop: '3px solid #39FF14', borderRight: '3px solid #39FF14', borderTopRightRadius: '4px' },
+  viewfinderCornerBL: { position: 'absolute', bottom: '16px', left: '16px', width: '20px', height: '20px', borderBottom: '3px solid #39FF14', borderLeft: '3px solid #39FF14', borderBottomLeftRadius: '4px' },
+  viewfinderCornerBR: { position: 'absolute', bottom: '16px', right: '16px', width: '20px', height: '20px', borderBottom: '3px solid #39FF14', borderRight: '3px solid #39FF14', borderBottomRightRadius: '4px' },
+  scannerLaser: {
+    position: 'absolute',
+    left: '16px',
+    right: '16px',
+    height: '2px',
+    background: '#39FF14',
+    boxShadow: '0 0 8px #39FF14, 0 0 12px #39FF14',
+    zIndex: 2,
+  },
+  viewfinderStatusText: {
+    fontSize: '12px',
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: "'Inter', sans-serif",
+    textAlign: 'center',
+    padding: '0 24px',
+    zIndex: 3,
+  },
+  manualInputRow: {
+    display: 'flex',
+    gap: '8px',
+  },
+  manualInput: {
+    flex: 1,
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '12px',
+    padding: '12px',
+    color: '#fff',
+    fontSize: '14px',
+    fontFamily: "'Inter', sans-serif",
+    outline: 'none',
+  },
+  manualInputBtn: {
+    padding: '12px 16px',
+    background: '#00D4FF',
+    color: '#0A0A0F',
+    border: 'none',
+    borderRadius: '12px',
+    fontWeight: 700,
+    fontSize: '13px',
+    cursor: 'pointer',
+    fontFamily: "'Outfit', sans-serif",
+  },
+  simulationContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    borderTop: '1px solid rgba(255,255,255,0.06)',
+    paddingTop: '16px',
+  },
+  simulationTitle: {
+    fontSize: '12px',
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: 600,
+    fontFamily: "'Outfit', sans-serif",
+  },
+  simulationButtons: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  simBtn: {
+    width: '100%',
+    padding: '10px 12px',
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '10px',
+    color: '#fff',
+    fontSize: '12px',
+    fontWeight: 600,
+    textAlign: 'left',
+    cursor: 'pointer',
+    fontFamily: "'Inter', sans-serif",
+  },
+  simBtnError: {
+    width: '100%',
+    padding: '10px 12px',
+    background: 'rgba(255,45,85,0.05)',
+    border: '1px solid rgba(255,45,85,0.15)',
+    borderRadius: '10px',
+    color: '#FF2D55',
+    fontSize: '12px',
+    fontWeight: 600,
+    textAlign: 'left',
+    cursor: 'pointer',
+    fontFamily: "'Inter', sans-serif",
+  },
+  scannerErrorMsg: {
+    padding: '10px 12px',
+    background: 'rgba(255,45,85,0.05)',
+    border: '1px solid rgba(255,45,85,0.15)',
+    borderRadius: '12px',
+    color: '#FF2D55',
+    fontSize: '12px',
+    fontFamily: "'Inter', sans-serif",
+  },
+  scannerSuccessContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: '16px 8px 8px 8px',
+    textAlign: 'center',
+  },
+  scannerSuccessIconBg: {
+    width: '64px',
+    height: '64px',
+    borderRadius: '50%',
+    background: '#39FF14',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '16px',
+    boxShadow: '0 0 20px rgba(57,255,20,0.4)',
+  },
+  scannerSuccessTitle: {
+    fontSize: '20px',
+    fontWeight: 800,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    margin: '0 0 8px 0',
+  },
+  scannerSuccessDesc: {
+    fontSize: '14px',
+    color: 'rgba(255,255,255,0.7)',
+    lineHeight: '1.5',
+    margin: '0 0 24px 0',
+    fontFamily: "'Inter', sans-serif",
+  },
+  scannerSuccessBtn: {
+    width: '100%',
+    padding: '14px',
+    background: 'rgba(255,255,255,0.1)',
+    border: '1px solid rgba(255,255,255,0.15)',
+    borderRadius: '16px',
+    color: '#fff',
+    fontWeight: 700,
+    fontSize: '14px',
+    cursor: 'pointer',
+    fontFamily: "'Outfit', sans-serif",
   }
 };

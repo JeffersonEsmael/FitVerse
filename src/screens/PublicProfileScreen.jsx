@@ -583,9 +583,11 @@ export default function PublicProfileScreen() {
 
             <div style={styles.avatarContainerRight}>
               {/* Streak Badge */}
-              <div style={styles.streakBadge}>
-                🔥 {profile.streak || 0}
-              </div>
+              {profile.streak >= 3 && (
+                <div style={styles.streakBadge}>
+                  🔥 {profile.streak}
+                </div>
+              )}
               <div style={styles.avatar}>
                 {profile.avatar_url ? <img src={profile.avatar_url} alt="" style={styles.avatarImg} /> : (
                   <div style={styles.avatarPlaceholder}>{profile.display_name?.charAt(0) || '?'}</div>
