@@ -215,6 +215,38 @@ export default function ProfileScreen() {
   const [checkinErrorMessage, setCheckinErrorMessage] = useState('');
   const [isPerformingScan, setIsPerformingScan] = useState(false);
   const [showChangeGymList, setShowChangeGymList] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
+  const videoRef = React.useRef(null);
+
+  useEffect(() => {
+    let streamRef = null;
+    if (showQrScanModal) {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(stream => {
+          streamRef = stream;
+          setCameraStream(stream);
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        })
+        .catch(err => {
+          console.warn('[Profile] Camera permission denied or not available:', err);
+        });
+    } else {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        setCameraStream(null);
+      }
+    }
+    return () => {
+      if (streamRef) {
+        streamRef.getTracks().forEach(track => track.stop());
+      }
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [showQrScanModal]);
 
   useEffect(() => {
     fetchGyms();
@@ -1791,6 +1823,7 @@ export default function ProfileScreen() {
           <>
             {/* Backdrop */}
             <motion.div
+              key="qr-backdrop"
               style={modalStyles.backdrop}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1801,6 +1834,7 @@ export default function ProfileScreen() {
             />
             {/* Modal Box */}
             <motion.div
+              key="qr-modal"
               style={styles.scannerModal}
               initial={{ scale: 0.9, opacity: 0, y: 50 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -1847,10 +1881,30 @@ export default function ProfileScreen() {
                       animate={{ top: ['0%', '98%', '0%'] }}
                       transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
                     />
+                    {cameraStream ? (
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          zIndex: 1,
+                          borderRadius: '20px'
+                        }}
+                      />
+                    ) : null}
                     {isPerformingScan ? (
-                      <span style={styles.viewfinderStatusText}>Processando check-in...</span>
+                      <span style={{ ...styles.viewfinderStatusText, zIndex: 3 }}>Processando check-in...</span>
                     ) : (
-                      <span style={styles.viewfinderStatusText}>Aponte a câmera ou use a simulação abaixo</span>
+                      <span style={{ ...styles.viewfinderStatusText, zIndex: 3 }}>
+                        {cameraStream ? 'Aponte a câmera para o QR Code' : 'Permita o acesso à câmera para escanear'}
+                      </span>
                     )}
                   </div>
 
@@ -3226,15 +3280,11 @@ const workoutStyles = {
     marginTop: '4px',
   },
   scannerModal: {
-    position: 'fixed',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    margin: 'auto',
+    position: 'absolute',
+    top: '80px',
+    left: '5%',
     width: '90%',
     maxWidth: '440px',
-    height: 'fit-content',
     background: '#0A0A0F',
     border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: '32px',
