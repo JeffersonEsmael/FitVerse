@@ -1947,6 +1947,31 @@ export default function ProfileScreen() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Return / Cancel Check-in Button */}
+                  <button
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      borderRadius: '16px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      color: 'rgba(255, 255, 255, 0.6)',
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      fontFamily: "'Outfit', sans-serif",
+                      marginTop: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onClick={() => setShowQrScanModal(false)}
+                    disabled={isPerformingScan}
+                  >
+                    Voltar
+                  </button>
                 </div>
               )}
             </motion.div>
@@ -3202,11 +3227,14 @@ const workoutStyles = {
   },
   scannerModal: {
     position: 'fixed',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    margin: 'auto',
     width: '90%',
     maxWidth: '440px',
+    height: 'fit-content',
     background: '#0A0A0F',
     border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: '32px',
