@@ -588,35 +588,40 @@ export default function PublicProfileScreen() {
                   🔥 {profile.streak}
                 </div>
               )}
-              <div style={styles.avatar}>
-                {profile.avatar_url ? <img src={profile.avatar_url} alt="" style={styles.avatarImg} /> : (
-                  <div style={styles.avatarPlaceholder}>{profile.display_name?.charAt(0) || '?'}</div>
+              
+              {/* Relative wrapper for Avatar and Follow Button */}
+              <div style={{ position: 'relative', width: '88px', height: '88px' }}>
+                <div style={styles.avatar}>
+                  {profile.avatar_url ? <img src={profile.avatar_url} alt="" style={styles.avatarImg} /> : (
+                    <div style={styles.avatarPlaceholder}>{profile.display_name?.charAt(0) || '?'}</div>
+                  )}
+                </div>
+                {user?.uid !== profile.id && (
+                  <motion.button
+                    style={{
+                      ...styles.profileFollowIconBtn,
+                      backgroundColor: isFollowing ? 'rgba(255,255,255,0.1)' : '#39FF14',
+                      border: isFollowing ? '2px solid rgba(255,255,255,0.3)' : '2px solid #39FF14',
+                      boxShadow: isFollowing ? 'none' : '0 4px 10px rgba(57,255,20,0.4)',
+                    }}
+                    onClick={handleFollowToggle}
+                    disabled={isActionLoading}
+                    whileTap={{ scale: 0.9 }}
+                    animate={{
+                      rotate: isFollowing ? 360 : 0,
+                      scale: isFollowing ? 1.05 : 1,
+                    }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {isFollowing ? (
+                      <Check size={14} color="#39FF14" strokeWidth={3} />
+                    ) : (
+                      <Plus size={14} color="#0A0A0F" strokeWidth={3} />
+                    )}
+                  </motion.button>
                 )}
               </div>
-              {user?.uid !== profile.id && (
-                <motion.button
-                  style={{
-                    ...styles.profileFollowIconBtn,
-                    backgroundColor: isFollowing ? 'rgba(255,255,255,0.1)' : '#39FF14',
-                    border: isFollowing ? '2px solid rgba(255,255,255,0.3)' : '2px solid #39FF14',
-                    boxShadow: isFollowing ? 'none' : '0 4px 10px rgba(57,255,20,0.4)',
-                  }}
-                  onClick={handleFollowToggle}
-                  disabled={isActionLoading}
-                  whileTap={{ scale: 0.9 }}
-                  animate={{
-                    rotate: isFollowing ? 360 : 0,
-                    scale: isFollowing ? 1.05 : 1,
-                  }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {isFollowing ? (
-                    <Check size={14} color="#39FF14" strokeWidth={3} />
-                  ) : (
-                    <Plus size={14} color="#0A0A0F" strokeWidth={3} />
-                  )}
-                </motion.button>
-              )}
+              
               {/* Mastery Title */}
               <span style={styles.masteryTitle}>Maromba</span>
             </div>
@@ -787,13 +792,24 @@ export default function PublicProfileScreen() {
                             {ex.sets} séries x {ex.reps} reps {ex.weight > 0 ? `• ${ex.weight}kg` : ''}
                           </span>
                         </div>
-                        <div
-                          style={{
-                            ...workoutStyles.readOnlyBadge,
-                            ...(ex.done_today ? workoutStyles.readOnlyBadgeDone : {}),
-                          }}
-                        >
-                          {ex.done_today ? 'Concluído' : 'Pendente'}
+                        <div style={workoutStyles.exerciseActionRow}>
+                          {/* Video Button */}
+                          <button
+                            style={workoutStyles.videoDemoBtn}
+                            onClick={() => alert(`Vídeo demonstrativo de "${ex.name}" em breve! 🎥💪`)}
+                          >
+                            <Play size={14} color="#00D4FF" fill="#00D4FF" />
+                          </button>
+
+                          {/* Read Only Status Badge */}
+                          <div
+                            style={{
+                              ...workoutStyles.readOnlyBadge,
+                              ...(ex.done_today ? workoutStyles.readOnlyBadgeDone : {}),
+                            }}
+                          >
+                            {ex.done_today ? 'Feito' : 'Pendente'}
+                          </div>
                         </div>
                       </div>
                     ))
@@ -1674,5 +1690,22 @@ const workoutStyles = {
     background: 'rgba(57,255,20,0.1)',
     color: '#39FF14',
     border: '1px solid rgba(57,255,20,0.2)'
+  },
+  exerciseActionRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  videoDemoBtn: {
+    width: '36px',
+    height: '36px',
+    borderRadius: '50%',
+    background: 'rgba(0, 212, 255, 0.1)',
+    border: '1px solid rgba(0, 212, 255, 0.3)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
   }
 };

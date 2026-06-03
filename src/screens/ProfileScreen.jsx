@@ -801,62 +801,69 @@ export default function ProfileScreen() {
               const activeSeries = seriesList.find(s => s.id === activeSeriesId) || seriesList[0];
               if (!activeSeries) return null;
               const pct = Math.round(((activeSeries.progress_completed || 0) / (activeSeries.progress_total || 30)) * 100);
+              const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
               return (
                 <div style={workoutStyles.activeSeriesContainer}>
-                  {/* Select active series dropdown if multiple */}
-                  {seriesList.length > 1 && (
-                    <div style={workoutStyles.selectorRow}>
-                      <span style={workoutStyles.selectorLabel}>Alternar Série:</span>
-                      <select
-                        value={activeSeriesId || ''}
-                        onChange={(e) => setActiveSeries(user?.uid, e.target.value)}
-                        style={workoutStyles.selectorSelect}
+                  {/* Letters Series selector */}
+                  <div style={workoutStyles.lettersTabContainer}>
+                    <div style={workoutStyles.lettersRow}>
+                      {seriesList.map((s, index) => {
+                        const letter = letters[index] || `S${index + 1}`;
+                        const isActive = s.id === activeSeries.id;
+                        return (
+                          <motion.button
+                            key={s.id}
+                            style={{
+                              ...workoutStyles.letterBtn,
+                              ...(isActive ? workoutStyles.letterBtnActive : {})
+                            }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setActiveSeries(user?.uid, s.id)}
+                          >
+                            {letter}
+                          </motion.button>
+                        );
+                      })}
+                      {/* Add new series button */}
+                      <motion.button
+                        style={workoutStyles.letterBtnAdd}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          setSeriesModalName('');
+                          setSeriesModalFrequency('3x por semana');
+                          setSeriesModalTotal(30);
+                          setSeriesModalExercises([
+                            { id: 'ex_new_1', name: 'Exercício 1', sets: 4, reps: '10', weight: 10, done_today: false }
+                          ]);
+                          setShowCreateSeriesModal(true);
+                        }}
                       >
-                        {seriesList.map(s => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
+                        +
+                      </motion.button>
                     </div>
-                  )}
+                    {/* Active series action buttons */}
+                    <div style={workoutStyles.activeSeriesActions}>
+                      <button
+                        style={workoutStyles.headerActionBtn}
+                        onClick={() => {
+                          setSeriesModalName(activeSeries.name);
+                          setSeriesModalFrequency(activeSeries.weekly_frequency);
+                          setSeriesModalTotal(activeSeries.progress_total);
+                          setSeriesModalExercises(activeSeries.exercises || []);
+                          setShowEditSeriesModal(true);
+                        }}
+                      >
+                        Editar Série
+                      </button>
+                    </div>
+                  </div>
 
                   {/* Series Header Card */}
                   <div style={workoutStyles.headerCard}>
-                    <div style={workoutStyles.headerTop}>
-                      <div>
-                        <h4 style={workoutStyles.seriesTitle}>{activeSeries.name}</h4>
-                        <span style={workoutStyles.seriesFreq}>{activeSeries.weekly_frequency}</span>
-                      </div>
-                      <div style={workoutStyles.headerActions}>
-                        <button
-                          style={workoutStyles.headerActionBtn}
-                          onClick={() => {
-                            setSeriesModalName(activeSeries.name);
-                            setSeriesModalFrequency(activeSeries.weekly_frequency);
-                            setSeriesModalTotal(activeSeries.progress_total);
-                            setSeriesModalExercises(activeSeries.exercises || []);
-                            setShowEditSeriesModal(true);
-                          }}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          style={{ ...workoutStyles.headerActionBtn, background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)' }}
-                          onClick={() => {
-                            setSeriesModalName('');
-                            setSeriesModalFrequency('3x por semana');
-                            setSeriesModalTotal(30);
-                            setSeriesModalExercises([
-                              { id: 'ex_new_1', name: 'Exercício 1', sets: 4, reps: '10', weight: 10, done_today: false }
-                            ]);
-                            setShowCreateSeriesModal(true);
-                          }}
-                        >
-                          Nova
-                        </button>
-                      </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h4 style={workoutStyles.seriesTitle}>{activeSeries.name}</h4>
+                      <span style={workoutStyles.seriesFreq}>{activeSeries.weekly_frequency}</span>
                     </div>
 
                     {/* Progress Bar */}
@@ -917,15 +924,26 @@ export default function ProfileScreen() {
                               </span>
                             </div>
 
-                            <button
-                              style={{
-                                ...workoutStyles.doneBtn,
-                                ...(ex.done_today ? workoutStyles.doneBtnActive : {}),
-                              }}
-                              onClick={() => toggleExerciseDone(user?.uid, activeSeries.id, ex.id)}
-                            >
-                              {ex.done_today ? <Check size={16} color="#000" strokeWidth={3} /> : 'Fazer'}
-                            </button>
+                            <div style={workoutStyles.exerciseActionRow}>
+                              {/* Video Button */}
+                              <button
+                                style={workoutStyles.videoDemoBtn}
+                                onClick={() => alert(`Vídeo demonstrativo de "${ex.name}" em breve! 🎥💪`)}
+                              >
+                                <Play size={14} color="#00D4FF" fill="#00D4FF" />
+                              </button>
+
+                              {/* Done Button */}
+                              <button
+                                style={{
+                                  ...workoutStyles.doneBtn,
+                                  ...(ex.done_today ? workoutStyles.doneBtnActive : {}),
+                                }}
+                                onClick={() => toggleExerciseDone(user?.uid, activeSeries.id, ex.id)}
+                              >
+                                {ex.done_today ? <Check size={16} color="#0A0A0F" strokeWidth={3} /> : 'Feito'}
+                              </button>
+                            </div>
                           </div>
                         );
                       })
@@ -2760,30 +2778,78 @@ const workoutStyles = {
     flexDirection: 'column',
     gap: '16px'
   },
-  selectorRow: {
+  lettersTabContainer: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    background: 'rgba(255,255,255,0.03)',
-    padding: '10px 14px',
-    borderRadius: '14px',
-    border: '1px solid rgba(255,255,255,0.05)'
+    background: 'rgba(255, 255, 255, 0.02)',
+    border: '1px solid rgba(255, 255, 255, 0.06)',
+    borderRadius: '24px',
+    padding: '12px 16px',
   },
-  selectorLabel: {
-    fontSize: '13px',
-    color: 'rgba(255,255,255,0.5)',
-    fontWeight: 600,
-    fontFamily: "'Inter', sans-serif"
+  lettersRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
   },
-  selectorSelect: {
-    background: 'none',
-    border: 'none',
-    color: '#00D4FF',
-    fontSize: '14px',
-    fontWeight: 700,
+  letterBtn: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '50%',
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: '16px',
+    fontWeight: 800,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
     fontFamily: "'Outfit', sans-serif",
-    outline: 'none',
-    cursor: 'pointer'
+    transition: 'all 0.2s ease',
+  },
+  letterBtnActive: {
+    background: '#39FF14',
+    border: '1px solid #39FF14',
+    color: '#0A0A0F',
+    boxShadow: '0 0 12px rgba(57,255,20,0.4)',
+  },
+  letterBtnAdd: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '50%',
+    background: 'rgba(255, 255, 255, 0.02)',
+    border: '1px dashed rgba(255, 255, 255, 0.2)',
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: '20px',
+    fontWeight: 600,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    fontFamily: "'Outfit', sans-serif",
+    transition: 'all 0.2s ease',
+  },
+  activeSeriesActions: {
+    display: 'flex',
+    gap: '6px',
+  },
+  exerciseActionRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  videoDemoBtn: {
+    width: '36px',
+    height: '36px',
+    borderRadius: '50%',
+    background: 'rgba(0, 212, 255, 0.1)',
+    border: '1px solid rgba(0, 212, 255, 0.3)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
   },
   headerCard: {
     background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)',
