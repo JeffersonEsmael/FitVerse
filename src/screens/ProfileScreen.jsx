@@ -13,6 +13,13 @@ import ScreenWrapper from '../components/layout/ScreenWrapper';
 import ShapeIcon from '../components/icons/ShapeIcon';
 import ProfileChallengeCard from '../components/profile/ProfileChallengeCard';
 
+const PRESET_EXERCISES = [
+  'Supino Reto (Barra)', 'Supino Inclinado (Halteres)', 'Desenvolvimento Militar', 'Elevação Lateral',
+  'Tríceps Testa', 'Tríceps Pulley', 'Puxada Pulley (Costas)', 'Remada Curvada',
+  'Rosca Direta (Barra W)', 'Rosca Alternada', 'Agachamento Livre', 'Leg Press 45º',
+  'Cadeira Extensora', 'Mesa Flexora', 'Afundo com Halteres', 'Abdominal Supra'
+];
+
 // Utility to format views counts (e.g., 1,2k, 10k, 1,2M)
 function formatViews(views) {
   if (!views || views < 0) return '0';
@@ -999,37 +1006,22 @@ export default function ProfileScreen() {
                   </div>
 
                   {/* Series Header Card */}
-                  <div style={workoutStyles.headerCard}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <h4 style={workoutStyles.seriesTitle}>{activeSeries.name}</h4>
-                      <span style={workoutStyles.seriesFreq}>{activeSeries.weekly_frequency}</span>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div style={workoutStyles.progressSection}>
-                      <div style={workoutStyles.progressLabels}>
-                        <span style={workoutStyles.progressLabel}>Progresso Geral</span>
-                        <span style={workoutStyles.progressVal}>{activeSeries.progress_completed || 0}/{activeSeries.progress_total || 30} treinos</span>
-                      </div>
-                      <div style={workoutStyles.progressTrack}>
-                        <motion.div
-                          style={{ ...workoutStyles.progressFill, width: `${Math.min(100, pct)}%` }}
-                          initial={{ width: 0 }}
-                          animate={{ width: `${Math.min(100, pct)}%` }}
-                          transition={{ duration: 0.5 }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Exercises List Header */}
-                  <div style={workoutStyles.exercisesHeader}>
-                    <h5 style={workoutStyles.exercisesTitle}>Exercícios de Hoje</h5>
-                    <span style={workoutStyles.exercisesCount}>{activeSeries.exercises?.length || 0} exercícios</span>
+                  <div style={{
+                    ...workoutStyles.headerCard,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    gap: '4px',
+                    padding: '16px'
+                  }}>
+                    <h4 style={workoutStyles.seriesTitle}>{activeSeries.name}</h4>
+                    <span style={workoutStyles.seriesFreq}>{activeSeries.weekly_frequency}</span>
                   </div>
 
                   {/* Exercises Grid/List */}
-                  <div style={workoutStyles.exercisesList}>
+                  <div style={{ ...workoutStyles.exercisesList, marginTop: '16px' }}>
                     {(!activeSeries.exercises || activeSeries.exercises.length === 0) ? (
                       <div style={workoutStyles.noExercisesCard}>
                         <span>Nenhum exercício cadastrado nesta série.</span>
@@ -1072,15 +1064,46 @@ export default function ProfileScreen() {
                                 <Play size={14} color="#00D4FF" fill="#00D4FF" />
                               </button>
 
-                              {/* Done Button */}
+                              {/* Done Button (Circular Checkbox) */}
                               <button
                                 style={{
-                                  ...workoutStyles.doneBtn,
-                                  ...(ex.done_today ? workoutStyles.doneBtnActive : {}),
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  padding: '4px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  outline: 'none',
                                 }}
                                 onClick={() => toggleExerciseDone(user?.uid, activeSeries.id, ex.id)}
                               >
-                                {ex.done_today ? <Check size={16} color="#0A0A0F" strokeWidth={3} /> : 'Feito'}
+                                {ex.done_today ? (
+                                  <div style={{
+                                    width: '28px',
+                                    height: '28px',
+                                    borderRadius: '50%',
+                                    background: '#39FF14',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    boxShadow: '0 0 8px rgba(57,255,20,0.4)',
+                                    transition: 'all 0.2s ease'
+                                  }}>
+                                    <Check size={16} color="#0A0A0F" strokeWidth={3} />
+                                  </div>
+                                ) : (
+                                  <div style={{
+                                    width: '28px',
+                                    height: '28px',
+                                    borderRadius: '50%',
+                                    border: '2px solid rgba(255,255,255,0.3)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'all 0.2s ease'
+                                  }} />
+                                )}
                               </button>
                             </div>
                           </div>
@@ -1578,6 +1601,33 @@ export default function ProfileScreen() {
                       onChange={(e) => setTempExerciseName(e.target.value)}
                       style={modalStyles.checkInInput}
                     />
+                    {/* Suggested Exercises Grid */}
+                    <div style={{ marginTop: '2px', marginBottom: '2px' }}>
+                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>Sugestões rápidas (toque para selecionar):</span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '110px', overflowY: 'auto', padding: '2px' }} className="hide-scrollbar">
+                        {PRESET_EXERCISES.map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            style={{
+                              padding: '6px 12px',
+                              background: tempExerciseName === preset ? 'rgba(57,255,20,0.15)' : 'rgba(255, 255, 255, 0.04)',
+                              border: tempExerciseName === preset ? '1px solid #39FF14' : '1px solid rgba(255, 255, 255, 0.1)',
+                              borderRadius: '20px',
+                              color: tempExerciseName === preset ? '#39FF14' : '#fff',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              fontFamily: "'Inter', sans-serif",
+                              transition: 'all 0.15s ease'
+                            }}
+                            onClick={() => setTempExerciseName(preset)}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <div style={{ flex: 1 }}>
                         <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Séries</span>
@@ -1766,6 +1816,33 @@ export default function ProfileScreen() {
                       onChange={(e) => setTempExerciseName(e.target.value)}
                       style={modalStyles.checkInInput}
                     />
+                    {/* Suggested Exercises Grid */}
+                    <div style={{ marginTop: '2px', marginBottom: '2px' }}>
+                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>Sugestões rápidas (toque para selecionar):</span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '110px', overflowY: 'auto', padding: '2px' }} className="hide-scrollbar">
+                        {PRESET_EXERCISES.map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            style={{
+                              padding: '6px 12px',
+                              background: tempExerciseName === preset ? 'rgba(57,255,20,0.15)' : 'rgba(255, 255, 255, 0.04)',
+                              border: tempExerciseName === preset ? '1px solid #39FF14' : '1px solid rgba(255, 255, 255, 0.1)',
+                              borderRadius: '20px',
+                              color: tempExerciseName === preset ? '#39FF14' : '#fff',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              fontFamily: "'Inter', sans-serif",
+                              transition: 'all 0.15s ease'
+                            }}
+                            onClick={() => setTempExerciseName(preset)}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <div style={{ flex: 1 }}>
                         <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Séries</span>
