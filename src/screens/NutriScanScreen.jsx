@@ -240,6 +240,7 @@ export default function NutriScanScreen() {
               ref={fileInputRef}
               onChange={handleFileChange}
               accept="image/*"
+              capture="environment"
               style={{ display: 'none' }}
             />
             <motion.div

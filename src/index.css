@@ -15,6 +15,7 @@ html, body, #root {
   height: 100%;
   width: 100%;
   overflow: hidden;
+  overflow-x: hidden;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background-color: var(--bg-deepest);
   color: var(--text-primary);

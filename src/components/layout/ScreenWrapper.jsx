@@ -25,7 +25,8 @@ export default function ScreenWrapper({ children, screenKey, noPadding = false }
           left: 0,
           right: 0,
           bottom: 0,
-          overflow: 'auto',
+          overflowY: 'auto',
+          overflowX: 'hidden',
           background: '#0A0A0F',
           ...(noPadding ? {} : { paddingBottom: '80px' }),
         }}

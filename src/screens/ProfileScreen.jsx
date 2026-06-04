@@ -339,8 +339,16 @@ export default function ProfileScreen() {
       if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
       }
-    };
   }, [showQrScanModal]);
+
+  // Sync cameraStream to video element srcObject when elements are mounted/rendered
+  useEffect(() => {
+    if (showQrScanModal && cameraStream && videoRef.current) {
+      if (videoRef.current.srcObject !== cameraStream) {
+        videoRef.current.srcObject = cameraStream;
+      }
+    }
+  }, [cameraStream, showQrScanModal]);
 
   useEffect(() => {
     fetchGyms();
@@ -1922,15 +1930,17 @@ export default function ProfileScreen() {
               exit={{ opacity: 0 }}
             >
               {/* Camera feed as background */}
-              {cameraStream ? (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  style={qrStyles.cameraFeed}
-                />
-              ) : (
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                style={{
+                  ...qrStyles.cameraFeed,
+                  display: cameraStream ? 'block' : 'none'
+                }}
+              />
+              {!cameraStream && (
                 <div style={qrStyles.cameraPlaceholder}>
                   <QrCode size={48} color="rgba(255,255,255,0.2)" />
                   <span style={qrStyles.cameraPlaceholderText}>Permita o acesso à câmera</span>
