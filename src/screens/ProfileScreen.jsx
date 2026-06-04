@@ -339,6 +339,7 @@ export default function ProfileScreen() {
       if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
       }
+    };
   }, [showQrScanModal]);
 
   // Sync cameraStream to video element srcObject when elements are mounted/rendered
