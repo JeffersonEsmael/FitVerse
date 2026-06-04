@@ -1914,35 +1914,38 @@ export default function ProfileScreen() {
       {ReactDOM.createPortal(
         <AnimatePresence>
           {showQrScanModal && (
-            <>
-              {/* Backdrop - full screen fixed */}
+            <motion.div
+              key="qr-overlay"
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0,0,0,0.85)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                zIndex: 99999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '16px',
+                boxSizing: 'border-box',
+              }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                if (!isPerformingScan) closeQrScanner();
+              }}
+            >
+              {/* Modal Box */}
               <motion.div
-                key="qr-backdrop"
-                style={{
-                  position: 'fixed',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background: 'rgba(0,0,0,0.85)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  zIndex: 99999,
-                }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => {
-                  if (!isPerformingScan) closeQrScanner();
-                }}
-              />
-              {/* Modal Box - centered fixed */}
-              <motion.div
-                key="qr-modal"
                 style={styles.scannerModal}
-                initial={{ scale: 0.9, opacity: 0, y: 50 }}
+                initial={{ scale: 0.9, opacity: 0, y: 40 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.9, opacity: 0, y: 50 }}
+                exit={{ scale: 0.9, opacity: 0, y: 40 }}
+                onClick={(e) => e.stopPropagation()}
               >
                 <div style={styles.scannerHeader}>
                   <h3 style={styles.scannerTitle}>Leitor de QR Code</h3>
@@ -2002,7 +2005,6 @@ export default function ProfileScreen() {
                           }}
                         />
                       ) : null}
-                      {/* Hidden canvas for fallback QR scanning */}
                       <canvas ref={canvasRef} style={{ display: 'none' }} />
                       {isPerformingScan ? (
                         <span style={{ ...styles.viewfinderStatusText, zIndex: 3 }}>Processando check-in...</span>
@@ -2077,7 +2079,7 @@ export default function ProfileScreen() {
                   </div>
                 )}
               </motion.div>
-            </>
+            </motion.div>
           )}
         </AnimatePresence>,
         document.body
@@ -3330,19 +3332,14 @@ const workoutStyles = {
     marginTop: '4px',
   },
   scannerModal: {
-    position: 'fixed',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '92%',
+    width: '100%',
     maxWidth: '440px',
-    maxHeight: '90vh',
+    maxHeight: '85vh',
     overflowY: 'auto',
     background: '#0A0A0F',
     border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: '32px',
     padding: '24px',
-    zIndex: 100000,
     boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
     boxSizing: 'border-box',
     display: 'flex',
