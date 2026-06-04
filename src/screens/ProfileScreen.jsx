@@ -343,9 +343,13 @@ export default function ProfileScreen() {
 
   // Sync cameraStream to video element srcObject when elements are mounted/rendered
   useEffect(() => {
-    if (showQrScanModal && cameraStream && videoRef.current) {
-      if (videoRef.current.srcObject !== cameraStream) {
-        videoRef.current.srcObject = cameraStream;
+    if (videoRef.current) {
+      if (showQrScanModal && cameraStream) {
+        if (videoRef.current.srcObject !== cameraStream) {
+          videoRef.current.srcObject = cameraStream;
+        }
+      } else {
+        videoRef.current.srcObject = null;
       }
     }
   }, [cameraStream, showQrScanModal]);

@@ -121,6 +121,7 @@ export default function CreatePostScreen() {
   const startCamera = async () => {
     setCameraError(null);
     try {
+      // First try requesting both video and audio
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: 640, height: 480 },
         audio: true,
@@ -130,10 +131,36 @@ export default function CreatePostScreen() {
         videoPreviewRef.current.srcObject = stream;
       }
     } catch (err) {
-      console.warn('Camera access error:', err);
-      setCameraError('Permissão de câmera negada ou dispositivo não disponível. Use a Galeria para fazer upload.');
+      console.warn('Camera + Audio access failed, trying video only...', err);
+      try {
+        // Fallback: request video only (so users with microphone blocked at OS level can still post silent videos)
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: 640, height: 480 },
+          audio: false,
+        });
+        setCameraStream(stream);
+        if (videoPreviewRef.current) {
+          videoPreviewRef.current.srcObject = stream;
+        }
+      } catch (fallbackErr) {
+        console.warn('Camera-only access also failed:', fallbackErr);
+        setCameraError('Permissão de câmera negada ou dispositivo não disponível. Use a Galeria para fazer upload.');
+      }
     }
   };
+
+  // Sync cameraStream to video preview element srcObject when mounted/rendered
+  useEffect(() => {
+    if (videoPreviewRef.current) {
+      if (cameraStream) {
+        if (videoPreviewRef.current.srcObject !== cameraStream) {
+          videoPreviewRef.current.srcObject = cameraStream;
+        }
+      } else {
+        videoPreviewRef.current.srcObject = null;
+      }
+    }
+  }, [cameraStream]);
 
   const stopCamera = () => {
     if (cameraStream) {
