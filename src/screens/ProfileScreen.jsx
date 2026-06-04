@@ -217,28 +217,121 @@ export default function ProfileScreen() {
   const [showChangeGymList, setShowChangeGymList] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
   const videoRef = React.useRef(null);
+  const canvasRef = React.useRef(null);
+  const scanIntervalRef = React.useRef(null);
+  const hasScannedRef = React.useRef(false);
 
+  // Close QR scanner helper - stops camera and resets state
+  const closeQrScanner = useCallback(() => {
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+    hasScannedRef.current = false;
+    setShowQrScanModal(false);
+  }, []);
+
+  // Handle scanned QR code token
+  const handleQrScanned = useCallback(async (token) => {
+    if (hasScannedRef.current || isPerformingScan) return;
+    hasScannedRef.current = true;
+    setIsPerformingScan(true);
+    setCheckinErrorMessage('');
+    try {
+      const res = await performGymCheckin(user.uid, token);
+      if (res.success) {
+        setCheckinSuccessMessage(
+          `Check-in realizado com sucesso na unidade ${res.gym.name}! Seu streak atual é de ${res.newStreak} dias.`
+        );
+        fetchUserCheckins(user.uid);
+      }
+    } catch (err) {
+      setCheckinErrorMessage(err.message || 'Falha ao realizar check-in.');
+      hasScannedRef.current = false; // allow retry on error
+    } finally {
+      setIsPerformingScan(false);
+    }
+  }, [user?.uid, isPerformingScan, performGymCheckin, fetchUserCheckins]);
+
+  // Camera + QR scanning effect
   useEffect(() => {
     let streamRef = null;
+    let barcodeDetector = null;
+
     if (showQrScanModal) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      hasScannedRef.current = false;
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } })
         .then(stream => {
           streamRef = stream;
           setCameraStream(stream);
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
           }
+
+          // Setup QR scanning via BarcodeDetector API
+          if ('BarcodeDetector' in window) {
+            try {
+              barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+            } catch (e) {
+              console.warn('[QR] BarcodeDetector init failed:', e);
+            }
+          }
+
+          // Start frame-by-frame scanning
+          const scanFrame = async () => {
+            if (hasScannedRef.current) return;
+            const video = videoRef.current;
+            if (!video || video.readyState < 2) return;
+
+            if (barcodeDetector) {
+              try {
+                const barcodes = await barcodeDetector.detect(video);
+                if (barcodes.length > 0) {
+                  const qrValue = barcodes[0].rawValue;
+                  if (qrValue) {
+                    console.log('[QR] Detected:', qrValue);
+                    handleQrScanned(qrValue);
+                    return;
+                  }
+                }
+              } catch (e) {
+                // BarcodeDetector.detect can fail on some frames
+              }
+            } else {
+              // Fallback: canvas-based pixel check (no actual decoding without library)
+              // For environments without BarcodeDetector, rely on manual input
+              const canvas = canvasRef.current;
+              if (canvas && video.videoWidth > 0) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(video, 0, 0);
+                // Without a JS QR decoder lib, BarcodeDetector is needed
+                // Users without it can use the manual token input
+              }
+            }
+          };
+
+          scanIntervalRef.current = setInterval(scanFrame, 350);
         })
         .catch(err => {
           console.warn('[Profile] Camera permission denied or not available:', err);
         });
     } else {
+      if (scanIntervalRef.current) {
+        clearInterval(scanIntervalRef.current);
+        scanIntervalRef.current = null;
+      }
       if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
         setCameraStream(null);
       }
     }
     return () => {
+      if (scanIntervalRef.current) {
+        clearInterval(scanIntervalRef.current);
+        scanIntervalRef.current = null;
+      }
       if (streamRef) {
         streamRef.getTracks().forEach(track => track.stop());
       }
@@ -1817,22 +1910,32 @@ export default function ProfileScreen() {
         )}
       </AnimatePresence>
 
-      {/* MODAL: Leitor de QR Code Simulado */}
+      {/* MODAL: Leitor de QR Code */}
       <AnimatePresence>
         {showQrScanModal && (
           <>
-            {/* Backdrop */}
+            {/* Backdrop - full screen fixed */}
             <motion.div
               key="qr-backdrop"
-              style={modalStyles.backdrop}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0,0,0,0.85)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                zIndex: 99999,
+              }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => {
-                if (!isPerformingScan) setShowQrScanModal(false);
+                if (!isPerformingScan) closeQrScanner();
               }}
             />
-            {/* Modal Box */}
+            {/* Modal Box - centered fixed */}
             <motion.div
               key="qr-modal"
               style={styles.scannerModal}
@@ -1844,8 +1947,7 @@ export default function ProfileScreen() {
                 <h3 style={styles.scannerTitle}>Leitor de QR Code</h3>
                 <button
                   style={styles.scannerCloseBtn}
-                  onClick={() => setShowQrScanModal(false)}
-                  disabled={isPerformingScan}
+                  onClick={() => closeQrScanner()}
                 >
                   <X size={20} color="#fff" />
                 </button>
@@ -1861,7 +1963,7 @@ export default function ProfileScreen() {
                   <button
                     style={styles.scannerSuccessBtn}
                     onClick={() => {
-                      setShowQrScanModal(false);
+                      closeQrScanner();
                       setCheckinSuccessMessage('');
                     }}
                   >
@@ -1870,7 +1972,7 @@ export default function ProfileScreen() {
                 </div>
               ) : (
                 <div style={styles.scannerBody}>
-                  {/* Viewfinder simulation */}
+                  {/* Camera viewfinder */}
                   <div style={styles.viewfinderContainer}>
                     <div style={styles.viewfinderCornerTL} />
                     <div style={styles.viewfinderCornerTR} />
@@ -1899,6 +2001,8 @@ export default function ProfileScreen() {
                         }}
                       />
                     ) : null}
+                    {/* Hidden canvas for fallback QR scanning */}
+                    <canvas ref={canvasRef} style={{ display: 'none' }} />
                     {isPerformingScan ? (
                       <span style={{ ...styles.viewfinderStatusText, zIndex: 3 }}>Processando check-in...</span>
                     ) : (
@@ -1928,22 +2032,7 @@ export default function ProfileScreen() {
                       style={styles.manualInputBtn}
                       onClick={async () => {
                         if (!manualTokenInput.trim()) return;
-                        setIsPerformingScan(true);
-                        setCheckinErrorMessage('');
-                        try {
-                          const res = await performGymCheckin(user.uid, manualTokenInput.trim());
-                          if (res.success) {
-                            setCheckinSuccessMessage(
-                              `Check-in realizado com sucesso na unidade ${res.gym.name}! Seu streak atual é de ${res.newStreak} dias.`
-                            );
-                            // Refresh checkins history
-                            fetchUserCheckins(user.uid);
-                          }
-                        } catch (err) {
-                          setCheckinErrorMessage(err.message || 'Falha ao realizar check-in.');
-                        } finally {
-                          setIsPerformingScan(false);
-                        }
+                        await handleQrScanned(manualTokenInput.trim());
                       }}
                       disabled={isPerformingScan}
                     >
@@ -1960,24 +2049,7 @@ export default function ProfileScreen() {
                           key={gym.id}
                           style={styles.simBtn}
                           disabled={isPerformingScan}
-                          onClick={async () => {
-                            setIsPerformingScan(true);
-                            setCheckinErrorMessage('');
-                            try {
-                              const res = await performGymCheckin(user.uid, gym.qr_code_token);
-                              if (res.success) {
-                                setCheckinSuccessMessage(
-                                  `Check-in realizado com sucesso na unidade ${res.gym.name}! Seu streak atual é de ${res.newStreak} dias.`
-                                );
-                                // Refresh checkins history
-                                fetchUserCheckins(user.uid);
-                              }
-                            } catch (err) {
-                              setCheckinErrorMessage(err.message || 'Falha ao realizar check-in.');
-                            } finally {
-                              setIsPerformingScan(false);
-                            }
-                          }}
+                          onClick={() => handleQrScanned(gym.qr_code_token)}
                         >
                           Escanear QR {gym.name}
                         </button>
@@ -1985,46 +2057,21 @@ export default function ProfileScreen() {
                       <button
                         style={styles.simBtnError}
                         disabled={isPerformingScan}
-                        onClick={async () => {
-                          setIsPerformingScan(true);
-                          setCheckinErrorMessage('');
-                          try {
-                            await performGymCheckin(user.uid, 'token_invalido_teste');
-                          } catch (err) {
-                            setCheckinErrorMessage(err.message);
-                          } finally {
-                            setIsPerformingScan(false);
-                          }
-                        }}
+                        onClick={() => handleQrScanned('token_invalido_teste')}
                       >
                         Simular Token Inválido
                       </button>
                     </div>
                   </div>
 
-                  {/* Return / Cancel Check-in Button */}
+                  {/* Cancel / Close Button */}
                   <button
-                    style={{
-                      width: '100%',
-                      padding: '14px',
-                      borderRadius: '16px',
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      color: 'rgba(255, 255, 255, 0.6)',
-                      fontSize: '14px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      fontFamily: "'Outfit', sans-serif",
-                      marginTop: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onClick={() => setShowQrScanModal(false)}
+                    style={styles.scannerCancelBtn}
+                    onClick={() => closeQrScanner()}
                     disabled={isPerformingScan}
                   >
-                    Voltar
+                    <X size={16} />
+                    Cancelar
                   </button>
                 </div>
               )}
@@ -3280,11 +3327,14 @@ const workoutStyles = {
     marginTop: '4px',
   },
   scannerModal: {
-    position: 'absolute',
-    top: '80px',
-    left: '5%',
-    width: '90%',
+    position: 'fixed',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '92%',
     maxWidth: '440px',
+    maxHeight: '90vh',
+    overflowY: 'auto',
     background: '#0A0A0F',
     border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: '32px',
@@ -3294,6 +3344,24 @@ const workoutStyles = {
     boxSizing: 'border-box',
     display: 'flex',
     flexDirection: 'column',
+  },
+  scannerCancelBtn: {
+    width: '100%',
+    padding: '14px',
+    borderRadius: '16px',
+    background: 'rgba(255, 45, 85, 0.08)',
+    border: '1px solid rgba(255, 45, 85, 0.2)',
+    color: '#FF2D55',
+    fontSize: '14px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    fontFamily: "'Outfit', sans-serif",
+    marginTop: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    transition: 'all 0.2s ease',
   },
   scannerHeader: {
     display: 'flex',
