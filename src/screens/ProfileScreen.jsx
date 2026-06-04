@@ -13,12 +13,57 @@ import ScreenWrapper from '../components/layout/ScreenWrapper';
 import ShapeIcon from '../components/icons/ShapeIcon';
 import ProfileChallengeCard from '../components/profile/ProfileChallengeCard';
 
-const PRESET_EXERCISES = [
-  'Supino Reto (Barra)', 'Supino Inclinado (Halteres)', 'Desenvolvimento Militar', 'Elevação Lateral',
-  'Tríceps Testa', 'Tríceps Pulley', 'Puxada Pulley (Costas)', 'Remada Curvada',
-  'Rosca Direta (Barra W)', 'Rosca Alternada', 'Agachamento Livre', 'Leg Press 45º',
-  'Cadeira Extensora', 'Mesa Flexora', 'Afundo com Halteres', 'Abdominal Supra'
-];
+const PRESET_EXERCISES_BY_GROUP = {
+  'Peito': [
+    'Supino reto com barra', 'Supino inclinado com barra', 'Supino declinado com barra', 
+    'Supino reto com halteres', 'Supino inclinado com halteres', 'Crucifixo reto', 
+    'Crucifixo inclinado', 'Crossover alto', 'Crossover baixo', 'Crossover médio', 
+    'Flexão de braço', 'Flexão inclinada', 'Flexão declinada', 'Chest press na máquina', 'Peck deck'
+  ],
+  'Ombro': [
+    'Desenvolvimento com barra', 'Desenvolvimento com halteres', 'Desenvolvimento na máquina', 
+    'Elevação lateral com halteres', 'Elevação lateral no cabo', 'Elevação frontal com barra', 
+    'Elevação frontal com halteres', 'Elevação frontal no cabo', 'Remada alta com barra', 
+    'Remada alta com halteres', 'Encolhimento com barra', 'Encolhimento com halteres', 
+    'Face pull', 'Arnold press'
+  ],
+  'Tríceps': [
+    'Tríceps pulley com corda', 'Tríceps pulley com barra recta', 'Tríceps pulley com barra V', 
+    'Tríceps testa com barra', 'Tríceps testa com halteres', 'Tríceps francês', 
+    'Mergulho entre bancos', 'Mergulho nas paralelas', 'Tríceps coice com halteres', 
+    'Tríceps coice no cabo', 'Extensão overhead com halteres', 'Extensão overhead no cabo', 'Kickback'
+  ],
+  'Costas': [
+    'Puxada frontal com barra', 'Puxada frontal com triângulo', 'Puxada frontal supinada', 
+    'Puxada atrás da nuca', 'Remada curvada com barra', 'Remada curvada com halteres', 
+    'Remada unilateral com halteres', 'Remada cavalinho', 'Remada sentada no cabo', 
+    'Remada com triângulo', 'Remada na máquina', 'Levantamento terra', 
+    'Levantamento terra romeno', 'Barra fixa pronada', 'Barra fixa supinada', 
+    'Pullover com halter', 'Pullover no cabo', 'Serrote com halter'
+  ],
+  'Bíceps': [
+    'Rosca direta com barra', 'Rosca direta com halteres', 'Rosca alternada', 
+    'Rosca martelo', 'Rosca martelo no cabo', 'Rosca concentrada', 
+    'Rosca scott com barra', 'Rosca scott com halteres', 'Rosca no cabo baixo', 
+    'Rosca 21', 'Rosca inversa', 'Rosca zottman'
+  ],
+  'Quadríceps': [
+    'Agachamento livre com barra', 'Agachamento goblet com halter', 'Agachamento sumô', 
+    'Agachamento hack', 'Leg press 45°', 'Leg press horizontal', 
+    'Cadeira extensora', 'Avanço com barra', 'Avanço com halteres', 
+    'Avanço búlgaro', 'Agachamento no smith', 'Passada'
+  ],
+  'Posterior de Coxa & Glúteo': [
+    'Cadeira flexora', 'Mesa flexora', 'Stiff com barra', 'Stiff com halteres', 
+    'Levantamento terra romeno', 'Leg curl no cabo', 'Hip thrust com barra', 
+    'Hip thrust com halter', 'Elevação pélvica', 'Ponte glúteo', 
+    'Abdução no cabo', 'Abdução na máquina', 'Coice no cabo', 'Avanço reverso'
+  ],
+  'Panturrilha': [
+    'Panturrilha em pé na máquina', 'Panturrilha sentado na máquina', 'Panturrilha no leg press', 
+    'Panturrilha livre com halteres', 'Panturrilha unilateral'
+  ]
+};
 
 // Utility to format views counts (e.g., 1,2k, 10k, 1,2M)
 function formatViews(views) {
@@ -386,6 +431,7 @@ export default function ProfileScreen() {
   const [tempExerciseSets, setTempExerciseSets] = useState(4);
   const [tempExerciseReps, setTempExerciseReps] = useState('10');
   const [tempExerciseWeight, setTempExerciseWeight] = useState(0);
+  const [activePresetGroup, setActivePresetGroup] = useState('Peito');
 
 
 
@@ -1601,31 +1647,65 @@ export default function ProfileScreen() {
                       onChange={(e) => setTempExerciseName(e.target.value)}
                       style={modalStyles.checkInInput}
                     />
-                    {/* Suggested Exercises Grid */}
-                    <div style={{ marginTop: '2px', marginBottom: '2px' }}>
-                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>Sugestões rápidas (toque para selecionar):</span>
+                    {/* Suggested Exercises Grid with Tags */}
+                    <div style={{ marginTop: '2px', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>Sugestões rápidas por grupo muscular:</span>
+                      
+                      {/* Tags/Categories Selector */}
+                      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '6px', marginBottom: '8px' }} className="hide-scrollbar">
+                        {Object.keys(PRESET_EXERCISES_BY_GROUP).map((groupName) => {
+                          const isGroupActive = activePresetGroup === groupName;
+                          return (
+                            <button
+                              key={groupName}
+                              type="button"
+                              style={{
+                                padding: '4px 10px',
+                                background: isGroupActive ? 'rgba(0, 212, 255, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                                border: isGroupActive ? '1px solid #00D4FF' : '1px solid rgba(255, 255, 255, 0.08)',
+                                borderRadius: '12px',
+                                color: isGroupActive ? '#00D4FF' : 'rgba(255, 255, 255, 0.6)',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                fontFamily: "'Outfit', sans-serif",
+                                whiteSpace: 'nowrap',
+                                transition: 'all 0.15s ease'
+                              }}
+                              onClick={() => setActivePresetGroup(groupName)}
+                            >
+                              {groupName}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Exercises Grid under active Group */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '110px', overflowY: 'auto', padding: '2px' }} className="hide-scrollbar">
-                        {PRESET_EXERCISES.map((preset) => (
-                          <button
-                            key={preset}
-                            type="button"
-                            style={{
-                              padding: '6px 12px',
-                              background: tempExerciseName === preset ? 'rgba(57,255,20,0.15)' : 'rgba(255, 255, 255, 0.04)',
-                              border: tempExerciseName === preset ? '1px solid #39FF14' : '1px solid rgba(255, 255, 255, 0.1)',
-                              borderRadius: '20px',
-                              color: tempExerciseName === preset ? '#39FF14' : '#fff',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              fontFamily: "'Inter', sans-serif",
-                              transition: 'all 0.15s ease'
-                            }}
-                            onClick={() => setTempExerciseName(preset)}
-                          >
-                            {preset}
-                          </button>
-                        ))}
+                        {PRESET_EXERCISES_BY_GROUP[activePresetGroup]?.map((preset) => {
+                          const isSelected = tempExerciseName === preset;
+                          return (
+                            <button
+                              key={preset}
+                              type="button"
+                              style={{
+                                padding: '6px 12px',
+                                background: isSelected ? 'rgba(57,255,20,0.15)' : 'rgba(255, 255, 255, 0.04)',
+                                border: isSelected ? '1px solid #39FF14' : '1px solid rgba(255, 255, 255, 0.1)',
+                                borderRadius: '20px',
+                                color: isSelected ? '#39FF14' : '#fff',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                fontFamily: "'Inter', sans-serif",
+                                transition: 'all 0.15s ease'
+                              }}
+                              onClick={() => setTempExerciseName(preset)}
+                            >
+                              {preset}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -1816,31 +1896,65 @@ export default function ProfileScreen() {
                       onChange={(e) => setTempExerciseName(e.target.value)}
                       style={modalStyles.checkInInput}
                     />
-                    {/* Suggested Exercises Grid */}
-                    <div style={{ marginTop: '2px', marginBottom: '2px' }}>
-                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>Sugestões rápidas (toque para selecionar):</span>
+                    {/* Suggested Exercises Grid with Tags */}
+                    <div style={{ marginTop: '2px', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>Sugestões rápidas por grupo muscular:</span>
+                      
+                      {/* Tags/Categories Selector */}
+                      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '6px', marginBottom: '8px' }} className="hide-scrollbar">
+                        {Object.keys(PRESET_EXERCISES_BY_GROUP).map((groupName) => {
+                          const isGroupActive = activePresetGroup === groupName;
+                          return (
+                            <button
+                              key={groupName}
+                              type="button"
+                              style={{
+                                padding: '4px 10px',
+                                background: isGroupActive ? 'rgba(0, 212, 255, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                                border: isGroupActive ? '1px solid #00D4FF' : '1px solid rgba(255, 255, 255, 0.08)',
+                                borderRadius: '12px',
+                                color: isGroupActive ? '#00D4FF' : 'rgba(255, 255, 255, 0.6)',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                fontFamily: "'Outfit', sans-serif",
+                                whiteSpace: 'nowrap',
+                                transition: 'all 0.15s ease'
+                              }}
+                              onClick={() => setActivePresetGroup(groupName)}
+                            >
+                              {groupName}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Exercises Grid under active Group */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '110px', overflowY: 'auto', padding: '2px' }} className="hide-scrollbar">
-                        {PRESET_EXERCISES.map((preset) => (
-                          <button
-                            key={preset}
-                            type="button"
-                            style={{
-                              padding: '6px 12px',
-                              background: tempExerciseName === preset ? 'rgba(57,255,20,0.15)' : 'rgba(255, 255, 255, 0.04)',
-                              border: tempExerciseName === preset ? '1px solid #39FF14' : '1px solid rgba(255, 255, 255, 0.1)',
-                              borderRadius: '20px',
-                              color: tempExerciseName === preset ? '#39FF14' : '#fff',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              fontFamily: "'Inter', sans-serif",
-                              transition: 'all 0.15s ease'
-                            }}
-                            onClick={() => setTempExerciseName(preset)}
-                          >
-                            {preset}
-                          </button>
-                        ))}
+                        {PRESET_EXERCISES_BY_GROUP[activePresetGroup]?.map((preset) => {
+                          const isSelected = tempExerciseName === preset;
+                          return (
+                            <button
+                              key={preset}
+                              type="button"
+                              style={{
+                                padding: '6px 12px',
+                                background: isSelected ? 'rgba(57,255,20,0.15)' : 'rgba(255, 255, 255, 0.04)',
+                                border: isSelected ? '1px solid #39FF14' : '1px solid rgba(255, 255, 255, 0.1)',
+                                borderRadius: '20px',
+                                color: isSelected ? '#39FF14' : '#fff',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                fontFamily: "'Inter', sans-serif",
+                                transition: 'all 0.15s ease'
+                              }}
+                              onClick={() => setTempExerciseName(preset)}
+                            >
+                              {preset}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
