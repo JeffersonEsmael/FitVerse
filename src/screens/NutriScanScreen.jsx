@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Zap, Clock, Target, ChevronRight, Utensils, ArrowLeft, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Camera, Zap, Clock, Target, ChevronRight, Utensils, ArrowLeft, Trash2, AlertCircle, RefreshCw, X, Upload } from 'lucide-react';
 import { useNutriStore } from '../stores/nutriStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useAuthStore } from '../stores/authStore';
@@ -183,6 +184,93 @@ export default function NutriScanScreen() {
   const [localError, setLocalError] = useState(null);
   const fileInputRef = useRef(null);
 
+  // Custom Camera States & Refs
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
+  const [cameraError, setCameraError] = useState(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  const startCamera = async () => {
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      setCameraStream(stream);
+    } catch (err) {
+      console.warn('[NutriScan] Camera access failed:', err);
+      setCameraError('Não foi possível acessar a câmera do dispositivo. Verifique as permissões ou envie uma foto da galeria.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+      setCameraStream(null);
+    }
+  };
+
+  // Sync stream to video element when camera becomes active
+  useEffect(() => {
+    if (videoRef.current) {
+      if (showCameraModal && cameraStream) {
+        if (videoRef.current.srcObject !== cameraStream) {
+          videoRef.current.srcObject = cameraStream;
+        }
+      } else {
+        videoRef.current.srcObject = null;
+      }
+    }
+  }, [cameraStream, showCameraModal]);
+
+  // Handle open/close camera stream
+  useEffect(() => {
+    if (showCameraModal) {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+    return () => stopCamera();
+  }, [showCameraModal]);
+
+  const capturePhoto = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    try {
+      const width = video.videoWidth || 640;
+      const height = video.videoHeight || 480;
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, width, height);
+
+      // Get JPEG base64
+      const base64 = canvas.toDataURL('image/jpeg', 0.8);
+      
+      // Stop camera and set image
+      setSelectedImage(base64);
+      setShowCameraModal(false);
+      
+      // Trigger scan
+      setLocalError(null);
+      clearScanResult();
+      scanMealWithVision(base64, user?.uid)
+        .catch(err => {
+          console.error(err);
+          setLocalError(err.message || 'Ocorreu um erro ao processar a imagem.');
+        });
+    } catch (err) {
+      console.error('[NutriScan] Capture failed:', err);
+      setLocalError('Falha ao capturar a foto da câmera.');
+      setShowCameraModal(false);
+    }
+  };
+
   const triggerFileSelect = () => {
     if (isScanning) return;
     fileInputRef.current?.click();
@@ -245,7 +333,7 @@ export default function NutriScanScreen() {
             />
             <motion.div
               style={styles.uploadCard}
-              onClick={triggerFileSelect}
+              onClick={() => setShowCameraModal(true)}
               whileHover={{ scale: 1.02, borderColor: 'rgba(57,255,20,0.5)', boxShadow: '0 0 25px rgba(57,255,20,0.15)' }}
               whileTap={{ scale: 0.98 }}
             >
@@ -337,6 +425,103 @@ export default function NutriScanScreen() {
               <MealItem key={meal.id} meal={meal} index={i} />
             ))}
           </div>
+        )}
+        {ReactDOM.createPortal(
+          <AnimatePresence>
+            {showCameraModal && (
+              <motion.div
+                key="nutriscan-camera"
+                style={cameraStyles.fullscreenOverlay}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                {/* Camera feed as background */}
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{
+                    ...cameraStyles.cameraFeed,
+                    display: cameraStream ? 'block' : 'none'
+                  }}
+                />
+                
+                {!cameraStream && !cameraError && (
+                  <div style={cameraStyles.cameraPlaceholder}>
+                    <Camera size={48} color="rgba(255,255,255,0.2)" />
+                    <span style={cameraStyles.cameraPlaceholderText}>Carregando câmera...</span>
+                  </div>
+                )}
+
+                {cameraError && (
+                  <div style={cameraStyles.cameraPlaceholder}>
+                    <AlertCircle size={48} color="#FF2D55" style={{ marginBottom: '12px' }} />
+                    <span style={{ ...cameraStyles.cameraPlaceholderText, color: '#FF2D55', textAlign: 'center', padding: '0 24px' }}>
+                      {cameraError}
+                    </span>
+                  </div>
+                )}
+
+                <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+                {/* Top header bar */}
+                <div style={cameraStyles.topBar}>
+                  <button style={cameraStyles.closeBtn} onClick={() => setShowCameraModal(false)}>
+                    <X size={24} color="#fff" />
+                  </button>
+                  <span style={cameraStyles.topTitle}>Fotografar Prato</span>
+                  <div style={{ width: 44 }} />
+                </div>
+
+                {/* Camera framing overlay */}
+                <div style={cameraStyles.frameOverlay}>
+                  <div style={cameraStyles.scanWindow}>
+                    <div style={{ ...cameraStyles.corner, top: 0, left: 0, borderTop: '4px solid #39FF14', borderLeft: '4px solid #39FF14' }} />
+                    <div style={{ ...cameraStyles.corner, top: 0, right: 0, borderTop: '4px solid #39FF14', borderRight: '4px solid #39FF14' }} />
+                    <div style={{ ...cameraStyles.corner, bottom: 0, left: 0, borderBottom: '4px solid #39FF14', borderLeft: '4px solid #39FF14' }} />
+                    <div style={{ ...cameraStyles.corner, bottom: 0, right: 0, borderBottom: '4px solid #39FF14', borderRight: '4px solid #39FF14' }} />
+                    <span style={cameraStyles.frameText}>Enquadre seu prato aqui</span>
+                  </div>
+                </div>
+
+                {/* Bottom controls panel */}
+                <div style={cameraStyles.bottomPanel}>
+                  {/* Gallery Fallback */}
+                  <button
+                    style={cameraStyles.galleryBtn}
+                    onClick={() => {
+                      setShowCameraModal(false);
+                      triggerFileSelect();
+                    }}
+                  >
+                    <Upload size={20} color="#fff" />
+                    <span style={cameraStyles.galleryBtnText}>Galeria</span>
+                  </button>
+
+                  {/* Capture button */}
+                  <motion.button
+                    style={cameraStyles.captureBtn}
+                    onClick={capturePhoto}
+                    disabled={!cameraStream}
+                    whileTap={{ scale: 0.9 }}
+                  >
+                    <div style={cameraStyles.captureBtnInner} />
+                  </motion.button>
+
+                  {/* Cancel button */}
+                  <button
+                    style={cameraStyles.cancelBtn}
+                    onClick={() => setShowCameraModal(false)}
+                  >
+                    <span style={cameraStyles.cancelBtnText}>Voltar</span>
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body
         )}
       </div>
     </ScreenWrapper>
@@ -506,4 +691,182 @@ const mealStyles = {
   info: { flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   foods: { fontSize: '13px', color: '#fff', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' },
   cal: { fontSize: '13px', fontWeight: 700, color: '#39FF14' },
+};
+
+const cameraStyles = {
+  fullscreenOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 100000,
+    background: '#000',
+    overflow: 'hidden',
+  },
+  cameraFeed: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    zIndex: 1,
+  },
+  cameraPlaceholder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '16px',
+    background: '#0A0A0F',
+    zIndex: 1,
+  },
+  cameraPlaceholderText: {
+    fontSize: '14px',
+    color: 'rgba(255,255,255,0.4)',
+    fontFamily: "'Inter', sans-serif",
+  },
+  topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '16px 16px',
+    paddingTop: 'max(env(safe-area-inset-top, 16px), 16px)',
+    background: 'linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%)',
+  },
+  closeBtn: {
+    width: '44px',
+    height: '44px',
+    borderRadius: '50%',
+    background: 'rgba(255,255,255,0.15)',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+    border: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+  },
+  topTitle: {
+    fontSize: '17px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    textShadow: '0 1px 4px rgba(0,0,0,0.5)',
+  },
+  frameOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 2,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    pointerEvents: 'none',
+  },
+  scanWindow: {
+    width: '280px',
+    height: '280px',
+    position: 'relative',
+    borderRadius: '32px',
+    border: '1px dashed rgba(255,255,255,0.25)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(0,0,0,0.15)',
+    backdropFilter: 'blur(1px)',
+  },
+  corner: {
+    position: 'absolute',
+    width: '32px',
+    height: '32px',
+    borderRadius: '4px',
+  },
+  frameText: {
+    position: 'absolute',
+    bottom: '-36px',
+    color: '#fff',
+    fontSize: '13px',
+    fontWeight: 600,
+    fontFamily: "'Inter', sans-serif",
+    textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+    textAlign: 'center',
+  },
+  bottomPanel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    padding: '24px 24px',
+    paddingBottom: 'max(env(safe-area-inset-bottom, 24px), 24px)',
+    background: 'linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  captureBtn: {
+    width: '76px',
+    height: '76px',
+    borderRadius: '50%',
+    border: '4px solid #fff',
+    background: 'transparent',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+  captureBtnInner: {
+    width: '58px',
+    height: '58px',
+    borderRadius: '50%',
+    background: '#39FF14',
+    boxShadow: '0 0 15px rgba(57,255,20,0.6)',
+  },
+  galleryBtn: {
+    background: 'rgba(255,255,255,0.15)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '16px',
+    padding: '10px 16px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    cursor: 'pointer',
+    minWidth: '90px',
+    justifyContent: 'center',
+    backdropFilter: 'blur(8px)',
+  },
+  galleryBtnText: {
+    color: '#fff',
+    fontSize: '12px',
+    fontWeight: 600,
+    fontFamily: "'Inter', sans-serif",
+  },
+  cancelBtn: {
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    minWidth: '90px',
+    textAlign: 'center',
+  },
+  cancelBtnText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: '14px',
+    fontWeight: 600,
+    fontFamily: "'Inter', sans-serif",
+  },
 };
