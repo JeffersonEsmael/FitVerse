@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play, MoreVertical, Check, MapPin, QrCode, Calendar, Shield } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
@@ -1909,176 +1910,178 @@ export default function ProfileScreen() {
           </>
         )}
       </AnimatePresence>
-
-      {/* MODAL: Leitor de QR Code */}
-      <AnimatePresence>
-        {showQrScanModal && (
-          <>
-            {/* Backdrop - full screen fixed */}
-            <motion.div
-              key="qr-backdrop"
-              style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'rgba(0,0,0,0.85)',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-                zIndex: 99999,
-              }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => {
-                if (!isPerformingScan) closeQrScanner();
-              }}
-            />
-            {/* Modal Box - centered fixed */}
-            <motion.div
-              key="qr-modal"
-              style={styles.scannerModal}
-              initial={{ scale: 0.9, opacity: 0, y: 50 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 50 }}
-            >
-              <div style={styles.scannerHeader}>
-                <h3 style={styles.scannerTitle}>Leitor de QR Code</h3>
-                <button
-                  style={styles.scannerCloseBtn}
-                  onClick={() => closeQrScanner()}
-                >
-                  <X size={20} color="#fff" />
-                </button>
-              </div>
-
-              {checkinSuccessMessage ? (
-                <div style={styles.scannerSuccessContainer}>
-                  <div style={styles.scannerSuccessIconBg}>
-                    <Check size={40} color="#0A0A0F" strokeWidth={3} />
-                  </div>
-                  <h4 style={styles.scannerSuccessTitle}>Presença Confirmada!</h4>
-                  <p style={styles.scannerSuccessDesc}>{checkinSuccessMessage}</p>
+      {/* MODAL: Leitor de QR Code - Portal to body */}
+      {ReactDOM.createPortal(
+        <AnimatePresence>
+          {showQrScanModal && (
+            <>
+              {/* Backdrop - full screen fixed */}
+              <motion.div
+                key="qr-backdrop"
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'rgba(0,0,0,0.85)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  zIndex: 99999,
+                }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => {
+                  if (!isPerformingScan) closeQrScanner();
+                }}
+              />
+              {/* Modal Box - centered fixed */}
+              <motion.div
+                key="qr-modal"
+                style={styles.scannerModal}
+                initial={{ scale: 0.9, opacity: 0, y: 50 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 50 }}
+              >
+                <div style={styles.scannerHeader}>
+                  <h3 style={styles.scannerTitle}>Leitor de QR Code</h3>
                   <button
-                    style={styles.scannerSuccessBtn}
-                    onClick={() => {
-                      closeQrScanner();
-                      setCheckinSuccessMessage('');
-                    }}
+                    style={styles.scannerCloseBtn}
+                    onClick={() => closeQrScanner()}
                   >
-                    Fechar
+                    <X size={20} color="#fff" />
                   </button>
                 </div>
-              ) : (
-                <div style={styles.scannerBody}>
-                  {/* Camera viewfinder */}
-                  <div style={styles.viewfinderContainer}>
-                    <div style={styles.viewfinderCornerTL} />
-                    <div style={styles.viewfinderCornerTR} />
-                    <div style={styles.viewfinderCornerBL} />
-                    <div style={styles.viewfinderCornerBR} />
-                    <motion.div
-                      style={styles.scannerLaser}
-                      animate={{ top: ['0%', '98%', '0%'] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                    />
-                    {cameraStream ? (
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          zIndex: 1,
-                          borderRadius: '20px'
-                        }}
-                      />
-                    ) : null}
-                    {/* Hidden canvas for fallback QR scanning */}
-                    <canvas ref={canvasRef} style={{ display: 'none' }} />
-                    {isPerformingScan ? (
-                      <span style={{ ...styles.viewfinderStatusText, zIndex: 3 }}>Processando check-in...</span>
-                    ) : (
-                      <span style={{ ...styles.viewfinderStatusText, zIndex: 3 }}>
-                        {cameraStream ? 'Aponte a câmera para o QR Code' : 'Permita o acesso à câmera para escanear'}
-                      </span>
-                    )}
-                  </div>
 
-                  {checkinErrorMessage && (
-                    <div style={styles.scannerErrorMsg}>
-                      ⚠️ {checkinErrorMessage}
+                {checkinSuccessMessage ? (
+                  <div style={styles.scannerSuccessContainer}>
+                    <div style={styles.scannerSuccessIconBg}>
+                      <Check size={40} color="#0A0A0F" strokeWidth={3} />
                     </div>
-                  )}
-
-                  {/* Manual token input */}
-                  <div style={styles.manualInputRow}>
-                    <input
-                      type="text"
-                      placeholder="Token do QR Code manualmente"
-                      value={manualTokenInput}
-                      onChange={(e) => setManualTokenInput(e.target.value)}
-                      style={styles.manualInput}
-                      disabled={isPerformingScan}
-                    />
+                    <h4 style={styles.scannerSuccessTitle}>Presença Confirmada!</h4>
+                    <p style={styles.scannerSuccessDesc}>{checkinSuccessMessage}</p>
                     <button
-                      style={styles.manualInputBtn}
-                      onClick={async () => {
-                        if (!manualTokenInput.trim()) return;
-                        await handleQrScanned(manualTokenInput.trim());
+                      style={styles.scannerSuccessBtn}
+                      onClick={() => {
+                        closeQrScanner();
+                        setCheckinSuccessMessage('');
                       }}
-                      disabled={isPerformingScan}
                     >
-                      Confirmar
+                      Fechar
                     </button>
                   </div>
+                ) : (
+                  <div style={styles.scannerBody}>
+                    {/* Camera viewfinder */}
+                    <div style={styles.viewfinderContainer}>
+                      <div style={styles.viewfinderCornerTL} />
+                      <div style={styles.viewfinderCornerTR} />
+                      <div style={styles.viewfinderCornerBL} />
+                      <div style={styles.viewfinderCornerBR} />
+                      <motion.div
+                        style={styles.scannerLaser}
+                        animate={{ top: ['0%', '98%', '0%'] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                      />
+                      {cameraStream ? (
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            zIndex: 1,
+                            borderRadius: '20px'
+                          }}
+                        />
+                      ) : null}
+                      {/* Hidden canvas for fallback QR scanning */}
+                      <canvas ref={canvasRef} style={{ display: 'none' }} />
+                      {isPerformingScan ? (
+                        <span style={{ ...styles.viewfinderStatusText, zIndex: 3 }}>Processando check-in...</span>
+                      ) : (
+                        <span style={{ ...styles.viewfinderStatusText, zIndex: 3 }}>
+                          {cameraStream ? 'Aponte a câmera para o QR Code' : 'Permita o acesso à câmera para escanear'}
+                        </span>
+                      )}
+                    </div>
 
-                  {/* Fast Simulation Options */}
-                  <div style={styles.simulationContainer}>
-                    <span style={styles.simulationTitle}>Simular escaneamento físico:</span>
-                    <div style={styles.simulationButtons}>
-                      {gymsList.map(gym => (
-                        <button
-                          key={gym.id}
-                          style={styles.simBtn}
-                          disabled={isPerformingScan}
-                          onClick={() => handleQrScanned(gym.qr_code_token)}
-                        >
-                          Escanear QR {gym.name}
-                        </button>
-                      ))}
-                      <button
-                        style={styles.simBtnError}
+                    {checkinErrorMessage && (
+                      <div style={styles.scannerErrorMsg}>
+                        ⚠️ {checkinErrorMessage}
+                      </div>
+                    )}
+
+                    {/* Manual token input */}
+                    <div style={styles.manualInputRow}>
+                      <input
+                        type="text"
+                        placeholder="Token do QR Code manualmente"
+                        value={manualTokenInput}
+                        onChange={(e) => setManualTokenInput(e.target.value)}
+                        style={styles.manualInput}
                         disabled={isPerformingScan}
-                        onClick={() => handleQrScanned('token_invalido_teste')}
+                      />
+                      <button
+                        style={styles.manualInputBtn}
+                        onClick={async () => {
+                          if (!manualTokenInput.trim()) return;
+                          await handleQrScanned(manualTokenInput.trim());
+                        }}
+                        disabled={isPerformingScan}
                       >
-                        Simular Token Inválido
+                        Confirmar
                       </button>
                     </div>
-                  </div>
 
-                  {/* Cancel / Close Button */}
-                  <button
-                    style={styles.scannerCancelBtn}
-                    onClick={() => closeQrScanner()}
-                    disabled={isPerformingScan}
-                  >
-                    <X size={16} />
-                    Cancelar
-                  </button>
-                </div>
-              )}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+                    {/* Fast Simulation Options */}
+                    <div style={styles.simulationContainer}>
+                      <span style={styles.simulationTitle}>Simular escaneamento físico:</span>
+                      <div style={styles.simulationButtons}>
+                        {gymsList.map(gym => (
+                          <button
+                            key={gym.id}
+                            style={styles.simBtn}
+                            disabled={isPerformingScan}
+                            onClick={() => handleQrScanned(gym.qr_code_token)}
+                          >
+                            Escanear QR {gym.name}
+                          </button>
+                        ))}
+                        <button
+                          style={styles.simBtnError}
+                          disabled={isPerformingScan}
+                          onClick={() => handleQrScanned('token_invalido_teste')}
+                        >
+                          Simular Token Inválido
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Cancel / Close Button */}
+                    <button
+                      style={styles.scannerCancelBtn}
+                      onClick={() => closeQrScanner()}
+                      disabled={isPerformingScan}
+                    >
+                      <X size={16} />
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </ScreenWrapper>
   );
 }
