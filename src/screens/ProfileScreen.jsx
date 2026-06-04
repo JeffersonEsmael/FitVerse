@@ -1910,175 +1910,193 @@ export default function ProfileScreen() {
           </>
         )}
       </AnimatePresence>
-      {/* MODAL: Leitor de QR Code - Portal to body */}
+      {/* MODAL: Leitor de QR Code - Full Screen Scanner */}
       {ReactDOM.createPortal(
         <AnimatePresence>
           {showQrScanModal && (
             <motion.div
-              key="qr-overlay"
-              style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'rgba(0,0,0,0.85)',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-                zIndex: 99999,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '16px',
-                boxSizing: 'border-box',
-              }}
+              key="qr-fullscreen"
+              style={qrStyles.fullscreenOverlay}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => {
-                if (!isPerformingScan) closeQrScanner();
-              }}
             >
-              {/* Modal Box */}
-              <motion.div
-                style={styles.scannerModal}
-                initial={{ scale: 0.9, opacity: 0, y: 40 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.9, opacity: 0, y: 40 }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div style={styles.scannerHeader}>
-                  <h3 style={styles.scannerTitle}>Leitor de QR Code</h3>
-                  <button
-                    style={styles.scannerCloseBtn}
-                    onClick={() => closeQrScanner()}
+              {/* Camera feed as background */}
+              {cameraStream ? (
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  style={qrStyles.cameraFeed}
+                />
+              ) : (
+                <div style={qrStyles.cameraPlaceholder}>
+                  <QrCode size={48} color="rgba(255,255,255,0.2)" />
+                  <span style={qrStyles.cameraPlaceholderText}>Permita o acesso à câmera</span>
+                </div>
+              )}
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+              {/* Dark overlay with scanning window cutout */}
+              <div style={qrStyles.overlayMask}>
+                {/* Top dark area */}
+                <div style={qrStyles.maskTop} />
+                {/* Middle row: left dark | scanning window | right dark */}
+                <div style={qrStyles.maskMiddle}>
+                  <div style={qrStyles.maskSide} />
+                  <div style={qrStyles.scanWindow}>
+                    {/* Corner brackets */}
+                    <div style={{ ...qrStyles.corner, top: 0, left: 0, borderTop: '4px solid #39FF14', borderLeft: '4px solid #39FF14' }} />
+                    <div style={{ ...qrStyles.corner, top: 0, right: 0, borderTop: '4px solid #39FF14', borderRight: '4px solid #39FF14' }} />
+                    <div style={{ ...qrStyles.corner, bottom: 0, left: 0, borderBottom: '4px solid #39FF14', borderLeft: '4px solid #39FF14' }} />
+                    <div style={{ ...qrStyles.corner, bottom: 0, right: 0, borderBottom: '4px solid #39FF14', borderRight: '4px solid #39FF14' }} />
+                    {/* Scanning laser */}
+                    <motion.div
+                      style={qrStyles.laser}
+                      animate={{ top: ['0%', '100%', '0%'] }}
+                      transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                    />
+                  </div>
+                  <div style={qrStyles.maskSide} />
+                </div>
+                {/* Bottom dark area */}
+                <div style={qrStyles.maskBottom} />
+              </div>
+
+              {/* Top header bar */}
+              <div style={qrStyles.topBar}>
+                <button style={qrStyles.closeBtn} onClick={() => closeQrScanner()}>
+                  <X size={24} color="#fff" />
+                </button>
+                <span style={qrStyles.topTitle}>Escanear QR Code</span>
+                <div style={{ width: 44 }} />
+              </div>
+
+              {/* Status text under scan window */}
+              <div style={qrStyles.statusContainer}>
+                {isPerformingScan ? (
+                  <motion.div
+                    style={qrStyles.statusPill}
+                    animate={{ opacity: [1, 0.5, 1] }}
+                    transition={{ duration: 1.2, repeat: Infinity }}
                   >
-                    <X size={20} color="#fff" />
+                    <div style={qrStyles.statusDot} />
+                    <span style={qrStyles.statusText}>Processando check-in...</span>
+                  </motion.div>
+                ) : (
+                  <div style={qrStyles.statusPill}>
+                    <ScanLine size={16} color="#39FF14" />
+                    <span style={qrStyles.statusText}>
+                      {cameraStream ? 'Aponte a câmera para o QR Code da academia' : 'Aguardando acesso à câmera...'}
+                    </span>
+                  </div>
+                )}
+
+                {checkinErrorMessage && (
+                  <motion.div
+                    style={qrStyles.errorPill}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    ⚠️ {checkinErrorMessage}
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Bottom controls panel */}
+              <motion.div
+                style={qrStyles.bottomPanel}
+                initial={{ y: 100 }}
+                animate={{ y: 0 }}
+                exit={{ y: 100 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              >
+                {/* Manual token input */}
+                <div style={qrStyles.manualRow}>
+                  <input
+                    type="text"
+                    placeholder="Ou digite o token manualmente"
+                    value={manualTokenInput}
+                    onChange={(e) => setManualTokenInput(e.target.value)}
+                    style={qrStyles.manualInput}
+                    disabled={isPerformingScan}
+                  />
+                  <button
+                    style={qrStyles.manualBtn}
+                    onClick={async () => {
+                      if (!manualTokenInput.trim()) return;
+                      await handleQrScanned(manualTokenInput.trim());
+                    }}
+                    disabled={isPerformingScan}
+                  >
+                    OK
                   </button>
                 </div>
 
-                {checkinSuccessMessage ? (
-                  <div style={styles.scannerSuccessContainer}>
-                    <div style={styles.scannerSuccessIconBg}>
-                      <Check size={40} color="#0A0A0F" strokeWidth={3} />
-                    </div>
-                    <h4 style={styles.scannerSuccessTitle}>Presença Confirmada!</h4>
-                    <p style={styles.scannerSuccessDesc}>{checkinSuccessMessage}</p>
+                {/* Simulation buttons */}
+                <div style={qrStyles.simGrid}>
+                  {gymsList.map(gym => (
                     <button
-                      style={styles.scannerSuccessBtn}
-                      onClick={() => {
-                        closeQrScanner();
-                        setCheckinSuccessMessage('');
-                      }}
-                    >
-                      Fechar
-                    </button>
-                  </div>
-                ) : (
-                  <div style={styles.scannerBody}>
-                    {/* Camera viewfinder */}
-                    <div style={styles.viewfinderContainer}>
-                      <div style={styles.viewfinderCornerTL} />
-                      <div style={styles.viewfinderCornerTR} />
-                      <div style={styles.viewfinderCornerBL} />
-                      <div style={styles.viewfinderCornerBR} />
-                      <motion.div
-                        style={styles.scannerLaser}
-                        animate={{ top: ['0%', '98%', '0%'] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                      />
-                      {cameraStream ? (
-                        <video
-                          ref={videoRef}
-                          autoPlay
-                          playsInline
-                          muted
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            zIndex: 1,
-                            borderRadius: '20px'
-                          }}
-                        />
-                      ) : null}
-                      <canvas ref={canvasRef} style={{ display: 'none' }} />
-                      {isPerformingScan ? (
-                        <span style={{ ...styles.viewfinderStatusText, zIndex: 3 }}>Processando check-in...</span>
-                      ) : (
-                        <span style={{ ...styles.viewfinderStatusText, zIndex: 3 }}>
-                          {cameraStream ? 'Aponte a câmera para o QR Code' : 'Permita o acesso à câmera para escanear'}
-                        </span>
-                      )}
-                    </div>
-
-                    {checkinErrorMessage && (
-                      <div style={styles.scannerErrorMsg}>
-                        ⚠️ {checkinErrorMessage}
-                      </div>
-                    )}
-
-                    {/* Manual token input */}
-                    <div style={styles.manualInputRow}>
-                      <input
-                        type="text"
-                        placeholder="Token do QR Code manualmente"
-                        value={manualTokenInput}
-                        onChange={(e) => setManualTokenInput(e.target.value)}
-                        style={styles.manualInput}
-                        disabled={isPerformingScan}
-                      />
-                      <button
-                        style={styles.manualInputBtn}
-                        onClick={async () => {
-                          if (!manualTokenInput.trim()) return;
-                          await handleQrScanned(manualTokenInput.trim());
-                        }}
-                        disabled={isPerformingScan}
-                      >
-                        Confirmar
-                      </button>
-                    </div>
-
-                    {/* Fast Simulation Options */}
-                    <div style={styles.simulationContainer}>
-                      <span style={styles.simulationTitle}>Simular escaneamento físico:</span>
-                      <div style={styles.simulationButtons}>
-                        {gymsList.map(gym => (
-                          <button
-                            key={gym.id}
-                            style={styles.simBtn}
-                            disabled={isPerformingScan}
-                            onClick={() => handleQrScanned(gym.qr_code_token)}
-                          >
-                            Escanear QR {gym.name}
-                          </button>
-                        ))}
-                        <button
-                          style={styles.simBtnError}
-                          disabled={isPerformingScan}
-                          onClick={() => handleQrScanned('token_invalido_teste')}
-                        >
-                          Simular Token Inválido
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Cancel / Close Button */}
-                    <button
-                      style={styles.scannerCancelBtn}
-                      onClick={() => closeQrScanner()}
+                      key={gym.id}
+                      style={qrStyles.simButton}
                       disabled={isPerformingScan}
+                      onClick={() => handleQrScanned(gym.qr_code_token)}
                     >
-                      <X size={16} />
-                      Cancelar
+                      <QrCode size={14} color="#39FF14" />
+                      <span style={qrStyles.simButtonText}>{gym.name}</span>
                     </button>
-                  </div>
-                )}
+                  ))}
+                </div>
+
+                {/* Cancel button */}
+                <button
+                  style={qrStyles.cancelBtn}
+                  onClick={() => closeQrScanner()}
+                  disabled={isPerformingScan}
+                >
+                  Cancelar
+                </button>
               </motion.div>
+
+              {/* Success overlay */}
+              <AnimatePresence>
+                {checkinSuccessMessage && (
+                  <motion.div
+                    style={qrStyles.successOverlay}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <motion.div
+                      style={qrStyles.successCard}
+                      initial={{ scale: 0.8, y: 30 }}
+                      animate={{ scale: 1, y: 0 }}
+                      transition={{ type: 'spring', damping: 20 }}
+                    >
+                      <motion.div
+                        style={qrStyles.successIconCircle}
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.2, type: 'spring', stiffness: 400 }}
+                      >
+                        <Check size={48} color="#0A0A0F" strokeWidth={3} />
+                      </motion.div>
+                      <h3 style={qrStyles.successTitle}>Presença Confirmada!</h3>
+                      <p style={qrStyles.successDesc}>{checkinSuccessMessage}</p>
+                      <button
+                        style={qrStyles.successBtn}
+                        onClick={() => {
+                          closeQrScanner();
+                          setCheckinSuccessMessage('');
+                        }}
+                      >
+                        Concluído
+                      </button>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>,
@@ -3331,221 +3349,332 @@ const workoutStyles = {
     boxShadow: '0 4px 15px rgba(57,255,20,0.3)',
     marginTop: '4px',
   },
-  scannerModal: {
-    width: '100%',
-    maxWidth: '440px',
-    maxHeight: '85vh',
-    overflowY: 'auto',
-    background: '#0A0A0F',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '32px',
-    padding: '24px',
-    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
-    boxSizing: 'border-box',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  scannerCancelBtn: {
-    width: '100%',
-    padding: '14px',
-    borderRadius: '16px',
-    background: 'rgba(255, 45, 85, 0.08)',
-    border: '1px solid rgba(255, 45, 85, 0.2)',
-    color: '#FF2D55',
-    fontSize: '14px',
-    fontWeight: 700,
-    cursor: 'pointer',
-    fontFamily: "'Outfit', sans-serif",
-    marginTop: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    transition: 'all 0.2s ease',
-  },
-  scannerHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px',
-  },
-  scannerTitle: {
-    fontSize: '18px',
-    fontWeight: 800,
-    color: '#fff',
-    fontFamily: "'Outfit', sans-serif",
-    margin: 0,
-  },
-  scannerCloseBtn: {
-    background: 'rgba(255,255,255,0.05)',
-    border: 'none',
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-  },
-  scannerBody: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-  },
-  viewfinderContainer: {
-    position: 'relative',
-    width: '100%',
-    height: '200px',
-    background: '#040406',
-    border: '1px solid rgba(255,255,255,0.05)',
-    borderRadius: '20px',
+
+
+};
+
+const qrStyles = {
+  fullscreenOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 100000,
+    background: '#000',
     overflow: 'hidden',
+  },
+  cameraFeed: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    zIndex: 1,
+  },
+  cameraPlaceholder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: '16px',
+    background: '#0A0A0F',
+    zIndex: 1,
   },
-  viewfinderCornerTL: { position: 'absolute', top: '16px', left: '16px', width: '20px', height: '20px', borderTop: '3px solid #39FF14', borderLeft: '3px solid #39FF14', borderTopLeftRadius: '4px' },
-  viewfinderCornerTR: { position: 'absolute', top: '16px', right: '16px', width: '20px', height: '20px', borderTop: '3px solid #39FF14', borderRight: '3px solid #39FF14', borderTopRightRadius: '4px' },
-  viewfinderCornerBL: { position: 'absolute', bottom: '16px', left: '16px', width: '20px', height: '20px', borderBottom: '3px solid #39FF14', borderLeft: '3px solid #39FF14', borderBottomLeftRadius: '4px' },
-  viewfinderCornerBR: { position: 'absolute', bottom: '16px', right: '16px', width: '20px', height: '20px', borderBottom: '3px solid #39FF14', borderRight: '3px solid #39FF14', borderBottomRightRadius: '4px' },
-  scannerLaser: {
-    position: 'absolute',
-    left: '16px',
-    right: '16px',
-    height: '2px',
-    background: '#39FF14',
-    boxShadow: '0 0 8px #39FF14, 0 0 12px #39FF14',
-    zIndex: 2,
-  },
-  viewfinderStatusText: {
-    fontSize: '12px',
-    color: 'rgba(255,255,255,0.5)',
+  cameraPlaceholderText: {
+    fontSize: '14px',
+    color: 'rgba(255,255,255,0.4)',
     fontFamily: "'Inter', sans-serif",
-    textAlign: 'center',
-    padding: '0 24px',
+  },
+  overlayMask: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 2,
+    display: 'flex',
+    flexDirection: 'column',
+    pointerEvents: 'none',
+  },
+  maskTop: {
+    flex: 1,
+    background: 'rgba(0,0,0,0.65)',
+    minHeight: '20%',
+  },
+  maskMiddle: {
+    display: 'flex',
+    height: '260px',
+  },
+  maskSide: {
+    flex: 1,
+    background: 'rgba(0,0,0,0.65)',
+    minWidth: '40px',
+  },
+  scanWindow: {
+    width: '260px',
+    height: '260px',
+    position: 'relative',
+    flexShrink: 0,
+    borderRadius: '24px',
+    overflow: 'hidden',
+  },
+  corner: {
+    position: 'absolute',
+    width: '36px',
+    height: '36px',
+    zIndex: 4,
+    borderRadius: '4px',
+  },
+  laser: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: '3px',
+    background: 'linear-gradient(90deg, transparent, #39FF14, #39FF14, transparent)',
+    boxShadow: '0 0 12px #39FF14, 0 0 24px rgba(57,255,20,0.4)',
     zIndex: 3,
   },
-  manualInputRow: {
+  maskBottom: {
+    flex: 1.5,
+    background: 'rgba(0,0,0,0.65)',
+  },
+  topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '16px 16px',
+    paddingTop: 'max(env(safe-area-inset-top, 16px), 16px)',
+    background: 'linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%)',
+  },
+  closeBtn: {
+    width: '44px',
+    height: '44px',
+    borderRadius: '50%',
+    background: 'rgba(255,255,255,0.15)',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+    border: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+  },
+  topTitle: {
+    fontSize: '17px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    textShadow: '0 1px 4px rgba(0,0,0,0.5)',
+  },
+  statusContainer: {
+    position: 'absolute',
+    bottom: '220px',
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '0 24px',
+  },
+  statusPill: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 20px',
+    background: 'rgba(0,0,0,0.6)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    borderRadius: '30px',
+    border: '1px solid rgba(255,255,255,0.1)',
+  },
+  statusDot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    background: '#39FF14',
+    boxShadow: '0 0 8px #39FF14',
+  },
+  statusText: {
+    fontSize: '13px',
+    color: 'rgba(255,255,255,0.9)',
+    fontFamily: "'Inter', sans-serif",
+    fontWeight: 500,
+  },
+  errorPill: {
+    padding: '10px 20px',
+    background: 'rgba(255,45,85,0.15)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    borderRadius: '16px',
+    border: '1px solid rgba(255,45,85,0.3)',
+    color: '#FF6B8A',
+    fontSize: '13px',
+    fontFamily: "'Inter', sans-serif",
+    fontWeight: 500,
+    textAlign: 'center',
+  },
+  bottomPanel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    padding: '20px 16px',
+    paddingBottom: 'max(env(safe-area-inset-bottom, 16px), 20px)',
+    background: 'linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 70%, transparent 100%)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  manualRow: {
     display: 'flex',
     gap: '8px',
   },
   manualInput: {
     flex: 1,
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: '12px',
-    padding: '12px',
+    padding: '12px 16px',
+    background: 'rgba(255,255,255,0.08)',
+    border: '1px solid rgba(255,255,255,0.12)',
+    borderRadius: '14px',
     color: '#fff',
     fontSize: '14px',
     fontFamily: "'Inter', sans-serif",
     outline: 'none',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
   },
-  manualInputBtn: {
-    padding: '12px 16px',
-    background: '#00D4FF',
+  manualBtn: {
+    padding: '12px 20px',
+    background: '#39FF14',
     color: '#0A0A0F',
     border: 'none',
-    borderRadius: '12px',
-    fontWeight: 700,
-    fontSize: '13px',
+    borderRadius: '14px',
+    fontWeight: 800,
+    fontSize: '14px',
     cursor: 'pointer',
     fontFamily: "'Outfit', sans-serif",
   },
-  simulationContainer: {
+  simGrid: {
     display: 'flex',
-    flexDirection: 'column',
+    flexWrap: 'wrap',
     gap: '8px',
-    borderTop: '1px solid rgba(255,255,255,0.06)',
-    paddingTop: '16px',
   },
-  simulationTitle: {
-    fontSize: '12px',
-    color: 'rgba(255,255,255,0.5)',
-    fontWeight: 600,
-    fontFamily: "'Outfit', sans-serif",
-  },
-  simulationButtons: {
+  simButton: {
+    flex: '1 1 calc(50% - 4px)',
     display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-  },
-  simBtn: {
-    width: '100%',
-    padding: '10px 12px',
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: '10px',
-    color: '#fff',
-    fontSize: '12px',
-    fontWeight: 600,
-    textAlign: 'left',
-    cursor: 'pointer',
-    fontFamily: "'Inter', sans-serif",
-  },
-  simBtnError: {
-    width: '100%',
-    padding: '10px 12px',
-    background: 'rgba(255,45,85,0.05)',
-    border: '1px solid rgba(255,45,85,0.15)',
-    borderRadius: '10px',
-    color: '#FF2D55',
-    fontSize: '12px',
-    fontWeight: 600,
-    textAlign: 'left',
-    cursor: 'pointer',
-    fontFamily: "'Inter', sans-serif",
-  },
-  scannerErrorMsg: {
-    padding: '10px 12px',
-    background: 'rgba(255,45,85,0.05)',
-    border: '1px solid rgba(255,45,85,0.15)',
-    borderRadius: '12px',
-    color: '#FF2D55',
-    fontSize: '12px',
-    fontFamily: "'Inter', sans-serif",
-  },
-  scannerSuccessContainer: {
-    display: 'flex',
-    flexDirection: 'column',
     alignItems: 'center',
-    padding: '16px 8px 8px 8px',
-    textAlign: 'center',
+    gap: '8px',
+    padding: '10px 14px',
+    background: 'rgba(255,255,255,0.06)',
+    border: '1px solid rgba(57,255,20,0.15)',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
   },
-  scannerSuccessIconBg: {
-    width: '64px',
-    height: '64px',
-    borderRadius: '50%',
-    background: '#39FF14',
+  simButtonText: {
+    fontSize: '12px',
+    color: '#fff',
+    fontWeight: 600,
+    fontFamily: "'Inter', sans-serif",
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  cancelBtn: {
+    width: '100%',
+    padding: '14px',
+    borderRadius: '16px',
+    background: 'rgba(255,255,255,0.08)',
+    border: '1px solid rgba(255,255,255,0.15)',
+    color: '#fff',
+    fontSize: '15px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    fontFamily: "'Outfit', sans-serif",
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+  },
+  successOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 20,
+    background: 'rgba(0,0,0,0.85)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: '16px',
-    boxShadow: '0 0 20px rgba(57,255,20,0.4)',
+    padding: '24px',
   },
-  scannerSuccessTitle: {
-    fontSize: '20px',
+  successCard: {
+    width: '100%',
+    maxWidth: '360px',
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(57,255,20,0.2)',
+    borderRadius: '32px',
+    padding: '40px 24px 28px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    textAlign: 'center',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    boxShadow: '0 0 40px rgba(57,255,20,0.1)',
+  },
+  successIconCircle: {
+    width: '80px',
+    height: '80px',
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, #39FF14, #00E676)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '20px',
+    boxShadow: '0 0 30px rgba(57,255,20,0.5)',
+  },
+  successTitle: {
+    fontSize: '22px',
     fontWeight: 800,
     color: '#fff',
     fontFamily: "'Outfit', sans-serif",
-    margin: '0 0 8px 0',
+    margin: '0 0 10px 0',
   },
-  scannerSuccessDesc: {
+  successDesc: {
     fontSize: '14px',
     color: 'rgba(255,255,255,0.7)',
-    lineHeight: '1.5',
-    margin: '0 0 24px 0',
+    lineHeight: '1.6',
+    margin: '0 0 28px 0',
     fontFamily: "'Inter', sans-serif",
   },
-  scannerSuccessBtn: {
+  successBtn: {
     width: '100%',
-    padding: '14px',
-    background: 'rgba(255,255,255,0.1)',
-    border: '1px solid rgba(255,255,255,0.15)',
+    padding: '16px',
+    background: 'linear-gradient(135deg, #39FF14, #00E676)',
+    border: 'none',
     borderRadius: '16px',
-    color: '#fff',
-    fontWeight: 700,
-    fontSize: '14px',
+    color: '#0A0A0F',
+    fontWeight: 800,
+    fontSize: '16px',
     cursor: 'pointer',
     fontFamily: "'Outfit', sans-serif",
-  }
+    boxShadow: '0 4px 15px rgba(57,255,20,0.3)',
+  },
 };
