@@ -13,6 +13,16 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_public boolean DEFAULT t
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS mastery text DEFAULT 'Iniciante';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS show_mastery boolean DEFAULT true;
 
+-- Garante que todos os usuários já cadastrados tenham uma linha correspondente em profiles
+INSERT INTO public.profiles (id, email, display_name, username)
+SELECT 
+  id, 
+  email, 
+  coalesce(raw_user_meta_data->>'display_name', split_part(email, '@', 1)),
+  coalesce(raw_user_meta_data->>'display_name', split_part(email, '@', 1)) || floor(random() * 1000)::text
+FROM auth.users
+ON CONFLICT (id) DO NOTHING;
+
 -- ── 2. CORREÇÃO DA TABELA DE NOTIFICAÇÕES ────────────────────────────────────
 -- Remove a estrutura antiga e cria a nova estrutura com a relação sender_id -> profiles.
 
