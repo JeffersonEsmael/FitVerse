@@ -248,16 +248,15 @@ export const useAuthStore = create(
       );
 
       if (error) {
-        console.warn('[Auth] updateProfile DB warning (falling back to local state):', error.code, error.message);
-        // Do not throw or block the update, since local state is already updated
-        return { success: true, dbWarning: error.message };
+        console.error('[Auth] updateProfile DB error:', error.code, error.message);
+        return { success: false, error: error.message };
       }
 
       console.log('[Auth] Profile updated successfully in DB.');
       return { success: true };
     } catch (error) {
-      console.warn('[Auth] updateProfile catch warning (falling back to local state):', error.message);
-      return { success: true, dbWarning: error.message };
+      console.error('[Auth] updateProfile exception:', error.message);
+      return { success: false, error: error.message };
     }
   },
 
