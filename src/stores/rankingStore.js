@@ -146,8 +146,16 @@ export const useRankingStore = create((set, get) => ({
 
     if (userId) {
       try {
+        // Deleta a participação do desafio
         await supabase
           .from('challenge_participants')
+          .delete()
+          .eq('challenge_id', challengeId)
+          .eq('user_id', userId);
+
+        // Deleta todos os check-ins referentes a este desafio para o usuário
+        await supabase
+          .from('challenge_checkins')
           .delete()
           .eq('challenge_id', challengeId)
           .eq('user_id', userId);
@@ -264,12 +272,21 @@ export const useRankingStore = create((set, get) => ({
           .eq('user_id', userId);
 
         let uploadedPhotoUrl = checkInData.photoUrl || '';
+        let compressedPhoto = checkInData.photoFile;
+
         if (checkInData.photoFile) {
-          const fileExt = checkInData.photoFile.name.split('.').pop();
+          try {
+            const { compressImage } = await import('../utils/compression');
+            compressedPhoto = await compressImage(checkInData.photoFile, { maxWidth: 1080, maxHeight: 1080, quality: 0.8 });
+          } catch (compErr) {
+            console.warn('[RankingStore] Check-in photo compression failed, using original:', compErr);
+          }
+
+          const fileExt = compressedPhoto.name ? compressedPhoto.name.split('.').pop() : 'jpg';
           const fileName = `${userId}/${Date.now()}.${fileExt}`;
           const { error: uploadErr } = await supabase.storage
             .from('posts')
-            .upload(fileName, checkInData.photoFile, { contentType: checkInData.photoFile.type });
+            .upload(fileName, compressedPhoto, { contentType: compressedPhoto.type });
 
           if (!uploadErr) {
             const { data: urlData } = supabase.storage.from('posts').getPublicUrl(fileName);
@@ -289,8 +306,8 @@ export const useRankingStore = create((set, get) => ({
         const feedState = useFeedStore.getState();
         const postCaption = `Check-in diário no desafio ${challenge.icon} *${challenge.title}*:\n"${checkInData.activityTitle || 'Treino Concluído'}"! +${challenge.reward || 100} XP 💪🔥`;
 
-        if (checkInData.photoFile) {
-          await feedState.createPost(checkInData.photoFile, {
+        if (compressedPhoto) {
+          await feedState.createPost(compressedPhoto, {
             userId,
             username: userProfile?.username || 'user',
             userAvatar: userProfile?.avatar_url || '',

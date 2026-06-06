@@ -203,12 +203,17 @@ export default function CreatePostScreen() {
     setIsRecording(true);
 
     try {
-      const options = { mimeType: 'video/webm;codecs=vp9' };
+      let options = { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 1200000 };
       let recorder;
       try {
         recorder = new MediaRecorder(cameraStream, options);
       } catch (e) {
-        recorder = new MediaRecorder(cameraStream);
+        try {
+          options = { mimeType: 'video/webm', videoBitsPerSecond: 1200000 };
+          recorder = new MediaRecorder(cameraStream, options);
+        } catch (e2) {
+          recorder = new MediaRecorder(cameraStream);
+        }
       }
 
       recorder.ondataavailable = (event) => {

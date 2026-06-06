@@ -447,7 +447,18 @@ export const useFeedStore = create(
       const isVideo = file.type.startsWith('video');
       const mediaType = isVideo ? 'video' : 'image';
       const bucketName = isVideo ? 'videos' : 'posts';
-      const fileExt = file.name.split('.').pop().toLowerCase();
+
+      let finalFile = file;
+      if (!isVideo) {
+        try {
+          const { compressImage } = await import('../utils/compression');
+          finalFile = await compressImage(file, { maxWidth: 1080, maxHeight: 1080, quality: 0.8 });
+        } catch (compErr) {
+          console.warn('[Feed] Image compression failed, using original file:', compErr);
+        }
+      }
+
+      const fileExt = finalFile.name ? finalFile.name.split('.').pop().toLowerCase() : (isVideo ? 'webm' : 'jpg');
       const fileName = `${metadata.userId}/${Date.now()}.${fileExt}`;
 
       console.log(`[Feed] Uploading ${mediaType} → bucket '${bucketName}': ${fileName}`);
@@ -455,8 +466,8 @@ export const useFeedStore = create(
 
       const { error: uploadError } = await supabase.storage
         .from(bucketName)
-        .upload(fileName, file, {
-          contentType: file.type,
+        .upload(fileName, finalFile, {
+          contentType: finalFile.type,
           cacheControl: '3600',
           upsert: false,
         });

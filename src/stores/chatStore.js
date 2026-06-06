@@ -187,12 +187,20 @@ export const useChatStore = create((set, get) => ({
   // ─── Upload chat image ───────────────────────────────────
   uploadChatImage: async (file, userId) => {
     try {
-      const fileExt = file.name.split('.').pop();
+      let finalFile = file;
+      try {
+        const { compressImage } = await import('../utils/compression');
+        finalFile = await compressImage(file, { maxWidth: 1080, maxHeight: 1080, quality: 0.8 });
+      } catch (compErr) {
+        console.warn('[ChatStore] Image compression failed, using original file:', compErr);
+      }
+
+      const fileExt = finalFile.name ? finalFile.name.split('.').pop().toLowerCase() : 'jpg';
       const fileName = `${userId}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('chat-media')
-        .upload(fileName, file, { contentType: file.type });
+        .upload(fileName, finalFile, { contentType: finalFile.type });
 
       if (uploadError) throw uploadError;
 

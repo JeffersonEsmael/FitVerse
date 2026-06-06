@@ -79,13 +79,21 @@ export default function EditProfileScreen() {
           throw new Error('Sessão expirada. Faça login novamente.');
         }
 
-        const fileExt = photoFile.name.split('.').pop().toLowerCase();
+        let finalFile = photoFile;
+        try {
+          const { compressImage } = await import('../utils/compression');
+          finalFile = await compressImage(photoFile, { maxWidth: 800, maxHeight: 800, quality: 0.85 });
+        } catch (compErr) {
+          console.warn('[EditProfile] Avatar compression failed, using original file:', compErr);
+        }
+
+        const fileExt = finalFile.name ? finalFile.name.split('.').pop().toLowerCase() : 'jpg';
         const fileName = `${user.uid}/${Date.now()}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from('avatars')
-          .upload(fileName, photoFile, {
-            contentType: photoFile.type,
+          .upload(fileName, finalFile, {
+            contentType: finalFile.type,
             upsert: true,
           });
 
