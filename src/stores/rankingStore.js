@@ -134,6 +134,35 @@ export const useRankingStore = create((set, get) => ({
     }
   },
 
+  leaveChallenge: async (challengeId) => {
+    const { useAuthStore } = await import('./authStore');
+    const userId = useAuthStore.getState().user?.uid;
+
+    set((state) => ({
+      challenges: state.challenges.map((c) =>
+        c.id === challengeId ? { ...c, participants: Math.max(0, (c.participants || 0) - 1), joined: false, progress: 0 } : c
+      ),
+    }));
+
+    if (userId) {
+      try {
+        await supabase
+          .from('challenge_participants')
+          .delete()
+          .eq('challenge_id', challengeId)
+          .eq('user_id', userId);
+
+        const chal = get().challenges.find((c) => c.id === challengeId);
+        await supabase
+          .from('challenges')
+          .update({ participants: Math.max(0, (chal?.participants || 0) - 1) })
+          .eq('id', challengeId);
+      } catch (err) {
+        console.warn('Failed to leave challenge in Supabase:', err.message);
+      }
+    }
+  },
+
   addChallenge: async (challenge) => {
     const { useAuthStore } = await import('./authStore');
     const userId = useAuthStore.getState().user?.uid;

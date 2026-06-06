@@ -84,7 +84,7 @@ function RankRow({ user, position, isChallenge }) {
 }
 
 export default function RankingScreen() {
-  const { leaderboard, challenges, period, setPeriod, userRank, userPoints, fetchLeaderboard, fetchChallenges, joinChallenge, performCheckIn } = useRankingStore();
+  const { leaderboard, challenges, period, setPeriod, userRank, userPoints, fetchLeaderboard, fetchChallenges, joinChallenge, leaveChallenge, performCheckIn } = useRankingStore();
   const { screenParams, goBack, navigate } = useNavigationStore();
   const { user, profile } = useAuthStore();
 
@@ -475,9 +475,9 @@ export default function RankingScreen() {
                   fontFamily: "'Outfit', sans-serif",
                 }}
               >
-                <option value="global">🌐 Geral (Amigos)</option>
+                <option value="global" style={{ color: '#000', backgroundColor: '#fff' }}>🌐 Geral (Amigos)</option>
                 {challenges.filter(c => c.joined || c.creator_id === user?.uid).map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <option key={c.id} value={c.id} style={{ color: '#000', backgroundColor: '#fff' }}>
                     {c.icon} {c.title}
                   </option>
                 ))}
@@ -688,6 +688,36 @@ export default function RankingScreen() {
                     >
                       <Trophy size={16} color={selectedChallenge.color || '#00D4FF'} />
                       Ver Classificação Completa
+                    </button>
+
+                    {/* Sair do Desafio Button */}
+                    <button
+                      style={{
+                        width: '100%',
+                        padding: '14px',
+                        borderRadius: '12px',
+                        background: 'rgba(255, 45, 85, 0.15)',
+                        border: '1px solid rgba(255, 45, 85, 0.3)',
+                        color: '#FF453A',
+                        fontWeight: 700,
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        fontFamily: "'Outfit', sans-serif",
+                        marginTop: '6px'
+                      }}
+                      onClick={async () => {
+                        if (window.confirm('Tem certeza que deseja cancelar e sair deste desafio? Todo o seu progresso neste desafio será excluído.')) {
+                          await leaveChallenge(selectedChallenge.id);
+                          setSelectedChallenge(null);
+                          fetchChallenges();
+                        }
+                      }}
+                    >
+                      Sair do Desafio
                     </button>
                   </>
                 ) : (

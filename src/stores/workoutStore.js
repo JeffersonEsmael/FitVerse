@@ -15,6 +15,10 @@ const defaultWorkouts = [
       { id: 'ex_2', name: 'Desenvolvimento Militar', sets: 4, reps: '8-10', weight: 45, done_today: true },
       { id: 'ex_3', name: 'Tríceps Testa', sets: 3, reps: '10-12', weight: 30, done_today: false },
       { id: 'ex_4', name: 'Elevação Lateral', sets: 4, reps: '12-15', weight: 14, done_today: false },
+      { id: 'ex_1_5', name: 'Supino Inclinado (Halteres)', sets: 4, reps: '8-10', weight: 30, done_today: false },
+      { id: 'ex_1_6', name: 'Tríceps Corda', sets: 3, reps: '12-15', weight: 20, done_today: false },
+      { id: 'ex_1_7', name: 'Crucifixo Reto (Halteres)', sets: 3, reps: '10-12', weight: 18, done_today: false },
+      { id: 'ex_1_8', name: 'Desenvolvimento com Halteres', sets: 3, reps: '10-12', weight: 22, done_today: false },
     ]
   },
   {
@@ -29,6 +33,10 @@ const defaultWorkouts = [
       { id: 'ex_6', name: 'Puxada Pulley', sets: 4, reps: '12', weight: 50, done_today: false },
       { id: 'ex_7', name: 'Rosca Direta (W)', sets: 3, reps: '10', weight: 28, done_today: false },
       { id: 'ex_8', name: 'Flexão de Braços', sets: 3, reps: 'Falha', weight: 0, done_today: false },
+      { id: 'ex_2_5', name: 'Remada Curvada', sets: 4, reps: '10', weight: 50, done_today: false },
+      { id: 'ex_2_6', name: 'Rosca Alternada', sets: 3, reps: '12', weight: 14, done_today: false },
+      { id: 'ex_2_7', name: 'Cadeira Extensora', sets: 4, reps: '12', weight: 60, done_today: false },
+      { id: 'ex_2_8', name: 'Mesa Flexora', sets: 4, reps: '12', weight: 40, done_today: false },
     ]
   }
 ];

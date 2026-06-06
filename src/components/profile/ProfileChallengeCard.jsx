@@ -142,19 +142,35 @@ export default function ProfileChallengeCard({ challenge, onClick }) {
         <span style={styles.title}>{challenge.title}</span>
 
         {/* Carousel indicators (Dots) */}
-        {photos.length > 1 ? (
-          <div style={styles.dotsRow}>
-            {photos.map((_, idx) => (
-              <span
-                key={idx}
+        {photos.length > 1 ? (() => {
+          const maxVisible = 6;
+          const totalDots = photos.length;
+          const S = totalDots > maxVisible 
+            ? Math.min(activeIndex, totalDots - maxVisible) 
+            : 0;
+          const containerWidth = Math.min(maxVisible, totalDots) * 6 + (Math.min(maxVisible, totalDots) - 1) * 4;
+
+          return (
+            <div style={{ ...styles.dotsContainer, width: `${containerWidth}px` }}>
+              <div 
                 style={{
-                  ...styles.dot,
-                  backgroundColor: idx === activeIndex ? '#00D4FF' : '#6C6C88',
+                  ...styles.dotsInnerRow,
+                  transform: `translateX(-${S * 10}px)`,
                 }}
-              />
-            ))}
-          </div>
-        ) : (
+              >
+                {photos.map((_, idx) => (
+                  <span
+                    key={idx}
+                    style={{
+                      ...styles.dot,
+                      backgroundColor: idx === activeIndex ? '#00D4FF' : '#6C6C88',
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })() : (
           <div style={{ height: '6px' }} /> // spacer to keep height consistent
         )}
 
@@ -283,11 +299,20 @@ const styles = {
     overflow: 'hidden',
     textAlign: 'center',
   },
-  dotsRow: {
+  dotsContainer: {
+    height: '6px',
+    overflow: 'hidden',
+    position: 'relative',
+    margin: '4px auto',
+  },
+  dotsInnerRow: {
     display: 'flex',
-    justifyContent: 'center',
     gap: '4px',
-    margin: '4px 0',
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    transition: 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+    willChange: 'transform',
   },
   dot: {
     width: '6px',

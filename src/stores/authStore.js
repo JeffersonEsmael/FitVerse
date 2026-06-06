@@ -29,6 +29,8 @@ const defaultProfile = {
   rank_position: null,
   badges: [],
   is_public: true,
+  mastery: 'Iniciante',
+  show_mastery: true,
 };
 
 export const useAuthStore = create(

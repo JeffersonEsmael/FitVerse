@@ -421,11 +421,11 @@ export default function CreatePostScreen() {
                 onChange={(e) => setChallengeMetric(e.target.value)}
                 style={styles.selectField}
               >
-                <option value="treino">Número de Treinos (Treinos)</option>
-                <option value="minutos">Minutos Praticados (Minutos)</option>
-                <option value="calorias">Calorias Gastas (Calorias)</option>
-                <option value="km">Quilômetros Percorridos (km)</option>
-                <option value="passos">Passos Realizados (Passos)</option>
+                <option value="treino" style={{ color: '#000', backgroundColor: '#fff' }}>Número de Treinos (Treinos)</option>
+                <option value="minutos" style={{ color: '#000', backgroundColor: '#fff' }}>Minutos Praticados (Minutos)</option>
+                <option value="calorias" style={{ color: '#000', backgroundColor: '#fff' }}>Calorias Gastas (Calorias)</option>
+                <option value="km" style={{ color: '#000', backgroundColor: '#fff' }}>Quilômetros Percorridos (km)</option>
+                <option value="passos" style={{ color: '#000', backgroundColor: '#fff' }}>Passos Realizados (Passos)</option>
               </select>
             </div>
 

@@ -623,7 +623,11 @@ export default function PublicProfileScreen() {
               </div>
               
               {/* Mastery Title */}
-              <span style={styles.masteryTitle}>Maromba</span>
+              {profile.show_mastery !== false && (
+                <span style={styles.masteryTitle}>
+                  {profile.mastery || 'Iniciante'}
+                </span>
+              )}
             </div>
           </div>
 
@@ -1003,11 +1007,13 @@ const styles = {
     position: 'absolute', width: '60vw', height: '60vw', minWidth: '400px', minHeight: '400px',
     background: 'radial-gradient(circle, rgba(168,85,247,0.15) 0%, rgba(0,0,0,0) 60%)',
     filter: 'blur(80px)', top: '-10%', left: '-20%', zIndex: 0, pointerEvents: 'none',
+    willChange: 'transform',
   },
   bgBlob2: {
     position: 'absolute', width: '50vw', height: '50vw', minWidth: '350px', minHeight: '350px',
     background: 'radial-gradient(circle, rgba(0,212,255,0.1) 0%, rgba(0,0,0,0) 60%)',
     filter: 'blur(80px)', top: '60%', right: '-10%', zIndex: 0, pointerEvents: 'none',
+    willChange: 'transform',
   },
   header: { display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '24px', position: 'relative' },
   title: { fontSize: '20px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0, letterSpacing: '-0.5px' },

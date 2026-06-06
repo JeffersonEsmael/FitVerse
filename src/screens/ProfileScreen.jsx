@@ -233,7 +233,7 @@ function ChallengeCarousel({ challenge }) {
 }
 
 export default function ProfileScreen() {
-  const { user, profile, isProfileLoading, refreshProfile } = useAuthStore();
+  const { user, profile, isProfileLoading, refreshProfile, updateProfile } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
   const currentScreen = useNavigationStore((s) => s.currentScreen);
   const { fetchUserPosts } = useFeedStore();
@@ -415,6 +415,7 @@ export default function ProfileScreen() {
   }, [user?.uid, fetchGyms, fetchUserCheckins]);
   
   const [activeProfileTab, setActiveProfileTab] = useState('videos');
+  const [showMasteryModal, setShowMasteryModal] = useState(false);
   const [userPosts, setUserPosts] = useState([]);
   const [postsLoaded, setPostsLoaded] = useState(false);
   
@@ -843,7 +844,27 @@ export default function ProfileScreen() {
                 )}
               </div>
               {/* Mastery Title */}
-              <span style={styles.masteryTitle}>Maromba</span>
+              {p.show_mastery !== false ? (
+                <span
+                  style={{ ...styles.masteryTitle, cursor: 'pointer' }}
+                  onClick={() => setShowMasteryModal(true)}
+                >
+                  {p.mastery || 'Iniciante'}
+                </span>
+              ) : (
+                <span
+                  style={{
+                    ...styles.masteryTitle,
+                    background: 'rgba(255,255,255,0.06)',
+                    color: 'rgba(255,255,255,0.4)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setShowMasteryModal(true)}
+                >
+                  Sem Maestria
+                </span>
+              )}
             </div>
           </div>
 
@@ -1254,6 +1275,102 @@ export default function ProfileScreen() {
         )}
       </div>
 
+      {/* MODAL: Selecionar Maestria */}
+      <AnimatePresence>
+        {showMasteryModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              style={modalStyles.backdrop}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMasteryModal(false)}
+            />
+            {/* Sheet / Dialog */}
+            <motion.div
+              style={{
+                ...modalStyles.workoutModal,
+                zIndex: 100003,
+                maxHeight: '75vh',
+              }}
+              initial={{ scale: 0.95, opacity: 0, x: '-50%', y: '-50%' }}
+              animate={{ scale: 1, opacity: 1, x: '-50%', y: '-50%' }}
+              exit={{ scale: 0.95, opacity: 0, x: '-50%', y: '-50%' }}
+              transition={{ type: 'spring', duration: 0.3 }}
+            >
+              <div style={modalStyles.checkInHeader}>
+                <h3 style={modalStyles.checkInTitle}>Escolha sua Maestria</h3>
+                <button style={modalStyles.closeBtn} onClick={() => setShowMasteryModal(false)}>
+                  <X size={20} color="#fff" />
+                </button>
+              </div>
+
+              <div style={{ ...modalStyles.modalScrollBody, display: 'flex', flexDirection: 'column', gap: '10px', padding: '16px 0' }} className="hide-scrollbar">
+                <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>
+                  A maestria selecionada aparecerá logo abaixo da sua foto de perfil.
+                </span>
+
+                {/* Option list */}
+                {[
+                  { value: 'none', label: '❌ Sem Maestria (Ocultar)' },
+                  { value: 'Iniciante', label: '🟢 Iniciante' },
+                  { value: 'Intermediário', label: '🟡 Intermediário' },
+                  { value: 'Avançado', label: '🔴 Avançado' },
+                  { value: 'Maromba', label: '💪 Maromba' },
+                  { value: 'Monstro', label: '👹 Monstro' },
+                  { value: 'Fibrado', label: '⚡ Fibrado' },
+                  { value: 'Mestre do Cardio', label: '🏃 Mestre do Cardio' },
+                  { value: 'Foco Total', label: '🎯 Foco Total' },
+                  { value: 'Elite', label: '👑 Elite' },
+                  { value: 'Guerreiro', label: '🛡️ Guerreiro' }
+                ].map((opt) => {
+                  const isCurrent = opt.value === 'none' 
+                    ? p.show_mastery === false 
+                    : (p.show_mastery !== false && p.mastery === opt.value);
+
+                  return (
+                    <motion.button
+                      key={opt.value}
+                      type="button"
+                      style={{
+                        padding: '12px 16px',
+                        borderRadius: '14px',
+                        border: isCurrent ? '1px solid #39FF14' : '1px solid rgba(255,255,255,0.08)',
+                        background: isCurrent ? 'rgba(57,255,20,0.15)' : 'rgba(255,255,255,0.03)',
+                        color: isCurrent ? '#39FF14' : '#fff',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        fontFamily: "'Outfit', sans-serif",
+                        outline: 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={async () => {
+                        if (opt.value === 'none') {
+                          await updateProfile({ show_mastery: false });
+                        } else {
+                          await updateProfile({ mastery: opt.value, show_mastery: true });
+                        }
+                        setShowMasteryModal(false);
+                      }}
+                    >
+                      <span>{opt.label}</span>
+                      {isCurrent && <Check size={16} color="#39FF14" strokeWidth={3} />}
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* MODAL: Medalhas (Badges) */}
       <AnimatePresence>
         {showMedalsModal && (
@@ -1465,6 +1582,37 @@ export default function ProfileScreen() {
                   <Trophy size={16} color={selectedChallenge.color || '#00D4FF'} />
                   Ver Classificação
                 </button>
+
+                {/* Cancelar Desafio Button */}
+                <button
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    borderRadius: '16px',
+                    background: 'rgba(255, 45, 85, 0.15)',
+                    border: '1px solid rgba(255, 45, 85, 0.3)',
+                    color: '#FF453A',
+                    fontWeight: 700,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    fontFamily: "'Outfit', sans-serif",
+                    marginTop: '4px'
+                  }}
+                  onClick={async () => {
+                    if (window.confirm('Tem certeza que deseja cancelar e sair deste desafio? Todo o seu progresso neste desafio será excluído.')) {
+                      const { useRankingStore } = await import('../stores/rankingStore');
+                      await useRankingStore.getState().leaveChallenge(selectedChallenge.id);
+                      setSelectedChallenge(null);
+                      loadProfileChallenges();
+                    }
+                  }}
+                >
+                  Cancelar Desafio
+                </button>
               </div>
             </motion.div>
           </>
@@ -1589,9 +1737,10 @@ export default function ProfileScreen() {
             />
             <motion.div
               style={{ ...modalStyles.workoutModal, zIndex: 100002 }}
-              initial={{ y: '100px', opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: '100px', opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0, x: '-50%', y: '-50%' }}
+              animate={{ scale: 1, opacity: 1, x: '-50%', y: '-50%' }}
+              exit={{ scale: 0.95, opacity: 0, x: '-50%', y: '-50%' }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
             >
               <div style={modalStyles.checkInHeader}>
                 <h3 style={modalStyles.checkInTitle}>Criar Nova Série</h3>
@@ -1617,13 +1766,13 @@ export default function ProfileScreen() {
                     onChange={(e) => setSeriesModalFrequency(e.target.value)}
                     style={modalStyles.checkInInput}
                   >
-                    <option value="1x por semana">1x por semana</option>
-                    <option value="2x por semana">2x por semana</option>
-                    <option value="3x por semana">3x por semana</option>
-                    <option value="4x por semana">4x por semana</option>
-                    <option value="5x por semana">5x por semana</option>
-                    <option value="6x por semana">6x por semana</option>
-                    <option value="Diário">Diário</option>
+                    <option value="1x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>1x por semana</option>
+                    <option value="2x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>2x por semana</option>
+                    <option value="3x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>3x por semana</option>
+                    <option value="4x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>4x por semana</option>
+                    <option value="5x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>5x por semana</option>
+                    <option value="6x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>6x por semana</option>
+                    <option value="Diário" style={{ color: '#000', backgroundColor: '#fff' }}>Diário</option>
                   </select>
                 </div>
                 <div style={modalStyles.checkInField}>
@@ -1684,19 +1833,34 @@ export default function ProfileScreen() {
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '110px', overflowY: 'auto', padding: '2px' }} className="hide-scrollbar">
                         {PRESET_EXERCISES_BY_GROUP[activePresetGroup]?.map((preset) => {
                           const isSelected = tempExerciseName === preset;
+                          const isAlreadyAdded = seriesModalExercises.some(ex => ex.name.trim().toLowerCase() === preset.trim().toLowerCase());
                           return (
                             <button
                               key={preset}
                               type="button"
+                              disabled={isAlreadyAdded}
                               style={{
                                 padding: '6px 12px',
-                                background: isSelected ? 'rgba(57,255,20,0.15)' : 'rgba(255, 255, 255, 0.04)',
-                                border: isSelected ? '1px solid #39FF14' : '1px solid rgba(255, 255, 255, 0.1)',
+                                background: isSelected 
+                                  ? 'rgba(57,255,20,0.15)' 
+                                  : isAlreadyAdded
+                                    ? 'rgba(255, 255, 255, 0.01)'
+                                    : 'rgba(255, 255, 255, 0.04)',
+                                border: isSelected 
+                                  ? '1px solid #39FF14' 
+                                  : isAlreadyAdded
+                                    ? '1px solid rgba(255, 255, 255, 0.03)'
+                                    : '1px solid rgba(255, 255, 255, 0.1)',
                                 borderRadius: '20px',
-                                color: isSelected ? '#39FF14' : '#fff',
+                                color: isSelected 
+                                  ? '#39FF14' 
+                                  : isAlreadyAdded
+                                    ? 'rgba(255, 255, 255, 0.2)'
+                                    : '#fff',
                                 fontSize: '11px',
                                 fontWeight: 600,
-                                cursor: 'pointer',
+                                cursor: isAlreadyAdded ? 'not-allowed' : 'pointer',
+                                opacity: isAlreadyAdded ? 0.35 : 1,
                                 fontFamily: "'Inter', sans-serif",
                                 transition: 'all 0.15s ease'
                               }}
@@ -1838,9 +2002,10 @@ export default function ProfileScreen() {
             />
             <motion.div
               style={{ ...modalStyles.workoutModal, zIndex: 100002 }}
-              initial={{ y: '100px', opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: '100px', opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0, x: '-50%', y: '-50%' }}
+              animate={{ scale: 1, opacity: 1, x: '-50%', y: '-50%' }}
+              exit={{ scale: 0.95, opacity: 0, x: '-50%', y: '-50%' }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
             >
               <div style={modalStyles.checkInHeader}>
                 <h3 style={modalStyles.checkInTitle}>Editar Série</h3>
@@ -1866,13 +2031,13 @@ export default function ProfileScreen() {
                     onChange={(e) => setSeriesModalFrequency(e.target.value)}
                     style={modalStyles.checkInInput}
                   >
-                    <option value="1x por semana">1x por semana</option>
-                    <option value="2x por semana">2x por semana</option>
-                    <option value="3x por semana">3x por semana</option>
-                    <option value="4x por semana">4x por semana</option>
-                    <option value="5x por semana">5x por semana</option>
-                    <option value="6x por semana">6x por semana</option>
-                    <option value="Diário">Diário</option>
+                    <option value="1x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>1x por semana</option>
+                    <option value="2x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>2x por semana</option>
+                    <option value="3x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>3x por semana</option>
+                    <option value="4x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>4x por semana</option>
+                    <option value="5x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>5x por semana</option>
+                    <option value="6x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>6x por semana</option>
+                    <option value="Diário" style={{ color: '#000', backgroundColor: '#fff' }}>Diário</option>
                   </select>
                 </div>
                 <div style={modalStyles.checkInField}>
@@ -1933,19 +2098,34 @@ export default function ProfileScreen() {
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '110px', overflowY: 'auto', padding: '2px' }} className="hide-scrollbar">
                         {PRESET_EXERCISES_BY_GROUP[activePresetGroup]?.map((preset) => {
                           const isSelected = tempExerciseName === preset;
+                          const isAlreadyAdded = seriesModalExercises.some(ex => ex.name.trim().toLowerCase() === preset.trim().toLowerCase());
                           return (
                             <button
                               key={preset}
                               type="button"
+                              disabled={isAlreadyAdded}
                               style={{
                                 padding: '6px 12px',
-                                background: isSelected ? 'rgba(57,255,20,0.15)' : 'rgba(255, 255, 255, 0.04)',
-                                border: isSelected ? '1px solid #39FF14' : '1px solid rgba(255, 255, 255, 0.1)',
+                                background: isSelected 
+                                  ? 'rgba(57,255,20,0.15)' 
+                                  : isAlreadyAdded
+                                    ? 'rgba(255, 255, 255, 0.01)'
+                                    : 'rgba(255, 255, 255, 0.04)',
+                                border: isSelected 
+                                  ? '1px solid #39FF14' 
+                                  : isAlreadyAdded
+                                    ? '1px solid rgba(255, 255, 255, 0.03)'
+                                    : '1px solid rgba(255, 255, 255, 0.1)',
                                 borderRadius: '20px',
-                                color: isSelected ? '#39FF14' : '#fff',
+                                color: isSelected 
+                                  ? '#39FF14' 
+                                  : isAlreadyAdded
+                                    ? 'rgba(255, 255, 255, 0.2)'
+                                    : '#fff',
                                 fontSize: '11px',
                                 fontWeight: 600,
-                                cursor: 'pointer',
+                                cursor: isAlreadyAdded ? 'not-allowed' : 'pointer',
+                                opacity: isAlreadyAdded ? 0.35 : 1,
                                 fontFamily: "'Inter', sans-serif",
                                 transition: 'all 0.15s ease'
                               }}
@@ -2318,11 +2498,13 @@ const styles = {
     position: 'absolute', width: '60vw', height: '60vw', minWidth: '400px', minHeight: '400px',
     background: 'radial-gradient(circle, rgba(0,122,255,0.2) 0%, rgba(0,0,0,0) 60%)',
     filter: 'blur(80px)', top: '-5%', left: '-10%', zIndex: 0,
+    willChange: 'transform',
   },
   bgBlob2: {
     position: 'absolute', width: '50vw', height: '50vw', minWidth: '350px', minHeight: '350px',
     background: 'radial-gradient(circle, rgba(88,86,214,0.15) 0%, rgba(0,0,0,0) 60%)',
     filter: 'blur(80px)', top: '30%', right: '-10%', zIndex: 0,
+    willChange: 'transform',
   },
   header: { display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '24px', position: 'relative' },
   title: { fontSize: '20px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0, letterSpacing: '-0.5px' },
@@ -2968,20 +3150,20 @@ const modalStyles = {
   },
   workoutModal: {
     position: 'fixed',
-    bottom: 0,
+    top: '50%',
     left: '50%',
-    width: '100%',
+    transform: 'translate(-50%, -50%)',
+    width: '90%',
     maxWidth: '450px',
-    transform: 'translateX(-50%)',
     background: '#0F0F15',
-    borderTop: '1px solid rgba(255,255,255,0.1)',
-    borderTopLeftRadius: '28px',
-    borderTopRightRadius: '28px',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '28px',
     padding: '20px',
     display: 'flex',
     flexDirection: 'column',
-    maxHeight: '90vh',
-    boxSizing: 'border-box'
+    maxHeight: '85vh',
+    boxSizing: 'border-box',
+    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
   },
   modalScrollBody: {
     overflowY: 'auto',
