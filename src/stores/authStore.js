@@ -240,8 +240,9 @@ export const useAuthStore = create(
       console.log('[Auth] Updating profile for', user.uid, updates);
 
       // withTimeout prevents infinite hang when RLS blocks a query silently
+      // Use upsert to guarantee that if the profile row was missing from the DB, it is created now!
       const { error } = await withTimeout(
-        supabase.from('profiles').update(updates).eq('id', user.uid),
+        supabase.from('profiles').upsert({ id: user.uid, ...updates }),
         10000,
         'updateProfile'
       );
