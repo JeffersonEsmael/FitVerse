@@ -4,6 +4,7 @@ import { Search, ChevronRight, Music, Play, Video, Image as ImageIcon, Users, Tr
 import { useSocialStore } from '../stores/socialStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
+import ExerciseVideoModal from '../components/workout/ExerciseVideoModal';
 
 // Utility to format views counts (e.g., 1,2k, 10k, 1,2M)
 function formatViews(views) {
@@ -23,6 +24,7 @@ function formatViews(views) {
 export default function ExploreScreen() {
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState('users');
+  const [selectedExercise, setSelectedExercise] = useState(null);
 
   const { 
     searchUsers, 
@@ -201,7 +203,7 @@ export default function ExploreScreen() {
                   style={styles.soundRow}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => {
-                    navigate('post_details', { params: { post: sound, allPosts: searchResults, startIndex: searchResults.indexOf(sound) } });
+                    setSelectedExercise(sound.caption);
                   }}
                 >
                   <div style={{ ...styles.soundDisc, background: 'rgba(57,255,20,0.1)' }}>
@@ -210,11 +212,19 @@ export default function ExploreScreen() {
                   
                   <div style={styles.soundInfo}>
                     <span style={styles.soundTitle}>{sound.caption || 'Exercício Fitness'}</span>
-                    <span style={styles.soundCreator}>Executado por @{sound.username || 'user'}</span>
+                    <span style={styles.soundCreator}>Exercício pré-registrado</span>
                     <span style={styles.soundDuration}>Toque para ver a execução em vídeo</span>
                   </div>
 
-                  <button style={{ ...styles.useSoundBtn, background: '#39FF14', color: '#0A0A0F', fontWeight: 'bold' }}>Ver</button>
+                  <button 
+                    style={{ ...styles.useSoundBtn, background: '#39FF14', color: '#0A0A0F', fontWeight: 'bold' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedExercise(sound.caption);
+                    }}
+                  >
+                    Ver
+                  </button>
                 </motion.div>
               ))}
 
@@ -257,6 +267,12 @@ export default function ExploreScreen() {
           )}
         </div>
       </div>
+
+      <ExerciseVideoModal
+        isOpen={!!selectedExercise}
+        onClose={() => setSelectedExercise(null)}
+        exerciseName={selectedExercise}
+      />
 
     </ScreenWrapper>
   );

@@ -177,6 +177,25 @@ export const useFeedStore = create(
         return;
       }
 
+      // Fetch profiles in batch to resolve dynamic profile updates
+      const userIds = [...new Set(data.map((v) => v.user_id).filter(Boolean))];
+      let profilesMap = {};
+      if (userIds.length > 0) {
+        try {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, username, display_name, avatar_url')
+            .in('id', userIds);
+          if (!profilesError && profilesData) {
+            profilesData.forEach((p) => {
+              profilesMap[p.id] = p;
+            });
+          }
+        } catch (pErr) {
+          console.warn('[Feed] Error batch fetching profiles:', pErr.message);
+        }
+      }
+
       // Query actual user interactions to set active visual states
       let userInteractions = [];
       try {
@@ -206,14 +225,16 @@ export const useFeedStore = create(
           (i) => i.video_id === v.id && i.interaction_type === 'gym_bag'
         );
 
+        const userProfile = profilesMap[v.user_id];
+
         return {
           id: v.id,
           videoUrl: v.video_url,
           mediaType: v.media_type || 'video',
           userId: v.user_id,
-          username: v.username,
-          userAvatar: v.user_avatar || '',
-          displayName: v.display_name,
+          username: userProfile?.username || v.username,
+          userAvatar: userProfile?.avatar_url || v.user_avatar || '',
+          displayName: userProfile?.display_name || v.display_name,
           caption: v.caption || '',
           hashtags: v.hashtags || [],
           category: v.category || 'geral',
@@ -254,6 +275,21 @@ export const useFeedStore = create(
 
       if (!data || data.length === 0) return [];
 
+      // Fetch user profile to get up-to-date username/avatar
+      let userProfile = null;
+      try {
+        const { data: profileData, error: profileErr } = await supabase
+          .from('profiles')
+          .select('username, display_name, avatar_url')
+          .eq('id', userId)
+          .maybeSingle();
+        if (!profileErr && profileData) {
+          userProfile = profileData;
+        }
+      } catch (pErr) {
+        console.warn('[Feed] Error fetching user profile:', pErr.message);
+      }
+
       // Query actual user interactions to set active visual states
       let userInteractions = [];
       try {
@@ -288,9 +324,9 @@ export const useFeedStore = create(
           videoUrl: v.video_url,
           mediaType: v.media_type || 'video',
           userId: v.user_id,
-          username: v.username,
-          userAvatar: v.user_avatar || '',
-          displayName: v.display_name,
+          username: userProfile?.username || v.username,
+          userAvatar: userProfile?.avatar_url || v.user_avatar || '',
+          displayName: userProfile?.display_name || v.display_name,
           caption: v.caption || '',
           hashtags: v.hashtags || [],
           category: v.category || 'geral',
@@ -360,6 +396,25 @@ export const useFeedStore = create(
       const validVideos = (data || []).map(i => i.videos).filter(Boolean);
       if (validVideos.length === 0) return [];
 
+      // Fetch profiles in batch for saved videos
+      const userIds = [...new Set(validVideos.map((v) => v.user_id).filter(Boolean))];
+      let profilesMap = {};
+      if (userIds.length > 0) {
+        try {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, username, display_name, avatar_url')
+            .in('id', userIds);
+          if (!profilesError && profilesData) {
+            profilesData.forEach((p) => {
+              profilesMap[p.id] = p;
+            });
+          }
+        } catch (pErr) {
+          console.warn('[Feed] Error batch fetching profiles for gym bag:', pErr.message);
+        }
+      }
+
       // Query actual user interactions to set active visual states
       let userInteractions = [];
       try {
@@ -389,14 +444,16 @@ export const useFeedStore = create(
           (i) => i.video_id === v.id && i.interaction_type === 'gym_bag'
         );
 
+        const userProfile = profilesMap[v.user_id];
+
         return {
           id: v.id,
           videoUrl: v.video_url,
           mediaType: v.media_type || 'video',
           userId: v.user_id,
-          username: v.username,
-          userAvatar: v.user_avatar || '',
-          displayName: v.display_name,
+          username: userProfile?.username || v.username,
+          userAvatar: userProfile?.avatar_url || v.user_avatar || '',
+          displayName: userProfile?.display_name || v.display_name,
           caption: v.caption || '',
           hashtags: v.hashtags || [],
           category: v.category || 'geral',

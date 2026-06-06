@@ -189,7 +189,26 @@ export default function CommentsSheet({ isOpen, onClose, videoId }) {
         
         <div style={styles.commentContentCol}>
           <div style={styles.commentMetaRow}>
-            <span style={styles.username}>@{comment.username}</span>
+            <span style={{ ...styles.username, display: 'inline-flex', alignItems: 'center' }}>
+              @{comment.username}
+              {(comment.username?.toLowerCase() === 'flowrise' || comment.username?.toLowerCase() === 'flowride') && (
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: '#00D4FF',
+                  color: '#0A0A0F',
+                  borderRadius: '50%',
+                  width: '12px',
+                  height: '12px',
+                  fontSize: '8px',
+                  fontWeight: 'bold',
+                  marginLeft: '4px',
+                  lineHeight: 1,
+                  flexShrink: 0,
+                }}>✓</span>
+              )}
+            </span>
             <span style={styles.time}>{formatTime(comment.created_at)}</span>
           </div>
           

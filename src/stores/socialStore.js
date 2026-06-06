@@ -158,7 +158,7 @@ export const useSocialStore = create((set, get) => ({
     }
   },
 
-  // Search sounds
+  // Search sounds (Exercise Demo Videos)
   searchSounds: async (query) => {
     if (!query || query.length < 2) {
       set({ searchResults: [] });
@@ -167,14 +167,19 @@ export const useSocialStore = create((set, get) => ({
     
     set({ isSearching: true });
     try {
-      const { data, error } = await supabase
-        .from('videos')
-        .select('id, display_name, username, user_avatar, video_url, caption')
-        .or(`display_name.ilike.%${query}%,username.ilike.%${query}%`)
-        .limit(20);
-        
-      if (error) throw error;
-      set({ searchResults: data || [] });
+      const { ALL_PRESET_EXERCISES } = await import('../utils/exercises');
+      const filtered = ALL_PRESET_EXERCISES.filter(ex => 
+        ex.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .includes(query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+      );
+      
+      const results = filtered.map((ex, idx) => ({
+        id: `preset_ex_${idx}`,
+        caption: ex,
+        isPreset: true
+      }));
+      
+      set({ searchResults: results });
     } catch (error) {
       console.error('[SocialStore] searchSounds error:', error.message);
       set({ searchResults: [] });

@@ -13,57 +13,8 @@ import ScreenWrapper from '../components/layout/ScreenWrapper';
 import ShapeIcon from '../components/icons/ShapeIcon';
 import ProfileChallengeCard from '../components/profile/ProfileChallengeCard';
 
-const PRESET_EXERCISES_BY_GROUP = {
-  'Peito': [
-    'Supino reto com barra', 'Supino inclinado com barra', 'Supino declinado com barra', 
-    'Supino reto com halteres', 'Supino inclinado com halteres', 'Crucifixo reto', 
-    'Crucifixo inclinado', 'Crossover alto', 'Crossover baixo', 'Crossover médio', 
-    'Flexão de braço', 'Flexão inclinada', 'Flexão declinada', 'Chest press na máquina', 'Peck deck'
-  ],
-  'Ombro': [
-    'Desenvolvimento com barra', 'Desenvolvimento com halteres', 'Desenvolvimento na máquina', 
-    'Elevação lateral com halteres', 'Elevação lateral no cabo', 'Elevação frontal com barra', 
-    'Elevação frontal com halteres', 'Elevação frontal no cabo', 'Remada alta com barra', 
-    'Remada alta com halteres', 'Encolhimento com barra', 'Encolhimento com halteres', 
-    'Face pull', 'Arnold press'
-  ],
-  'Tríceps': [
-    'Tríceps pulley com corda', 'Tríceps pulley com barra recta', 'Tríceps pulley com barra V', 
-    'Tríceps testa com barra', 'Tríceps testa com halteres', 'Tríceps francês', 
-    'Mergulho entre bancos', 'Mergulho nas paralelas', 'Tríceps coice com halteres', 
-    'Tríceps coice no cabo', 'Extensão overhead com halteres', 'Extensão overhead no cabo', 'Kickback'
-  ],
-  'Costas': [
-    'Puxada frontal com barra', 'Puxada frontal com triângulo', 'Puxada frontal supinada', 
-    'Puxada atrás da nuca', 'Remada curvada com barra', 'Remada curvada com halteres', 
-    'Remada unilateral com halteres', 'Remada cavalinho', 'Remada sentada no cabo', 
-    'Remada com triângulo', 'Remada na máquina', 'Levantamento terra', 
-    'Levantamento terra romeno', 'Barra fixa pronada', 'Barra fixa supinada', 
-    'Pullover com halter', 'Pullover no cabo', 'Serrote com halter'
-  ],
-  'Bíceps': [
-    'Rosca direta com barra', 'Rosca direta com halteres', 'Rosca alternada', 
-    'Rosca martelo', 'Rosca martelo no cabo', 'Rosca concentrada', 
-    'Rosca scott com barra', 'Rosca scott com halteres', 'Rosca no cabo baixo', 
-    'Rosca 21', 'Rosca inversa', 'Rosca zottman'
-  ],
-  'Quadríceps': [
-    'Agachamento livre com barra', 'Agachamento goblet com halter', 'Agachamento sumô', 
-    'Agachamento hack', 'Leg press 45°', 'Leg press horizontal', 
-    'Cadeira extensora', 'Avanço com barra', 'Avanço com halteres', 
-    'Avanço búlgaro', 'Agachamento no smith', 'Passada'
-  ],
-  'Posterior de Coxa & Glúteo': [
-    'Cadeira flexora', 'Mesa flexora', 'Stiff com barra', 'Stiff com halteres', 
-    'Levantamento terra romeno', 'Leg curl no cabo', 'Hip thrust com barra', 
-    'Hip thrust com halter', 'Elevação pélvica', 'Ponte glúteo', 
-    'Abdução no cabo', 'Abdução na máquina', 'Coice no cabo', 'Avanço reverso'
-  ],
-  'Panturrilha': [
-    'Panturrilha em pé na máquina', 'Panturrilha sentado na máquina', 'Panturrilha no leg press', 
-    'Panturrilha livre com halteres', 'Panturrilha unilateral'
-  ]
-};
+import { PRESET_EXERCISES_BY_GROUP } from '../utils/exercises';
+import ExerciseVideoModal from '../components/workout/ExerciseVideoModal';
 
 // Utility to format views counts (e.g., 1,2k, 10k, 1,2M)
 function formatViews(views) {
@@ -418,6 +369,7 @@ export default function ProfileScreen() {
   const [showMasteryModal, setShowMasteryModal] = useState(false);
   const [userPosts, setUserPosts] = useState([]);
   const [postsLoaded, setPostsLoaded] = useState(false);
+  const [selectedExercise, setSelectedExercise] = useState(null);
   
   // Minha Série Modal states
   const [showEditSeriesModal, setShowEditSeriesModal] = useState(false);
@@ -823,7 +775,26 @@ export default function ProfileScreen() {
         <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
           <div style={styles.profileCardHeader}>
             <div style={styles.profileInfoBlock}>
-              <h3 style={styles.usernameLeft}>@{usernameToShow}</h3>
+              <h3 style={{ ...styles.usernameLeft, display: 'inline-flex', alignItems: 'center' }}>
+                @{usernameToShow}
+                {(usernameToShow?.toLowerCase() === 'flowrise' || usernameToShow?.toLowerCase() === 'flowride') && (
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: '#00D4FF',
+                    color: '#0A0A0F',
+                    borderRadius: '50%',
+                    width: '14px',
+                    height: '14px',
+                    fontSize: '9px',
+                    fontWeight: 'bold',
+                    marginLeft: '6px',
+                    lineHeight: 1,
+                    flexShrink: 0
+                  }}>✓</span>
+                )}
+              </h3>
               <span style={styles.displayNameLeft}>{displayNameToShow}</span>
 
               <div style={styles.statsRowLeft}>
@@ -1137,7 +1108,7 @@ export default function ProfileScreen() {
                               {/* Video Button */}
                               <button
                                 style={workoutStyles.videoDemoBtn}
-                                onClick={() => alert(`Vídeo demonstrativo de "${ex.name}" em breve! 🎥💪`)}
+                                onClick={() => setSelectedExercise(ex.name)}
                               >
                                 <Play size={14} color="#00D4FF" fill="#00D4FF" />
                               </button>
@@ -2456,7 +2427,7 @@ export default function ProfileScreen() {
                 </button>
               </motion.div>
 
-              {/* Success overlay */}
+      {/* Success overlay */}
               <AnimatePresence>
                 {checkinSuccessMessage && (
                   <motion.div
@@ -2499,6 +2470,11 @@ export default function ProfileScreen() {
         </AnimatePresence>,
         document.body
       )}
+      <ExerciseVideoModal
+        isOpen={!!selectedExercise}
+        onClose={() => setSelectedExercise(null)}
+        exerciseName={selectedExercise}
+      />
     </ScreenWrapper>
   );
 }

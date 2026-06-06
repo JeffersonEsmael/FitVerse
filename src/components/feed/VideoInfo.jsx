@@ -17,7 +17,12 @@ export default function VideoInfo({ video, isFollowing, isSelf, onFollowToggle }
     <div style={styles.container} onClick={(e) => e.stopPropagation()}>
       {/* Username */}
       <div style={styles.userRow}>
-        <span style={{ ...styles.username, cursor: 'pointer' }} onClick={handleUserClick}>@{video.username}</span>
+        <span style={{ ...styles.username, cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }} onClick={handleUserClick}>
+          @{video.username}
+          {(video.username?.toLowerCase() === 'flowrise' || video.username?.toLowerCase() === 'flowride') && (
+            <span style={styles.verifiedBadge}>✓</span>
+          )}
+        </span>
         {!isSelf && (
           <motion.button
             style={{
@@ -97,6 +102,21 @@ const styles = {
     fontWeight: 700,
     fontFamily: "'Inter', sans-serif",
     textShadow: '0 1px 4px rgba(0,0,0,0.5)',
+  },
+  verifiedBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: '#00D4FF',
+    color: '#0A0A0F',
+    borderRadius: '50%',
+    width: '14px',
+    height: '14px',
+    fontSize: '9px',
+    fontWeight: 'bold',
+    marginLeft: '4px',
+    lineHeight: 1,
+    flexShrink: 0,
   },
   followBtn: {
     padding: '4px 12px',

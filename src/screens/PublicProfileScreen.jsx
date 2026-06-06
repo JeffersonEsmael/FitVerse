@@ -10,6 +10,7 @@ import { useChatStore } from '../stores/chatStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import ShapeIcon from '../components/icons/ShapeIcon';
 import ProfileChallengeCard from '../components/profile/ProfileChallengeCard';
+import ExerciseVideoModal from '../components/workout/ExerciseVideoModal';
 
 // Utility to format views counts (e.g., 1,2k, 10k, 1,2M)
 function formatViews(views) {
@@ -201,6 +202,7 @@ export default function PublicProfileScreen() {
   const [isLoadingChallenges, setIsLoadingChallenges] = useState(true);
   const [selectedChallenge, setSelectedChallenge] = useState(null);
   const [activeWorkoutSeries, setActiveWorkoutSeries] = useState(null);
+  const [selectedExercise, setSelectedExercise] = useState(null);
 
   const userId = screenParams?.userId;
 
@@ -555,14 +557,52 @@ export default function PublicProfileScreen() {
           <button style={styles.headerBtnLeft} onClick={() => goBack()}>
             <ChevronLeft size={28} color="#fff" />
           </button>
-          <h2 style={styles.title}>{profile.username}</h2>
+          <h2 style={{ ...styles.title, display: 'inline-flex', alignItems: 'center' }}>
+            {profile.username}
+            {(profile.username?.toLowerCase() === 'flowrise' || profile.username?.toLowerCase() === 'flowride') && (
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#00D4FF',
+                color: '#0A0A0F',
+                borderRadius: '50%',
+                width: '16px',
+                height: '16px',
+                fontSize: '10px',
+                fontWeight: 'bold',
+                marginLeft: '6px',
+                lineHeight: 1,
+                flexShrink: 0
+              }}>✓</span>
+            )}
+          </h2>
         </div>
 
         {/* Profile card */}
         <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
           <div style={styles.profileCardHeader}>
             <div style={styles.profileInfoBlock}>
-              <h3 style={styles.usernameLeft}>@{profile.username}</h3>
+              <h3 style={{ ...styles.usernameLeft, display: 'inline-flex', alignItems: 'center' }}>
+                @{profile.username}
+                {(profile.username?.toLowerCase() === 'flowrise' || profile.username?.toLowerCase() === 'flowride') && (
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: '#00D4FF',
+                    color: '#0A0A0F',
+                    borderRadius: '50%',
+                    width: '14px',
+                    height: '14px',
+                    fontSize: '9px',
+                    fontWeight: 'bold',
+                    marginLeft: '6px',
+                    lineHeight: 1,
+                    flexShrink: 0
+                  }}>✓</span>
+                )}
+              </h3>
               <span style={styles.displayNameLeft}>{profile.display_name}</span>
 
               <div style={styles.statsRowLeft}>
@@ -800,7 +840,7 @@ export default function PublicProfileScreen() {
                           {/* Video Button */}
                           <button
                             style={workoutStyles.videoDemoBtn}
-                            onClick={() => alert(`Vídeo demonstrativo de "${ex.name}" em breve! 🎥💪`)}
+                            onClick={() => setSelectedExercise(ex.name)}
                           >
                             <Play size={14} color="#00D4FF" fill="#00D4FF" />
                           </button>
@@ -997,6 +1037,11 @@ export default function PublicProfileScreen() {
           </>
         )}
       </AnimatePresence>
+      <ExerciseVideoModal
+        isOpen={!!selectedExercise}
+        onClose={() => setSelectedExercise(null)}
+        exerciseName={selectedExercise}
+      />
     </ScreenWrapper>
   );
 }
