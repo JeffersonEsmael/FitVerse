@@ -15,6 +15,7 @@ import ProfileChallengeCard from '../components/profile/ProfileChallengeCard';
 
 import { PRESET_EXERCISES_BY_GROUP } from '../utils/exercises';
 import ExerciseVideoModal from '../components/workout/ExerciseVideoModal';
+import verifiedBadgeImg from '../assets/verified.png';
 
 // Utility to format views counts (e.g., 1,2k, 10k, 1,2M)
 function formatViews(views) {
@@ -775,24 +776,10 @@ export default function ProfileScreen() {
         <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
           <div style={styles.profileCardHeader}>
             <div style={styles.profileInfoBlock}>
-              <h3 style={{ ...styles.usernameLeft, display: 'inline-flex', alignItems: 'center' }}>
+              <h3 style={{ ...styles.usernameLeft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 @{usernameToShow}
                 {(usernameToShow?.toLowerCase() === 'flowrise' || usernameToShow?.toLowerCase() === 'flowride') && (
-                  <span style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: '#00D4FF',
-                    color: '#0A0A0F',
-                    borderRadius: '50%',
-                    width: '14px',
-                    height: '14px',
-                    fontSize: '9px',
-                    fontWeight: 'bold',
-                    marginLeft: '6px',
-                    lineHeight: 1,
-                    flexShrink: 0
-                  }}>✓</span>
+                  <img src={verifiedBadgeImg} alt="verificado" style={{ width: '18px', height: '18px', marginLeft: '6px', objectFit: 'contain', flexShrink: 0 }} />
                 )}
               </h3>
               <span style={styles.displayNameLeft}>{displayNameToShow}</span>

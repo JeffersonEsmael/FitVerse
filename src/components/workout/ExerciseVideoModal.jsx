@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Play, Dumbbell, Award, Video } from 'lucide-react';
 import { fetchVideosForExercise } from '../../utils/exercises';
+import verifiedBadgeImg from '../../assets/verified.png';
 
 export default function ExerciseVideoModal({ isOpen, onClose, exerciseName }) {
   const [videos, setVideos] = useState([]);
@@ -31,7 +32,7 @@ export default function ExerciseVideoModal({ isOpen, onClose, exerciseName }) {
     const clean = username?.toLowerCase() || '';
     if (clean === 'flowrise' || clean === 'flowride') {
       return (
-        <span style={styles.verifiedBadge}>✓</span>
+        <img src={verifiedBadgeImg} alt="verificado" style={{ width: '14px', height: '14px', marginLeft: '4px', objectFit: 'contain', flexShrink: 0 }} />
       );
     }
     return null;

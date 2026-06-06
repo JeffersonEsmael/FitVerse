@@ -4,6 +4,7 @@ import { X, Send, MessageCircle, Heart } from 'lucide-react';
 import { useFeedStore } from '../../stores/feedStore';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../config/supabase';
+import verifiedBadgeImg from '../../assets/verified.png';
 
 export default function CommentsSheet({ isOpen, onClose, videoId }) {
   const { fetchComments, addComment, toggleCommentLike } = useFeedStore();
@@ -192,21 +193,7 @@ export default function CommentsSheet({ isOpen, onClose, videoId }) {
             <span style={{ ...styles.username, display: 'inline-flex', alignItems: 'center' }}>
               @{comment.username}
               {(comment.username?.toLowerCase() === 'flowrise' || comment.username?.toLowerCase() === 'flowride') && (
-                <span style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: '#00D4FF',
-                  color: '#0A0A0F',
-                  borderRadius: '50%',
-                  width: '12px',
-                  height: '12px',
-                  fontSize: '8px',
-                  fontWeight: 'bold',
-                  marginLeft: '4px',
-                  lineHeight: 1,
-                  flexShrink: 0,
-                }}>✓</span>
+                <img src={verifiedBadgeImg} alt="verificado" style={{ width: '14px', height: '14px', marginLeft: '4px', objectFit: 'contain', flexShrink: 0 }} />
               )}
             </span>
             <span style={styles.time}>{formatTime(comment.created_at)}</span>

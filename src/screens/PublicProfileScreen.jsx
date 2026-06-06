@@ -11,6 +11,7 @@ import ScreenWrapper from '../components/layout/ScreenWrapper';
 import ShapeIcon from '../components/icons/ShapeIcon';
 import ProfileChallengeCard from '../components/profile/ProfileChallengeCard';
 import ExerciseVideoModal from '../components/workout/ExerciseVideoModal';
+import verifiedBadgeImg from '../assets/verified.png';
 
 // Utility to format views counts (e.g., 1,2k, 10k, 1,2M)
 function formatViews(views) {
@@ -557,24 +558,10 @@ export default function PublicProfileScreen() {
           <button style={styles.headerBtnLeft} onClick={() => goBack()}>
             <ChevronLeft size={28} color="#fff" />
           </button>
-          <h2 style={{ ...styles.title, display: 'inline-flex', alignItems: 'center' }}>
+          <h2 style={{ ...styles.title, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {profile.username}
             {(profile.username?.toLowerCase() === 'flowrise' || profile.username?.toLowerCase() === 'flowride') && (
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: '#00D4FF',
-                color: '#0A0A0F',
-                borderRadius: '50%',
-                width: '16px',
-                height: '16px',
-                fontSize: '10px',
-                fontWeight: 'bold',
-                marginLeft: '6px',
-                lineHeight: 1,
-                flexShrink: 0
-              }}>✓</span>
+              <img src={verifiedBadgeImg} alt="verificado" style={{ width: '18px', height: '18px', marginLeft: '6px', objectFit: 'contain', flexShrink: 0 }} />
             )}
           </h2>
         </div>
@@ -583,24 +570,10 @@ export default function PublicProfileScreen() {
         <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
           <div style={styles.profileCardHeader}>
             <div style={styles.profileInfoBlock}>
-              <h3 style={{ ...styles.usernameLeft, display: 'inline-flex', alignItems: 'center' }}>
+              <h3 style={{ ...styles.usernameLeft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 @{profile.username}
                 {(profile.username?.toLowerCase() === 'flowrise' || profile.username?.toLowerCase() === 'flowride') && (
-                  <span style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: '#00D4FF',
-                    color: '#0A0A0F',
-                    borderRadius: '50%',
-                    width: '14px',
-                    height: '14px',
-                    fontSize: '9px',
-                    fontWeight: 'bold',
-                    marginLeft: '6px',
-                    lineHeight: 1,
-                    flexShrink: 0
-                  }}>✓</span>
+                  <img src={verifiedBadgeImg} alt="verificado" style={{ width: '18px', height: '18px', marginLeft: '6px', objectFit: 'contain', flexShrink: 0 }} />
                 )}
               </h3>
               <span style={styles.displayNameLeft}>{profile.display_name}</span>

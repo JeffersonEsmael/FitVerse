@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigationStore } from '../../stores/navigationStore';
+import verifiedBadgeImg from '../../assets/verified.png';
 
 export default function VideoInfo({ video, isFollowing, isSelf, onFollowToggle }) {
   const [expanded, setExpanded] = useState(false);
@@ -20,7 +21,7 @@ export default function VideoInfo({ video, isFollowing, isSelf, onFollowToggle }
         <span style={{ ...styles.username, cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }} onClick={handleUserClick}>
           @{video.username}
           {(video.username?.toLowerCase() === 'flowrise' || video.username?.toLowerCase() === 'flowride') && (
-            <span style={styles.verifiedBadge}>✓</span>
+            <img src={verifiedBadgeImg} alt="verificado" style={{ width: '16px', height: '16px', marginLeft: '4px', objectFit: 'contain', flexShrink: 0 }} />
           )}
         </span>
         {!isSelf && (
