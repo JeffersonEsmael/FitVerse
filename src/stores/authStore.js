@@ -71,8 +71,9 @@ export const useAuthStore = create(
 
           // ── STEP 1: Immediately mark auth as resolved so SplashScreen can navigate ──
           // Use the cached profile if it belongs to the current user, otherwise use a placeholder.
+          // Use the cached profile if it belongs to the current user and has a username, otherwise use a placeholder.
           const currentProfile = get().profile;
-          const placeholderProfile = currentProfile?.id === uid ? currentProfile : {
+          const placeholderProfile = (currentProfile?.id === uid && currentProfile?.username) ? currentProfile : {
             ...defaultProfile,
             display_name: session.user.user_metadata?.display_name || email?.split('@')[0] || 'Usuário',
             username: email?.split('@')[0] || 'user',
@@ -148,13 +149,25 @@ export const useAuthStore = create(
 
       if (error) {
         console.error('[Auth] fetchProfile error:', error.code, error.message);
-        return { ...defaultProfile, id: uid };
+        const currentProfile = get().profile;
+        if (currentProfile && currentProfile.id === uid && currentProfile.username) {
+          return currentProfile;
+        }
+        const displayName = metadata?.display_name || email?.split('@')[0] || 'Usuário';
+        const username = displayName.toLowerCase().replace(/[^a-z0-9]/g, '') + Math.floor(Math.random() * 9000 + 1000);
+        return { ...defaultProfile, id: uid, display_name: displayName, username };
       }
 
       return data;
     } catch (err) {
       console.error('[Auth] _fetchOrCreateProfile exception:', err.message);
-      return { ...defaultProfile, id: uid };
+      const currentProfile = get().profile;
+      if (currentProfile && currentProfile.id === uid && currentProfile.username) {
+        return currentProfile;
+      }
+      const displayName = metadata?.display_name || email?.split('@')[0] || 'Usuário';
+      const username = displayName.toLowerCase().replace(/[^a-z0-9]/g, '') + Math.floor(Math.random() * 9000 + 1000);
+      return { ...defaultProfile, id: uid, display_name: displayName, username };
     }
   },
 

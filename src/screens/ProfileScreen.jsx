@@ -501,6 +501,17 @@ export default function ProfileScreen() {
   
   const p = profile || {};
 
+  // Dynamically derive fallback names from user email/metadata
+  const fallbackName = user?.email ? user.email.split('@')[0] : 'user';
+  const formatName = (str) => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+  const fallbackDisplayName = formatName(fallbackName);
+
+  const usernameToShow = p.username || fallbackName;
+  const displayNameToShow = p.display_name || user?.user_metadata?.display_name || fallbackDisplayName;
+
   const [followersCount, setFollowersCount] = useState(p.followers || 0);
   const [followingCount, setFollowingCount] = useState(p.following || 0);
 
@@ -812,8 +823,8 @@ export default function ProfileScreen() {
         <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
           <div style={styles.profileCardHeader}>
             <div style={styles.profileInfoBlock}>
-              <h3 style={styles.usernameLeft}>@{p.username || 'user'}</h3>
-              <span style={styles.displayNameLeft}>{p.display_name || 'Usuário'}</span>
+              <h3 style={styles.usernameLeft}>@{usernameToShow}</h3>
+              <span style={styles.displayNameLeft}>{displayNameToShow}</span>
 
               <div style={styles.statsRowLeft}>
                 <div style={styles.statItemLeft}>
@@ -840,7 +851,7 @@ export default function ProfileScreen() {
               )}
               <div style={styles.avatar}>
                 {p.avatar_url ? <img src={p.avatar_url} alt="" style={styles.avatarImg} /> : (
-                  <div style={styles.avatarPlaceholder}>{p.display_name?.charAt(0) || '?'}</div>
+                  <div style={styles.avatarPlaceholder}>{displayNameToShow.charAt(0).toUpperCase() || '?'}</div>
                 )}
               </div>
               {/* Mastery Title */}
@@ -2617,7 +2628,7 @@ const styles = {
   },
   avatar: { width: '88px', height: '88px', borderRadius: '28px', border: '1.5px solid rgba(255,255,255,0.2)', overflow: 'hidden', boxShadow: '0 10px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  avatarPlaceholder: { width: '100%', height: '100%', background: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '32px', fontFamily: "'Outfit', sans-serif" },
+  avatarPlaceholder: { width: '100%', height: '100%', background: 'linear-gradient(135deg, #00D4FF, #A855F7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '32px', fontFamily: "'Outfit', sans-serif" },
   bioContainer: {
     display: 'flex',
     flexDirection: 'column',
