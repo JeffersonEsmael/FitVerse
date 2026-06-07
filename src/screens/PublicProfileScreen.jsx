@@ -573,7 +573,7 @@ export default function PublicProfileScreen() {
               <h3 style={{ ...styles.usernameLeft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 @{profile.username}
                 {(profile.username?.toLowerCase() === 'flowrise' || profile.username?.toLowerCase() === 'flowride') && (
-                  <img src={verifiedBadgeImg} alt="verificado" style={{ width: '18px', height: '18px', marginLeft: '6px', objectFit: 'contain', flexShrink: 0 }} />
+                  <img src={verifiedBadgeImg} alt="verificado" style={{ width: '22px', height: '22px', marginLeft: '6px', objectFit: 'contain', flexShrink: 0 }} />
                 )}
               </h3>
               <span style={styles.displayNameLeft}>{profile.display_name}</span>
@@ -1102,7 +1102,7 @@ const styles = {
     fontFamily: "'Outfit', sans-serif",
   },
   usernameLeft: {
-    fontSize: '18px',
+    fontSize: '26px',
     fontWeight: 800,
     color: '#fff',
     fontFamily: "'Outfit', sans-serif",
@@ -1112,7 +1112,7 @@ const styles = {
     letterSpacing: '-0.5px'
   },
   displayNameLeft: {
-    fontSize: '13px',
+    fontSize: '15px',
     color: 'rgba(255,255,255,0.5)',
     marginBottom: '12px',
     textAlign: 'center',
@@ -1121,23 +1121,23 @@ const styles = {
   statsRowLeft: {
     display: 'flex',
     justifyContent: 'center',
-    gap: '16px',
+    gap: '20px',
     width: '100%',
   },
   statItemLeft: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    minWidth: '55px',
+    minWidth: '70px',
   },
   statValueLeft: {
-    fontSize: '16px',
+    fontSize: '22px',
     fontWeight: 800,
     color: '#fff',
     fontFamily: "'Outfit', sans-serif"
   },
   statLabelLeft: {
-    fontSize: '11px',
+    fontSize: '13px',
     color: 'rgba(255,255,255,0.4)',
     marginTop: '2px',
   },
