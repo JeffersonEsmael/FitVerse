@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Play, Dumbbell, Award, Video } from 'lucide-react';
 import { fetchVideosForExercise } from '../../utils/exercises';
@@ -8,6 +8,58 @@ export default function ExerciseVideoModal({ isOpen, onClose, exerciseName }) {
   const [videos, setVideos] = useState([]);
   const [activeVideo, setActiveVideo] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    // Reset play state and time on video change
+    setIsPlaying(true);
+    setCurrentTime(0);
+    setDuration(0);
+  }, [activeVideo]);
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      setCurrentTime(videoRef.current.currentTime);
+    }
+  };
+
+  const handleDurationChange = () => {
+    if (videoRef.current) {
+      setDuration(videoRef.current.duration || 0);
+    }
+  };
+
+  const togglePlay = () => {
+    if (!videoRef.current) return;
+    if (isPlaying) {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      videoRef.current.play().catch((err) => console.log('Playback error:', err));
+      setIsPlaying(true);
+    }
+  };
+
+  const handleSeek = (e) => {
+    if (!videoRef.current || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, clickX / rect.width));
+    const newTime = percentage * duration;
+    videoRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  const formatTime = (secs) => {
+    if (isNaN(secs) || secs === Infinity) return '0:00';
+    const minutes = Math.floor(secs / 60);
+    const seconds = Math.floor(secs % 60);
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
 
   useEffect(() => {
     if (isOpen && exerciseName) {
@@ -52,33 +104,95 @@ export default function ExerciseVideoModal({ isOpen, onClose, exerciseName }) {
           {/* Top Video Player / Media Section */}
           <div style={styles.playerContainer}>
             {isLoading ? (
-              <div style={styles.loaderContainer}>
-                <div style={styles.spinner} />
-                <span style={styles.loaderText}>Procurando demonstrações...</span>
-              </div>
+              <>
+                <div style={styles.loaderContainer}>
+                  <div style={styles.spinner} />
+                  <span style={styles.loaderText}>Procurando demonstrações...</span>
+                </div>
+                <button style={styles.closeBtn} onClick={onClose}>
+                  <X size={18} color="#fff" />
+                </button>
+              </>
             ) : !activeVideo ? (
-              <div style={styles.noVideoContainer}>
-                <Dumbbell size={40} color="rgba(255,255,255,0.2)" />
-                <span style={styles.noVideoTitle}>Sem vídeo demonstrativo</span>
-                <p style={styles.noVideoText}>
-                  Nenhuma execução foi publicada ainda para <strong>"{exerciseName}"</strong>.
-                </p>
-              </div>
+              <>
+                <div style={styles.noVideoContainer}>
+                  <Dumbbell size={40} color="rgba(255,255,255,0.2)" />
+                  <span style={styles.noVideoTitle}>Sem vídeo demonstrativo</span>
+                  <p style={styles.noVideoText}>
+                    Nenhuma execução foi publicada ainda para <strong>"{exerciseName}"</strong>.
+                  </p>
+                </div>
+                <button style={styles.closeBtn} onClick={onClose}>
+                  <X size={18} color="#fff" />
+                </button>
+              </>
             ) : (
-              <video
-                key={activeVideo.id}
-                src={activeVideo.videoUrl}
-                style={styles.videoPlayer}
-                controls
-                autoPlay
-                playsInline
-              />
-            )}
+              <>
+                <video
+                  ref={videoRef}
+                  key={activeVideo.id}
+                  src={activeVideo.videoUrl}
+                  style={styles.videoPlayer}
+                  autoPlay
+                  playsInline
+                  loop
+                  onTimeUpdate={handleTimeUpdate}
+                  onDurationChange={handleDurationChange}
+                  onLoadedMetadata={handleDurationChange}
+                  onClick={togglePlay}
+                />
 
-            {/* Float Close Button */}
-            <button style={styles.closeBtn} onClick={onClose}>
-              <X size={18} color="#fff" />
-            </button>
+                {/* Top Overlay Header with Exercise Name */}
+                <div style={styles.topOverlayHeader}>
+                  <div style={styles.overlayExerciseInfo}>
+                    <span style={styles.overlayDumbbell}>💪</span>
+                    <span style={styles.overlayExerciseName} title={exerciseName}>
+                      {exerciseName}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bottom Controls Overlay */}
+                <div style={styles.bottomControlsOverlay}>
+                  {/* Play / Pause Button */}
+                  <button style={styles.playPauseBtn} onClick={togglePlay}>
+                    {isPlaying ? (
+                      <span style={styles.controlIcon}>⏸</span>
+                    ) : (
+                      <span style={styles.controlIcon} style={{ marginLeft: '2px' }}>▶</span>
+                    )}
+                  </button>
+
+                  {/* Progress Bar Container */}
+                  <div style={styles.timelineContainer} onClick={handleSeek}>
+                    <div style={styles.timelineTrack}>
+                      <div
+                        style={{
+                          ...styles.timelineFill,
+                          width: `${duration ? (currentTime / duration) * 100 : 0}%`,
+                        }}
+                      />
+                      <div
+                        style={{
+                          ...styles.timelineHandle,
+                          left: `${duration ? (currentTime / duration) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Time Display */}
+                  <span style={styles.timeText}>
+                    {formatTime(currentTime)} / {formatTime(duration)}
+                  </span>
+                </div>
+
+                {/* Float Close Button */}
+                <button style={styles.closeBtn} onClick={onClose}>
+                  <X size={18} color="#fff" />
+                </button>
+              </>
+            )}
           </div>
 
           {/* Active Video Meta Info */}
@@ -195,17 +309,125 @@ const styles = {
   playerContainer: {
     position: 'relative',
     width: '100%',
-    aspectRatio: '16/9',
+    aspectRatio: '1/1',
     background: '#000',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     borderBottom: '1px solid rgba(255,255,255,0.05)',
+    overflow: 'hidden',
   },
   videoPlayer: {
     width: '100%',
     height: '100%',
+    maxWidth: '100%',
+    maxHeight: '100%',
     objectFit: 'contain',
+    background: '#000',
+    cursor: 'pointer',
+  },
+  topOverlayHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    padding: '14px 60px 14px 20px',
+    background: 'linear-gradient(180deg, rgba(0,0,0,0.85) 0%, transparent 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    zIndex: 9,
+  },
+  overlayExerciseInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flex: 1,
+    minWidth: 0,
+  },
+  overlayDumbbell: {
+    fontSize: '16px',
+  },
+  overlayExerciseName: {
+    fontSize: '15px',
+    fontWeight: 800,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    textShadow: '0 2px 4px rgba(0,0,0,0.6)',
+  },
+  bottomControlsOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: '12px 20px',
+    background: 'linear-gradient(0deg, rgba(0,0,0,0.85) 0%, transparent 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    zIndex: 10,
+  },
+  playPauseBtn: {
+    background: 'rgba(255,255,255,0.1)',
+    border: '1px solid rgba(255,255,255,0.15)',
+    borderRadius: '50%',
+    width: '32px',
+    height: '32px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    color: '#fff',
+    flexShrink: 0,
+    outline: 'none',
+  },
+  controlIcon: {
+    fontSize: '12px',
+    color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timelineContainer: {
+    flex: 1,
+    height: '20px',
+    display: 'flex',
+    alignItems: 'center',
+    cursor: 'pointer',
+  },
+  timelineTrack: {
+    position: 'relative',
+    width: '100%',
+    height: '4px',
+    background: 'rgba(255,255,255,0.2)',
+    borderRadius: '2px',
+  },
+  timelineFill: {
+    height: '100%',
+    background: '#39FF14',
+    borderRadius: '2px',
+    boxShadow: '0 0 8px rgba(57,255,20,0.6)',
+  },
+  timelineHandle: {
+    position: 'absolute',
+    top: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '10px',
+    height: '10px',
+    borderRadius: '50%',
+    background: '#fff',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
+    pointerEvents: 'none',
+  },
+  timeText: {
+    fontSize: '11px',
+    color: 'rgba(255,255,255,0.7)',
+    fontFamily: "'Inter', sans-serif",
+    fontWeight: 600,
+    minWidth: '65px',
+    textAlign: 'right',
   },
   loaderContainer: {
     display: 'flex',
