@@ -67,12 +67,14 @@ export default function BottomNav() {
               <motion.div
                 animate={{
                   scale: isActive ? 1 : 0.85,
-                  color: isActive ? '#00D4FF' : '#6C6C88',
+                  color: isActive ? '#00D4FF' : '#E2E8F0',
                 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                 style={{ position: 'relative', display: 'inline-flex', padding: '4px' }}
               >
-                <Icon size={24} />
+                <div style={{ display: 'inline-flex', mixBlendMode: 'difference' }}>
+                  <Icon size={24} />
+                </div>
                 {tab.id === 'messages' && totalUnreadMessages > 0 && (
                   <div style={styles.badge}>{formatBadge(totalUnreadMessages)}</div>
                 )}
@@ -83,7 +85,7 @@ export default function BottomNav() {
               <motion.span
                 style={{
                   ...styles.label,
-                  color: isActive ? '#00D4FF' : '#6C6C88',
+                  color: isActive ? '#00D4FF' : '#E2E8F0',
                 }}
                 animate={{ opacity: isActive ? 1 : 0.6 }}
               >
