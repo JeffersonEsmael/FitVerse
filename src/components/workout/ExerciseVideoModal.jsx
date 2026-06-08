@@ -159,7 +159,7 @@ export default function ExerciseVideoModal({ isOpen, onClose, exerciseName }) {
                     {isPlaying ? (
                       <span style={styles.controlIcon}>⏸</span>
                     ) : (
-                      <span style={styles.controlIcon} style={{ marginLeft: '2px' }}>▶</span>
+                      <span style={{ ...styles.controlIcon, marginLeft: '2px' }}>▶</span>
                     )}
                   </button>
 
