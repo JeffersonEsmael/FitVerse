@@ -5,6 +5,7 @@ import { useSocialStore } from '../stores/socialStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import ExerciseVideoModal from '../components/workout/ExerciseVideoModal';
+import { useRankingStore } from '../stores/rankingStore';
 
 // Utility to format views counts (e.g., 1,2k, 10k, 1,2M)
 function formatViews(views) {
@@ -25,6 +26,12 @@ export default function ExploreScreen() {
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState('users');
   const [selectedExercise, setSelectedExercise] = useState(null);
+
+  const { challenges, fetchChallenges } = useRankingStore();
+
+  useEffect(() => {
+    fetchChallenges();
+  }, [fetchChallenges]);
 
   const { 
     searchUsers, 
@@ -135,9 +142,51 @@ export default function ExploreScreen() {
           ) : query.length >= 2 && searchResults.length === 0 ? (
             <div style={styles.centerMessage}>Nenhum resultado encontrado.</div>
           ) : query.length < 2 ? (
-            <div style={styles.centerMessage}>
-              Digite pelo menos 2 caracteres para buscar {activeTab === 'users' ? 'usuários' : activeTab === 'videos' ? 'vídeos' : activeTab === 'sounds' ? 'exercícios' : 'desafios'}.
-            </div>
+            activeTab === 'challenges' ? (
+              <div style={styles.resultsList}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.4)', fontFamily: "'Outfit', sans-serif", textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                  ✨ Sugestões de Desafios
+                </span>
+                {challenges.slice(0, 4).map((challenge) => {
+                  const pct = Math.round(((challenge.progress || 0) / (challenge.duration || 30)) * 100);
+                  return (
+                    <motion.div
+                      key={challenge.id}
+                      style={{ ...styles.challengeCard, borderLeft: `4px solid ${challenge.color || '#00D4FF'}` }}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => navigate('ranking')}
+                    >
+                      <div style={styles.challengeHeader}>
+                        <span style={styles.challengeIcon}>{challenge.icon || '🏆'}</span>
+                        <div style={styles.challengeInfo}>
+                          <span style={styles.challengeTitle}>{challenge.title}</span>
+                          <span style={styles.challengeDesc}>{challenge.description}</span>
+                        </div>
+                      </div>
+                      <div style={styles.challengeProgressTrack}>
+                        <motion.div
+                          style={{ ...styles.challengeProgressFill, background: challenge.color || '#00D4FF', width: `${pct}%` }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <div style={styles.challengeFooter}>
+                        <span style={styles.challengeParticipants}>
+                          <Users size={12} style={{ marginRight: 4 }} /> {challenge.participants || 0}
+                        </span>
+                        <span style={styles.challengeProgress}>{challenge.progress || 0}/{challenge.duration || 30} dias</span>
+                        <span style={{ ...styles.challengeReward, color: challenge.color || '#00D4FF' }}>+{challenge.reward || 100} pts</span>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={styles.centerMessage}>
+                Digite pelo menos 2 caracteres para buscar {activeTab === 'users' ? 'usuários' : activeTab === 'videos' ? 'vídeos' : activeTab === 'sounds' ? 'exercícios' : 'desafios'}.
+              </div>
+            )
           ) : (
             <div style={styles.resultsList}>
               {/* Tab: Users */}
