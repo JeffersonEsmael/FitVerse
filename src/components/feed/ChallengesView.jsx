@@ -23,6 +23,7 @@ export default function ChallengesView() {
   // Challenge participants/leaderboard state
   const [participants, setParticipants] = useState([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [showAllDiscover, setShowAllDiscover] = useState(false);
 
   useEffect(() => {
     fetchChallenges();
@@ -219,42 +220,128 @@ export default function ChallengesView() {
     );
   };
 
+  const renderDiscoverCard = (c) => {
+    return (
+      <motion.div
+        key={c.id}
+        style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: '20px',
+          padding: '14px',
+          cursor: 'pointer',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          textAlign: 'center',
+          height: '145px',
+          borderTop: `4px solid ${c.color || '#00D4FF'}`,
+        }}
+        whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.05)' }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => setSelectedChallenge(c)}
+      >
+        <span style={{ fontSize: '32px', marginBottom: '4px' }}>{c.icon || '🏆'}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%' }}>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%', fontFamily: "'Outfit', sans-serif" }}>
+            {c.title}
+          </span>
+          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+            {c.duration || 30} dias • {c.reward || 100} XP
+          </span>
+        </div>
+        <button
+          style={{
+            padding: '4px 12px',
+            borderRadius: '8px',
+            border: 'none',
+            background: c.color || '#00D4FF',
+            color: c.color === '#FFD700' || c.color === '#39FF14' ? '#000' : '#fff',
+            fontSize: '11px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            fontFamily: "'Outfit', sans-serif",
+            marginTop: '4px'
+          }}
+          onClick={(e) => handleJoin(e, c)}
+        >
+          Participar
+        </button>
+      </motion.div>
+    );
+  };
+
   return (
     <div style={styles.container}>
       <div style={styles.headerRow}>
         <h2 style={styles.title}>Desafios Fitness</h2>
-        <button style={styles.createBtn} onClick={() => navigate('create', { params: { type: 'challenge' } })}>
-          <Plus size={16} style={{ marginRight: 4 }} /> Criar Desafio
-        </button>
       </div>
 
       <div style={styles.scrollArea}>
-        {/* Section: Participando */}
+        {/* Section: Descobrir Desafios (2x2 Grid at the top) */}
         <div style={styles.sectionHeaderRow}>
+          <h3 style={styles.sectionTitle}>🔍 Descobrir Desafios ({discoverChallenges.length})</h3>
+        </div>
+        {discoverChallenges.length === 0 ? (
+          <div style={styles.emptyChallengesCard}>
+            <span style={styles.emptyText}>Nenhum novo desafio disponível no momento.</span>
+          </div>
+        ) : (
+          <>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '12px',
+              marginTop: '6px'
+            }}>
+              {(showAllDiscover ? discoverChallenges : discoverChallenges.slice(0, 4)).map(renderDiscoverCard)}
+            </div>
+            {discoverChallenges.length > 4 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px', marginBottom: '8px' }}>
+                <button
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#00D4FF',
+                    fontWeight: 700,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    fontFamily: "'Outfit', sans-serif",
+                    padding: '4px 0',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                  onClick={() => setShowAllDiscover(prev => !prev)}
+                >
+                  {showAllDiscover ? 'Ver menos' : 'Ver mais desafios →'}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Section: Participando */}
+        <div style={{ ...styles.sectionHeaderRow, marginTop: '20px' }}>
           <h3 style={styles.sectionTitle}>💪 Participando ({joinedChallenges.length})</h3>
         </div>
         {joinedChallenges.length === 0 ? (
           <div style={styles.emptyChallengesCard}>
             <span style={styles.emptyText}>Você não aderiu a nenhum desafio ainda.</span>
-            <span style={styles.emptySubtext}>Dê uma olhada nos desafios disponíveis para descobrir abaixo!</span>
+            <span style={styles.emptySubtext}>Dê uma olhada nos desafios disponíveis acima!</span>
           </div>
         ) : (
           joinedChallenges.map(renderChallengeCard)
         )}
 
-        {/* Section: Criados por mim */}
+        {/* Section: Criados por Você */}
         <div style={{ ...styles.sectionHeaderRow, marginTop: '20px' }}>
           <h3 style={styles.sectionTitle}>🏆 Criados por Você ({createdChallenges.length})</h3>
         </div>
         {createdChallenges.length === 0 ? (
           <div style={styles.emptyChallengesCard}>
             <span style={styles.emptyText}>Você não criou nenhum desafio ainda.</span>
-            <button
-              style={styles.inlineCreateBtn}
-              onClick={() => navigate('create', { params: { type: 'challenge' } })}
-            >
-              Criar Primeiro Desafio
-            </button>
           </div>
         ) : (
           createdChallenges.map(renderChallengeCard)
@@ -272,17 +359,49 @@ export default function ChallengesView() {
           completedChallenges.map(renderChallengeCard)
         )}
 
-        {/* Section: Descobrir Desafios */}
-        <div style={{ ...styles.sectionHeaderRow, marginTop: '20px' }}>
-          <h3 style={styles.sectionTitle}>🔍 Descobrir Desafios ({discoverChallenges.length})</h3>
+        {/* Section: Criar Desafio (At the very bottom) */}
+        <div style={{ ...styles.sectionHeaderRow, marginTop: '24px' }}>
+          <h3 style={styles.sectionTitle}>➕ Criar Desafio</h3>
         </div>
-        {discoverChallenges.length === 0 ? (
-          <div style={styles.emptyChallengesCard}>
-            <span style={styles.emptyText}>Nenhum novo desafio disponível no momento.</span>
+        <div style={{
+          padding: '20px',
+          background: 'linear-gradient(135deg, rgba(0, 212, 255, 0.06) 0%, rgba(0, 212, 255, 0.01) 100%)',
+          border: '1px dashed rgba(0, 212, 255, 0.25)',
+          borderRadius: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+          gap: '12px',
+          marginTop: '6px',
+          marginBottom: '20px'
+        }}>
+          <span style={{ fontSize: '32px' }}>🎯</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ fontSize: '15px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif" }}>Crie seu próprio Desafio!</span>
+            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', maxWidth: '280px', lineHeight: '1.4' }}>
+              Defina as regras, a duração e a recompensa em XP para motivar a galera da comunidade.
+            </span>
           </div>
-        ) : (
-          discoverChallenges.map(renderChallengeCard)
-        )}
+          <button
+            style={{
+              padding: '10px 20px',
+              borderRadius: '12px',
+              background: '#00D4FF',
+              border: 'none',
+              color: '#000',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: "'Outfit', sans-serif",
+              boxShadow: '0 4px 14px rgba(0, 212, 255, 0.25)',
+              marginTop: '4px'
+            }}
+            onClick={() => navigate('create', { params: { type: 'challenge' } })}
+          >
+            + Criar Novo Desafio
+          </button>
+        </div>
       </div>
 
       {/* MODAL / DRAWER: Challenge Details */}
