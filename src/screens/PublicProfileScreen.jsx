@@ -388,10 +388,66 @@ export default function PublicProfileScreen() {
     
     if (!activeWorkoutSeries) return;
 
-    const confirmCopy = window.confirm(`Deseja copiar a série "${activeWorkoutSeries.name}" para o seu perfil? (Os pesos não serão copiados por serem individuais)`);
-    if (!confirmCopy) return;
-
     try {
+      // Load user's current series from store or fetch them
+      const { useWorkoutStore } = await import('../stores/workoutStore');
+      const workoutStore = useWorkoutStore.getState();
+      
+      // We should make sure we have the viewer's series list loaded
+      if (user.uid) {
+        await workoutStore.fetchSeries(user.uid);
+      }
+      
+      const userSeriesList = useWorkoutStore.getState().seriesList;
+      
+      let replaceSeriesId = null;
+      let isNewSeries = true;
+
+      if (userSeriesList && userSeriesList.length > 0) {
+        const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        const optionsText = userSeriesList.map((s, idx) => {
+          const letter = letters[idx] || `S${idx + 1}`;
+          return `"${letter}" - ${s.name}`;
+        }).join('\n');
+
+        const choice = prompt(
+          `Deseja criar uma nova série ou substituir uma série existente?\n\n` +
+          `Digite "N" para Criar uma Nova Série\n` +
+          `Ou digite a letra correspondente para SUBSTITUIR:\n\n` +
+          optionsText,
+          "N"
+        );
+
+        if (choice === null) return; // User cancelled
+
+        const normalizedChoice = choice.trim().toUpperCase();
+        if (normalizedChoice !== 'N') {
+          // Find which series matches the letter
+          const matchIdx = letters.findIndex(l => l === normalizedChoice);
+          if (matchIdx !== -1 && userSeriesList[matchIdx]) {
+            replaceSeriesId = userSeriesList[matchIdx].id;
+            isNewSeries = false;
+          } else {
+            // Try to match by index if they typed number
+            const num = parseInt(normalizedChoice);
+            if (!isNaN(num) && userSeriesList[num - 1]) {
+              replaceSeriesId = userSeriesList[num - 1].id;
+              isNewSeries = false;
+            } else {
+              alert('Opção inválida. Nenhuma alteração foi feita.');
+              return;
+            }
+          }
+        }
+      }
+
+      const confirmCopy = window.confirm(
+        isNewSeries 
+          ? `Deseja copiar a série "${activeWorkoutSeries.name}" como uma nova série? (Os pesos serão zerados)`
+          : `Deseja substituir sua série pela série "${activeWorkoutSeries.name}"? (Os pesos serão zerados)`
+      );
+      if (!confirmCopy) return;
+
       // 1. Prepare exercises: remove weight (set weight: 0) and reset done_today, create new unique ids
       const copiedExercises = (activeWorkoutSeries.exercises || []).map(ex => ({
         ...ex,
@@ -400,18 +456,33 @@ export default function PublicProfileScreen() {
         done_today: false
       }));
 
-      // 2. Call the workoutStore's createSeries method to save it in viewer's account
-      const { useWorkoutStore } = await import('../stores/workoutStore');
-      const workoutStore = useWorkoutStore.getState();
-      
-      await workoutStore.createSeries(
-        user.uid,
-        activeWorkoutSeries.name,
-        activeWorkoutSeries.weekly_frequency,
-        activeWorkoutSeries.progress_total,
-        copiedExercises,
-        true // Default to public
-      );
+      if (isNewSeries) {
+        // Call the workoutStore's createSeries method to save it in viewer's account
+        await workoutStore.createSeries(
+          user.uid,
+          activeWorkoutSeries.name,
+          activeWorkoutSeries.weekly_frequency,
+          activeWorkoutSeries.progress_total,
+          copiedExercises,
+          true // Default to public
+        );
+      } else {
+        // Replace/update the existing series
+        await workoutStore.updateSeries(
+          user.uid,
+          replaceSeriesId,
+          {
+            name: activeWorkoutSeries.name,
+            weekly_frequency: activeWorkoutSeries.weekly_frequency,
+            progress_total: activeWorkoutSeries.progress_total,
+            exercises: copiedExercises,
+            progress_completed: 0,
+            is_active: true
+          }
+        );
+        // Make sure it's set as active
+        await workoutStore.setActiveSeries(user.uid, replaceSeriesId);
+      }
 
       // 3. Increment the copies_count in DB for the original series
       if (activeWorkoutSeries.id) {
@@ -818,12 +889,31 @@ export default function PublicProfileScreen() {
                   <div style={workoutStyles.headerTop}>
                     <div>
                       <h4 style={workoutStyles.seriesTitle}>{activeWorkoutSeries.name}</h4>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
                         <span style={workoutStyles.seriesFreq}>{activeWorkoutSeries.weekly_frequency}</span>
-                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Copy size={10} color="rgba(255,255,255,0.4)" />
-                          {activeWorkoutSeries.copies_count || 0} {activeWorkoutSeries.copies_count === 1 ? 'cópia' : 'cópias'}
-                        </span>
+                        {(() => {
+                          const hasCopies = (activeWorkoutSeries.copies_count > 0);
+                          return (
+                            <span style={{
+                              fontSize: '11px',
+                              padding: '4px 10px',
+                              borderRadius: '10px',
+                              background: hasCopies ? 'rgba(57, 255, 20, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                              border: hasCopies ? '1px solid #39FF14' : '1px solid rgba(255, 255, 255, 0.08)',
+                              color: hasCopies ? '#39FF14' : 'rgba(255, 255, 255, 0.4)',
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              boxShadow: hasCopies ? '0 0 12px rgba(57, 255, 20, 0.25)' : 'none',
+                              transition: 'all 0.3s ease',
+                              fontFamily: "'Outfit', sans-serif"
+                            }}>
+                              <Copy size={11} color={hasCopies ? '#39FF14' : 'rgba(255, 255, 255, 0.4)'} />
+                              {activeWorkoutSeries.copies_count || 0} {activeWorkoutSeries.copies_count === 1 ? 'cópia' : 'cópias'}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
                     <motion.button
@@ -846,7 +936,7 @@ export default function PublicProfileScreen() {
                       onClick={handleCopySeries}
                     >
                       <Copy size={13} color="#000" />
-                      Usar esta série
+                      Copiar série
                     </motion.button>
                   </div>
 

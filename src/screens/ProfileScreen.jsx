@@ -1071,12 +1071,29 @@ export default function ProfileScreen() {
                       }}>
                         {activeSeries.is_public ? 'Pública' : 'Privada'}
                       </span>
-                      {activeSeries.is_public && (
-                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Copy size={10} color="rgba(255,255,255,0.4)" />
-                          {activeSeries.copies_count || 0} {activeSeries.copies_count === 1 ? 'cópia' : 'cópias'}
-                        </span>
-                      )}
+                      {activeSeries.is_public && (() => {
+                        const hasCopies = (activeSeries.copies_count > 0);
+                        return (
+                          <span style={{
+                            fontSize: '11px',
+                            padding: '4px 10px',
+                            borderRadius: '10px',
+                            background: hasCopies ? 'rgba(57, 255, 20, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                            border: hasCopies ? '1px solid #39FF14' : '1px solid rgba(255, 255, 255, 0.08)',
+                            color: hasCopies ? '#39FF14' : 'rgba(255, 255, 255, 0.4)',
+                            fontWeight: 700,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: hasCopies ? '0 0 12px rgba(57, 255, 20, 0.25)' : 'none',
+                            transition: 'all 0.3s ease',
+                            fontFamily: "'Outfit', sans-serif"
+                          }}>
+                            <Copy size={11} color={hasCopies ? '#39FF14' : 'rgba(255, 255, 255, 0.4)'} />
+                            {activeSeries.copies_count || 0} {activeSeries.copies_count === 1 ? 'cópia' : 'cópias'}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
 
