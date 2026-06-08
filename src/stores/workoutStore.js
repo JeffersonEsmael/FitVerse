@@ -80,6 +80,8 @@ export const useWorkoutStore = create((set, get) => ({
           progress_completed: item.progress_completed || 0,
           progress_total: item.progress_total || 30,
           is_active: item.is_active || false,
+          is_public: item.is_public !== false,
+          copies_count: item.copies_count || 0,
           exercises: Array.isArray(item.exercises) ? item.exercises : [],
         }));
 
@@ -118,7 +120,9 @@ export const useWorkoutStore = create((set, get) => ({
             progress_completed: ws.progress_completed,
             progress_total: ws.progress_total,
             exercises: ws.exercises,
-            is_active: ws.is_active
+            is_active: ws.is_active,
+            is_public: true,
+            copies_count: 0
           });
         }
       }
@@ -134,7 +138,11 @@ export const useWorkoutStore = create((set, get) => ({
     try {
       const cached = localStorage.getItem(`${LOCAL_STORAGE_KEY}_${userId}`);
       if (cached) {
-        const list = JSON.parse(cached);
+        const list = JSON.parse(cached).map(s => ({
+          ...s,
+          is_public: s.is_public !== false,
+          copies_count: s.copies_count || 0
+        }));
         const active = list.find(s => s.is_active) || list[0];
         set({
           seriesList: list,
@@ -145,7 +153,9 @@ export const useWorkoutStore = create((set, get) => ({
         // Initialize local defaults
         const initialList = defaultWorkouts.map(ws => ({
           ...ws,
-          id: `ws_local_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
+          id: `ws_local_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          is_public: true,
+          copies_count: 0
         }));
         initialList[0].is_active = true;
         
@@ -172,7 +182,7 @@ export const useWorkoutStore = create((set, get) => ({
   },
 
   // Create a new series
-  createSeries: async (userId, name, frequency, totalWorkouts, initialExercises = []) => {
+  createSeries: async (userId, name, frequency, totalWorkouts, initialExercises = [], isPublic = true) => {
     if (!userId) return;
     const newId = `ws_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     
@@ -186,6 +196,8 @@ export const useWorkoutStore = create((set, get) => ({
       progress_completed: 0,
       progress_total: totalWorkouts || 30,
       is_active: true,
+      is_public: isPublic,
+      copies_count: 0,
       exercises: initialExercises,
     };
 
@@ -215,7 +227,9 @@ export const useWorkoutStore = create((set, get) => ({
         progress_completed: 0,
         progress_total: newSeries.progress_total,
         exercises: newSeries.exercises,
-        is_active: true
+        is_active: true,
+        is_public: isPublic,
+        copies_count: 0
       });
     } catch (err) {
       console.warn('[WorkoutStore] createSeries DB insert failed, saved to local cache:', err.message);
@@ -246,6 +260,8 @@ export const useWorkoutStore = create((set, get) => ({
       if (updates.progress_total !== undefined) dbUpdates.progress_total = updates.progress_total;
       if (updates.exercises !== undefined) dbUpdates.exercises = updates.exercises;
       if (updates.is_active !== undefined) dbUpdates.is_active = updates.is_active;
+      if (updates.is_public !== undefined) dbUpdates.is_public = updates.is_public;
+      if (updates.copies_count !== undefined) dbUpdates.copies_count = updates.copies_count;
 
       await supabase
         .from('workout_series')

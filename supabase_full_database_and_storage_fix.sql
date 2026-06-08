@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS public.workout_series (
   progress_total integer DEFAULT 30,
   exercises jsonb DEFAULT '[]'::jsonb,
   is_active boolean DEFAULT false,
+  is_public boolean DEFAULT true,
+  copies_count integer DEFAULT 0,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
@@ -75,12 +77,13 @@ ALTER TABLE public.workout_series ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Workout series are viewable by everyone" ON public.workout_series;
 CREATE POLICY "Workout series are viewable by everyone"
   ON public.workout_series FOR SELECT
-  USING (true);
+  USING (auth.uid() = user_id OR is_public = true);
 
 DROP POLICY IF EXISTS "Users can manage their own workout series" ON public.workout_series;
 CREATE POLICY "Users can manage their own workout series"
   ON public.workout_series FOR ALL
   USING (auth.uid() = user_id);
+
 
 -- ── 4. CONFIGURAÇÃO AUTOMÁTICA DOS BUCKETS DE STORAGE E POLÍTICAS ────────────
 -- Cria os buckets necessários e define as políticas de leitura e gravação.

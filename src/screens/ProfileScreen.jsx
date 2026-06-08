@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play, MoreVertical, Check, MapPin, QrCode, Calendar, Shield } from 'lucide-react';
+import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play, MoreVertical, Check, MapPin, QrCode, Calendar, Shield, Copy } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -378,6 +378,7 @@ export default function ProfileScreen() {
   const [seriesModalName, setSeriesModalName] = useState('');
   const [seriesModalFrequency, setSeriesModalFrequency] = useState('3x por semana');
   const [seriesModalTotal, setSeriesModalTotal] = useState(30);
+  const [seriesModalIsPublic, setSeriesModalIsPublic] = useState(true);
   const [seriesModalExercises, setSeriesModalExercises] = useState([]);
   
   // Local state for editing an exercise inside form
@@ -970,6 +971,7 @@ export default function ProfileScreen() {
                     setSeriesModalName('');
                     setSeriesModalFrequency('3x por semana');
                     setSeriesModalTotal(30);
+                    setSeriesModalIsPublic(true);
                     setSeriesModalExercises([
                       { id: 'ex_new_1', name: 'Exercício 1', sets: 4, reps: '10', weight: 10, done_today: false }
                     ]);
@@ -1015,6 +1017,7 @@ export default function ProfileScreen() {
                           setSeriesModalName('');
                           setSeriesModalFrequency('3x por semana');
                           setSeriesModalTotal(30);
+                          setSeriesModalIsPublic(true);
                           setSeriesModalExercises([
                             { id: 'ex_new_1', name: 'Exercício 1', sets: 4, reps: '10', weight: 10, done_today: false }
                           ]);
@@ -1032,6 +1035,7 @@ export default function ProfileScreen() {
                           setSeriesModalName(activeSeries.name);
                           setSeriesModalFrequency(activeSeries.weekly_frequency);
                           setSeriesModalTotal(activeSeries.progress_total);
+                          setSeriesModalIsPublic(activeSeries.is_public !== false);
                           setSeriesModalExercises(activeSeries.exercises || []);
                           setShowEditSeriesModal(true);
                         }}
@@ -1053,7 +1057,27 @@ export default function ProfileScreen() {
                     padding: '16px'
                   }}>
                     <h4 style={workoutStyles.seriesTitle}>{activeSeries.name}</h4>
-                    <span style={workoutStyles.seriesFreq}>{activeSeries.weekly_frequency}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '4px' }}>
+                      <span style={workoutStyles.seriesFreq}>{activeSeries.weekly_frequency}</span>
+                      <span style={{
+                        fontSize: '10px',
+                        padding: '2px 8px',
+                        borderRadius: '8px',
+                        background: activeSeries.is_public ? 'rgba(57, 255, 20, 0.15)' : 'rgba(255, 255, 255, 0.1)',
+                        color: activeSeries.is_public ? '#39FF14' : 'rgba(255, 255, 255, 0.6)',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                      }}>
+                        {activeSeries.is_public ? 'Pública' : 'Privada'}
+                      </span>
+                      {activeSeries.is_public && (
+                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Copy size={10} color="rgba(255,255,255,0.4)" />
+                          {activeSeries.copies_count || 0} {activeSeries.copies_count === 1 ? 'cópia' : 'cópias'}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Exercises Grid/List */}
@@ -1067,6 +1091,7 @@ export default function ProfileScreen() {
                             setSeriesModalName(activeSeries.name);
                             setSeriesModalFrequency(activeSeries.weekly_frequency);
                             setSeriesModalTotal(activeSeries.progress_total);
+                            setSeriesModalIsPublic(activeSeries.is_public !== false);
                             setSeriesModalExercises(activeSeries.exercises || []);
                             setShowEditSeriesModal(true);
                           }}
@@ -1745,6 +1770,17 @@ export default function ProfileScreen() {
                   </select>
                 </div>
                 <div style={modalStyles.checkInField}>
+                  <label style={modalStyles.checkInLabel}>Privacidade</label>
+                  <select
+                    value={seriesModalIsPublic ? 'public' : 'private'}
+                    onChange={(e) => setSeriesModalIsPublic(e.target.value === 'public')}
+                    style={modalStyles.checkInInput}
+                  >
+                    <option value="public" style={{ color: '#000', backgroundColor: '#fff' }}>Pública (Qualquer um pode copiar)</option>
+                    <option value="private" style={{ color: '#000', backgroundColor: '#fff' }}>Privada (Apenas para você)</option>
+                  </select>
+                </div>
+                <div style={modalStyles.checkInField}>
                   <label style={modalStyles.checkInLabel}>Meta Total de Treinos</label>
                   <input
                     type="number"
@@ -1946,7 +1982,7 @@ export default function ProfileScreen() {
                     alert('Adicione pelo menos um exercício à série!');
                     return;
                   }
-                  createSeries(user?.uid, seriesModalName, seriesModalFrequency, seriesModalTotal, seriesModalExercises);
+                  createSeries(user?.uid, seriesModalName, seriesModalFrequency, seriesModalTotal, seriesModalExercises, seriesModalIsPublic);
                   setShowCreateSeriesModal(false);
                   alert('Série criada com sucesso!');
                 }}
@@ -2007,6 +2043,17 @@ export default function ProfileScreen() {
                     <option value="5x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>5x por semana</option>
                     <option value="6x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>6x por semana</option>
                     <option value="Diário" style={{ color: '#000', backgroundColor: '#fff' }}>Diário</option>
+                  </select>
+                </div>
+                <div style={modalStyles.checkInField}>
+                  <label style={modalStyles.checkInLabel}>Privacidade</label>
+                  <select
+                    value={seriesModalIsPublic ? 'public' : 'private'}
+                    onChange={(e) => setSeriesModalIsPublic(e.target.value === 'public')}
+                    style={modalStyles.checkInInput}
+                  >
+                    <option value="public" style={{ color: '#000', backgroundColor: '#fff' }}>Pública (Qualquer um pode copiar)</option>
+                    <option value="private" style={{ color: '#000', backgroundColor: '#fff' }}>Privada (Apenas para você)</option>
                   </select>
                 </div>
                 <div style={modalStyles.checkInField}>
@@ -2250,6 +2297,7 @@ export default function ProfileScreen() {
                       name: seriesModalName,
                       weekly_frequency: seriesModalFrequency,
                       progress_total: seriesModalTotal,
+                      is_public: seriesModalIsPublic,
                       exercises: seriesModalExercises
                     });
                     setShowEditSeriesModal(false);

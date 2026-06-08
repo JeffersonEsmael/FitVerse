@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS public.workout_series (
   progress_total integer DEFAULT 30,
   exercises jsonb DEFAULT '[]'::jsonb, -- Array of { id, name, sets, reps, weight, done_today }
   is_active boolean DEFAULT false,
+  is_public boolean DEFAULT true,
+  copies_count integer DEFAULT 0,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
@@ -28,8 +30,9 @@ DROP POLICY IF EXISTS "Users can manage their own workout series" ON public.work
 -- Criar políticas de segurança
 CREATE POLICY "Workout series are viewable by everyone"
   ON public.workout_series FOR SELECT
-  USING (true);
+  USING (auth.uid() = user_id OR is_public = true);
 
 CREATE POLICY "Users can manage their own workout series"
   ON public.workout_series FOR ALL
   USING (auth.uid() = user_id);
+

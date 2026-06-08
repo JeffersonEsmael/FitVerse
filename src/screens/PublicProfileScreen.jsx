@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, Trophy, Flame, Target, Dumbbell, Zap, Star, Plus, Check, X, Play } from 'lucide-react';
+import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, Trophy, Flame, Target, Dumbbell, Zap, Star, Plus, Check, X, Play, Copy } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -236,6 +236,7 @@ export default function PublicProfileScreen() {
           .select('*')
           .eq('user_id', userId)
           .eq('is_active', true)
+          .eq('is_public', true)
           .maybeSingle();
 
         if (wsData) {
@@ -245,6 +246,8 @@ export default function PublicProfileScreen() {
             weekly_frequency: wsData.weekly_frequency,
             progress_completed: wsData.progress_completed || 0,
             progress_total: wsData.progress_total || 30,
+            is_public: wsData.is_public !== false,
+            copies_count: wsData.copies_count || 0,
             exercises: Array.isArray(wsData.exercises) ? wsData.exercises : []
           };
         } else {
@@ -374,6 +377,67 @@ export default function PublicProfileScreen() {
           }
         }
       });
+    }
+  };
+
+  const handleCopySeries = async () => {
+    if (!user) {
+      alert('Faça login para copiar esta série!');
+      return;
+    }
+    
+    if (!activeWorkoutSeries) return;
+
+    const confirmCopy = window.confirm(`Deseja copiar a série "${activeWorkoutSeries.name}" para o seu perfil? (Os pesos não serão copiados por serem individuais)`);
+    if (!confirmCopy) return;
+
+    try {
+      // 1. Prepare exercises: remove weight (set weight: 0) and reset done_today, create new unique ids
+      const copiedExercises = (activeWorkoutSeries.exercises || []).map(ex => ({
+        ...ex,
+        id: `ex_copy_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        weight: 0,
+        done_today: false
+      }));
+
+      // 2. Call the workoutStore's createSeries method to save it in viewer's account
+      const { useWorkoutStore } = await import('../stores/workoutStore');
+      const workoutStore = useWorkoutStore.getState();
+      
+      await workoutStore.createSeries(
+        user.uid,
+        activeWorkoutSeries.name,
+        activeWorkoutSeries.weekly_frequency,
+        activeWorkoutSeries.progress_total,
+        copiedExercises,
+        true // Default to public
+      );
+
+      // 3. Increment the copies_count in DB for the original series
+      if (activeWorkoutSeries.id) {
+        const { error } = await supabase.rpc('increment_series_copy_count', {
+          series_id: activeWorkoutSeries.id
+        });
+        
+        if (error) {
+          console.warn('Failed to increment copies count via RPC, falling back to manual update:', error);
+          await supabase
+            .from('workout_series')
+            .update({ copies_count: (activeWorkoutSeries.copies_count || 0) + 1 })
+            .eq('id', activeWorkoutSeries.id);
+        }
+      }
+
+      // Update UI state to reflect the copy count increment
+      setActiveWorkoutSeries(prev => ({
+        ...prev,
+        copies_count: (prev.copies_count || 0) + 1
+      }));
+
+      alert('Série copiada com sucesso! Vá para o seu perfil para ver e treinar.');
+    } catch (err) {
+      console.error('Error copying series:', err);
+      alert('Erro ao copiar série: ' + err.message);
     }
   };
 
@@ -744,8 +808,8 @@ export default function PublicProfileScreen() {
             {!activeWorkoutSeries ? (
               <div style={workoutStyles.emptyState}>
                 <Dumbbell size={48} color="rgba(255,255,255,0.2)" />
-                <span style={workoutStyles.emptyTitle}>Nenhuma Série Ativa</span>
-                <span style={workoutStyles.emptyText}>Este usuário ainda não configurou uma série de treinos ativa.</span>
+                <span style={workoutStyles.emptyTitle}>Nenhuma Série Pública</span>
+                <span style={workoutStyles.emptyText}>Este usuário não possui uma série de treinos pública no momento.</span>
               </div>
             ) : (
               <div style={workoutStyles.activeSeriesContainer}>
@@ -754,8 +818,36 @@ export default function PublicProfileScreen() {
                   <div style={workoutStyles.headerTop}>
                     <div>
                       <h4 style={workoutStyles.seriesTitle}>{activeWorkoutSeries.name}</h4>
-                      <span style={workoutStyles.seriesFreq}>{activeWorkoutSeries.weekly_frequency}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                        <span style={workoutStyles.seriesFreq}>{activeWorkoutSeries.weekly_frequency}</span>
+                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Copy size={10} color="rgba(255,255,255,0.4)" />
+                          {activeWorkoutSeries.copies_count || 0} {activeWorkoutSeries.copies_count === 1 ? 'cópia' : 'cópias'}
+                        </span>
+                      </div>
                     </div>
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      style={{
+                        padding: '10px 16px',
+                        borderRadius: '12px',
+                        background: '#39FF14',
+                        border: 'none',
+                        color: '#000',
+                        fontWeight: 700,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        fontFamily: "'Outfit', sans-serif",
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 4px 12px rgba(57, 255, 20, 0.2)',
+                      }}
+                      onClick={handleCopySeries}
+                    >
+                      <Copy size={13} color="#000" />
+                      Usar esta série
+                    </motion.button>
                   </div>
 
                   {/* Progress Bar */}
