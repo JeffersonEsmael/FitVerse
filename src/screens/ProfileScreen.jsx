@@ -913,7 +913,7 @@ export default function ProfileScreen() {
             <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0 }}>
               <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
               <StatBox label="Avaliações" value={feedbacks.length} icon={Star} color="#FFD700" onClick={() => setActiveProfileTab('sobre')} />
-              <StatBox label="Sobre" value="Ver Info" icon={Info} color="#00D4FF" onClick={() => setActiveProfileTab('sobre')} />
+              <StatBox label="Chat" value="Conversar" icon={MessageCircle} color="#00D4FF" onClick={() => navigate('conversations')} />
             </div>
           ) : (
             <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0 }}>
@@ -1055,57 +1055,6 @@ export default function ProfileScreen() {
         {/* Content - Sobre (Business details and feedbacks) */}
         {activeProfileTab === 'sobre' && p.profile_type === 'business' && (
           <div style={workoutStyles.container}>
-            {/* Gallery Row */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-              <div 
-                style={{ 
-                  display: 'flex', 
-                  gap: '12px', 
-                  overflowX: 'auto', 
-                  paddingBottom: '8px',
-                }} 
-                className="hide-scrollbar"
-              >
-                {(() => {
-                  const photos = Array.isArray(p.business_photos) && p.business_photos.length > 0 
-                    ? p.business_photos 
-                    : [
-                        'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=400',
-                        'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=400',
-                        'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=400'
-                      ];
-                  
-                  return photos.map((url, i) => (
-                    <div 
-                      key={i} 
-                      style={{ 
-                        position: 'relative', 
-                        width: 'calc((100% - 24px) / 2.5)', 
-                        minWidth: '135px',
-                        height: '95px', 
-                        borderRadius: '12px', 
-                        overflow: 'hidden', 
-                        flexShrink: 0,
-                        border: '1px solid rgba(255,255,255,0.08)'
-                      }}
-                    >
-                      <img src={url} alt={`Galeria ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      {i === 2 && photos.length > 3 && (
-                        <div style={{
-                          position: 'absolute', inset: 0, 
-                          background: 'rgba(0,0,0,0.5)', 
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: '#fff', fontSize: '13px', fontWeight: 700, fontFamily: "'Outfit', sans-serif"
-                        }}>
-                          +{photos.length - 2}
-                        </div>
-                      )}
-                    </div>
-                  ));
-                })()}
-              </div>
-            </div>
-
             <div style={{
               ...styles.sobreCard,
               display: 'flex',
@@ -1115,8 +1064,60 @@ export default function ProfileScreen() {
               gap: '18px',
               padding: '24px 16px'
             }}>
-              <h4 style={styles.sobreTitle}>Sobre a Empresa</h4>
+              <h4 style={styles.sobreTitle}>Sobre a {p.display_name || 'Empresa'}</h4>
               
+              {/* Gallery Row inside card */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginBottom: '4px' }}>
+                <div 
+                  style={{ 
+                    display: 'flex', 
+                    gap: '12px', 
+                    overflowX: 'auto', 
+                    paddingBottom: '8px',
+                    width: '100%',
+                  }} 
+                  className="hide-scrollbar"
+                >
+                  {(() => {
+                    const photos = Array.isArray(p.business_photos) && p.business_photos.length > 0 
+                      ? p.business_photos 
+                      : [
+                          'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=400',
+                          'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=400',
+                          'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=400'
+                        ];
+                    
+                    return photos.map((url, i) => (
+                      <div 
+                        key={i} 
+                        style={{ 
+                          position: 'relative', 
+                          width: 'calc((100% - 24px) / 2.5)', 
+                          minWidth: '135px',
+                          height: '95px', 
+                          borderRadius: '12px', 
+                          overflow: 'hidden', 
+                          flexShrink: 0,
+                          border: '1px solid rgba(255,255,255,0.08)'
+                        }}
+                      >
+                        <img src={url} alt={`Galeria ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {i === 2 && photos.length > 3 && (
+                          <div style={{
+                            position: 'absolute', inset: 0, 
+                            background: 'rgba(0,0,0,0.5)', 
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff', fontSize: '13px', fontWeight: 700, fontFamily: "'Outfit', sans-serif"
+                          }}>
+                            +{photos.length - 2}
+                          </div>
+                        )}
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                 <span style={styles.sobreLabel}>📍 Endereço</span>
                 {p.address ? (
@@ -1154,9 +1155,9 @@ export default function ProfileScreen() {
                     rel="noopener noreferrer"
                     style={{
                       ...styles.whatsappBtn,
-                      background: '#25D366',
-                      color: '#fff',
-                      border: 'none',
+                      background: 'transparent',
+                      color: '#25D366',
+                      border: '2px solid #25D366',
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -1165,10 +1166,11 @@ export default function ProfileScreen() {
                       borderRadius: '12px',
                       fontWeight: 700,
                       width: '80%',
-                      boxShadow: '0 4px 12px rgba(37, 211, 102, 0.3)'
+                      maxWidth: '280px',
+                      boxShadow: 'none',
                     }}
                   >
-                    <MessageCircle size={18} color="#fff" fill="#fff" />
+                    <MessageCircle size={18} color="#25D366" fill="transparent" />
                     WhatsApp
                   </motion.a>
                 ) : (
