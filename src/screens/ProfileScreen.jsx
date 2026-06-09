@@ -367,6 +367,7 @@ export default function ProfileScreen() {
   }, [user?.uid, fetchGyms, fetchUserCheckins]);
   
   const [activeProfileTab, setActiveProfileTab] = useState('videos');
+  const [showBusinessQrModal, setShowBusinessQrModal] = useState(false);
   const [showMasteryModal, setShowMasteryModal] = useState(false);
   const [userPosts, setUserPosts] = useState([]);
   const [postsLoaded, setPostsLoaded] = useState(false);
@@ -908,56 +909,83 @@ export default function ProfileScreen() {
           </div>
 
           {/* Stats inside profile card */}
-          <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0 }}>
-            <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
-            <StatBox label="Medalhas" value={totalMedalsCount} icon={Award} color="#FFD700" onClick={() => setShowMedalsModal(true)} />
-            <StatBox label="Minha Série" value="Série" icon={Dumbbell} color="#00D4FF" onClick={() => setActiveProfileTab('serie')} />
-          </div>
+          {p.profile_type === 'business' ? (
+            <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0 }}>
+              <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
+              <StatBox label="Avaliações" value={feedbacks.length} icon={Star} color="#FFD700" onClick={() => setActiveProfileTab('sobre')} />
+              <StatBox label="Sobre" value="Ver Info" icon={Info} color="#00D4FF" onClick={() => setActiveProfileTab('sobre')} />
+            </div>
+          ) : (
+            <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0 }}>
+              <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
+              <StatBox label="Medalhas" value={totalMedalsCount} icon={Award} color="#FFD700" onClick={() => setShowMedalsModal(true)} />
+              <StatBox label="Minha Série" value="Série" icon={Dumbbell} color="#00D4FF" onClick={() => setActiveProfileTab('serie')} />
+            </div>
+          )}
         </motion.div>
 
         {/* Quick access */}
-        <div style={styles.quickAccess}>
-          {/* NutriScan */}
-          <motion.button
-            style={styles.quickBtn}
-            onClick={() => navigate('nutriscan')}
-            whileTap={{ scale: 0.97 }}
-          >
-            <div style={{ ...styles.quickIcon, background: 'rgba(255,255,255,0.1)' }}>
-              <ScanLine size={20} color="#fff" />
-            </div>
-            <div style={styles.quickInfo}>
-              <span style={styles.quickTitle}>NutriScan</span>
-              <span style={styles.quickDesc}>Escanear refeição com IA</span>
-            </div>
-          </motion.button>
+        {p.profile_type === 'business' ? (
+          <div style={styles.quickAccess}>
+            {/* Business QR Code Generator */}
+            <motion.button
+              style={{ ...styles.quickBtn, width: '100%', flex: 'none' }}
+              onClick={() => setShowBusinessQrModal(true)}
+              whileTap={{ scale: 0.98 }}
+            >
+              <div style={{ ...styles.quickIcon, background: 'rgba(57,255,20,0.15)' }}>
+                <QrCode size={20} color="#39FF14" />
+              </div>
+              <div style={styles.quickInfo}>
+                <span style={styles.quickTitle}>Disponibilizar QR Code</span>
+                <span style={styles.quickDesc}>QR Code para check-in dos alunos</span>
+              </div>
+            </motion.button>
+          </div>
+        ) : (
+          <div style={styles.quickAccess}>
+            {/* NutriScan */}
+            <motion.button
+              style={styles.quickBtn}
+              onClick={() => navigate('nutriscan')}
+              whileTap={{ scale: 0.97 }}
+            >
+              <div style={{ ...styles.quickIcon, background: 'rgba(255,255,255,0.1)' }}>
+                <ScanLine size={20} color="#fff" />
+              </div>
+              <div style={styles.quickInfo}>
+                <span style={styles.quickTitle}>NutriScan</span>
+                <span style={styles.quickDesc}>Escanear refeição com IA</span>
+              </div>
+            </motion.button>
 
-          {/* Gym Check-in */}
-          <motion.button
-            style={styles.quickBtn}
-            onClick={() => {
-              setCheckinSuccessMessage('');
-              setCheckinErrorMessage('');
-              setManualTokenInput('');
-              setShowQrScanModal(true);
-            }}
-            whileTap={{ scale: 0.97 }}
-          >
-            <div style={{ ...styles.quickIcon, background: 'rgba(57,255,20,0.15)' }}>
-              <QrCode size={20} color="#39FF14" />
-            </div>
-            <div style={styles.quickInfo}>
-              <span style={styles.quickTitle}>Check-in</span>
-              <span style={styles.quickDesc}>
-                {checkedInToday 
-                  ? `Concluído! 🔥 ${p.streak || 0}d` 
-                  : p.gym_id 
-                    ? `🔥 ${p.streak || 0} dias ativos` 
-                    : 'Escaneie o QR Code'}
-              </span>
-            </div>
-          </motion.button>
-        </div>
+            {/* Gym Check-in */}
+            <motion.button
+              style={styles.quickBtn}
+              onClick={() => {
+                setCheckinSuccessMessage('');
+                setCheckinErrorMessage('');
+                setManualTokenInput('');
+                setShowQrScanModal(true);
+              }}
+              whileTap={{ scale: 0.97 }}
+            >
+              <div style={{ ...styles.quickIcon, background: 'rgba(57,255,20,0.15)' }}>
+                <QrCode size={20} color="#39FF14" />
+              </div>
+              <div style={styles.quickInfo}>
+                <span style={styles.quickTitle}>Check-in</span>
+                <span style={styles.quickDesc}>
+                  {checkedInToday 
+                    ? `Concluído! 🔥 ${p.streak || 0}d` 
+                    : p.gym_id 
+                      ? `🔥 ${p.streak || 0} dias ativos` 
+                      : 'Escaneie o QR Code'}
+                </span>
+              </div>
+            </motion.button>
+          </div>
+        )}
 
         {/* Content tabs */}
         <div style={styles.contentTabs}>
@@ -1027,29 +1055,121 @@ export default function ProfileScreen() {
         {/* Content - Sobre (Business details and feedbacks) */}
         {activeProfileTab === 'sobre' && p.profile_type === 'business' && (
           <div style={workoutStyles.container}>
-            <div style={styles.sobreCard}>
+            {/* Gallery Row */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+              <div 
+                style={{ 
+                  display: 'flex', 
+                  gap: '12px', 
+                  overflowX: 'auto', 
+                  paddingBottom: '8px',
+                }} 
+                className="hide-scrollbar"
+              >
+                {(() => {
+                  const photos = Array.isArray(p.business_photos) && p.business_photos.length > 0 
+                    ? p.business_photos 
+                    : [
+                        'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=400',
+                        'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=400',
+                        'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=400'
+                      ];
+                  
+                  return photos.map((url, i) => (
+                    <div 
+                      key={i} 
+                      style={{ 
+                        position: 'relative', 
+                        width: 'calc((100% - 24px) / 2.5)', 
+                        minWidth: '135px',
+                        height: '95px', 
+                        borderRadius: '12px', 
+                        overflow: 'hidden', 
+                        flexShrink: 0,
+                        border: '1px solid rgba(255,255,255,0.08)'
+                      }}
+                    >
+                      <img src={url} alt={`Galeria ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {i === 2 && photos.length > 3 && (
+                        <div style={{
+                          position: 'absolute', inset: 0, 
+                          background: 'rgba(0,0,0,0.5)', 
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', fontSize: '13px', fontWeight: 700, fontFamily: "'Outfit', sans-serif"
+                        }}>
+                          +{photos.length - 2}
+                        </div>
+                      )}
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+
+            <div style={{
+              ...styles.sobreCard,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center',
+              gap: '18px',
+              padding: '24px 16px'
+            }}>
               <h4 style={styles.sobreTitle}>Sobre a Empresa</h4>
               
-              <div style={styles.sobreItem}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                 <span style={styles.sobreLabel}>📍 Endereço</span>
-                <span style={styles.sobreValue}>{p.address || 'Endereço não informado'}</span>
+                {p.address ? (
+                  <a
+                    href={`https://maps.google.com/?q=${encodeURIComponent(p.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ ...styles.sobreValue, color: '#00D4FF', textDecoration: 'underline', cursor: 'pointer' }}
+                  >
+                    {p.address}
+                  </a>
+                ) : (
+                  <span style={styles.sobreValue}>Endereço não informado</span>
+                )}
               </div>
 
-              <div style={styles.sobreItem}>
-                <span style={styles.sobreLabel}>💬 Contato</span>
-                <span style={{ ...styles.sobreValue, color: '#6C6C88' }}>
-                  Link do WhatsApp para contato dos clientes:
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                <span style={styles.sobreLabel}>🚗 Garagem</span>
+                <span style={styles.sobreValue}>
+                  {p.has_garage === 'sim' ? 'Sim' : 'Não'}
                 </span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                <span style={styles.sobreLabel}>⏰ Horário de Funcionamento</span>
+                <span style={styles.sobreValue}>{p.operating_hours || 'Não informado'}</span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', marginTop: '8px' }}>
                 {p.whatsapp ? (
                   <motion.a
                     whileTap={{ scale: 0.97 }}
                     href={`https://wa.me/${p.whatsapp}?text=${encodeURIComponent('Olá, vim pelo FlowRide e gostaria de mais informações!')}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={styles.whatsappBtn}
+                    style={{
+                      ...styles.whatsappBtn,
+                      background: '#25D366',
+                      color: '#fff',
+                      border: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '12px 24px',
+                      borderRadius: '12px',
+                      fontWeight: 700,
+                      width: '80%',
+                      boxShadow: '0 4px 12px rgba(37, 211, 102, 0.3)'
+                    }}
                   >
-                    <MessageSquare size={16} color="#000" fill="#000" />
-                    WhatsApp: +{p.whatsapp}
+                    <MessageCircle size={18} color="#fff" fill="#fff" />
+                    WhatsApp
                   </motion.a>
                 ) : (
                   <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>
@@ -2682,6 +2802,85 @@ export default function ProfileScreen() {
         onClose={() => setSelectedExercise(null)}
         exerciseName={selectedExercise}
       />
+
+      {/* MODAL: QR Code da Academia */}
+      <AnimatePresence>
+        {showBusinessQrModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              style={modalStyles.backdrop}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowBusinessQrModal(false)}
+            />
+            {/* Sheet / Dialog */}
+            <motion.div
+              style={{
+                ...modalStyles.workoutModal,
+                zIndex: 100003,
+                maxHeight: '75vh',
+              }}
+              initial={{ scale: 0.95, opacity: 0, x: '-50%', y: '-50%' }}
+              animate={{ scale: 1, opacity: 1, x: '-50%', y: '-50%' }}
+              exit={{ scale: 0.95, opacity: 0, x: '-50%', y: '-50%' }}
+              transition={{ type: 'spring', duration: 0.3 }}
+            >
+              <div style={modalStyles.checkInHeader}>
+                <h3 style={modalStyles.checkInTitle}>QR Code de Check-In</h3>
+                <button style={modalStyles.closeBtn} onClick={() => setShowBusinessQrModal(false)}>
+                  <X size={20} color="#fff" />
+                </button>
+              </div>
+
+              <div style={{ ...modalStyles.modalScrollBody, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '24px 16px' }} className="hide-scrollbar">
+                <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: '1.4', fontFamily: "'Inter', sans-serif" }}>
+                  Apresente este QR Code aos frequentadores ou imprima-o para que eles possam realizar check-in no aplicativo.
+                </span>
+
+                {/* QR Code Container */}
+                <div style={{ background: '#fff', padding: '16px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(57, 255, 20, 0.15)' }}>
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(p.username || p.id)}`}
+                    alt="Check-in QR Code"
+                    style={{ width: '220px', height: '220px', display: 'block' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', textAlign: 'center' }}>
+                  <span style={{ fontSize: '16px', color: '#fff', fontWeight: 800, fontFamily: "'Outfit', sans-serif" }}>{p.display_name}</span>
+                  <span style={{ fontSize: '12px', color: '#6C6C88', fontFamily: "'Inter', sans-serif" }}>Token: {p.username || p.id}</span>
+                </div>
+
+                <button
+                  type="button"
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    borderRadius: '16px',
+                    background: '#39FF14',
+                    border: 'none',
+                    color: '#0A0A0F',
+                    fontWeight: 800,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    fontFamily: "'Outfit', sans-serif",
+                    marginTop: '12px',
+                    boxShadow: '0 4px 15px rgba(57, 255, 20, 0.3)',
+                    outline: 'none'
+                  }}
+                  onClick={() => {
+                    window.open(`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(p.username || p.id)}`, '_blank');
+                  }}
+                >
+                  Imprimir / Abrir QR Code
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </ScreenWrapper>
   );
 }

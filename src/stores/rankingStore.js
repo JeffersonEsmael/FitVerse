@@ -92,12 +92,16 @@ export const useRankingStore = create((set, get) => ({
       if (rawChallenges && rawChallenges.length > 0) {
         const enriched = rawChallenges.map((c) => {
           const matched = joinedChallenges.find((p) => p.challenge_id === c.id);
+          if (matched) {
+            console.log(`[RankingStore] 📊 Desafio "${c.title}" — progress do DB: ${matched.progress}, duration: ${c.duration}`);
+          }
           return {
             ...c,
             joined: !!matched,
             progress: matched ? matched.progress : 0,
           };
         });
+        console.log('[RankingStore] fetchChallenges: carregados', enriched.length, 'desafios,', joinedChallenges.length, 'participações');
         set({ challenges: enriched });
       }
     } catch (err) {
@@ -247,7 +251,37 @@ export const useRankingStore = create((set, get) => ({
     const challenge = get().challenges.find((c) => c.id === challengeId);
     if (!challenge) return { success: false, error: 'Desafio não encontrado.' };
 
+    console.log('[RankingStore] performCheckIn START', {
+      challengeId,
+      challengeTitle: challenge.title,
+      currentProgress: challenge.progress,
+      duration: challenge.duration,
+      userId,
+    });
+
+    // ── Prevent duplicate check-in on the same day ──
+    if (userId) {
+      try {
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const { data: todayCheckins, error: todayErr } = await supabase
+          .from('challenge_checkins')
+          .select('id')
+          .eq('challenge_id', challengeId)
+          .eq('user_id', userId)
+          .gte('created_at', todayStart.toISOString());
+
+        if (!todayErr && todayCheckins && todayCheckins.length > 0) {
+          console.warn('[RankingStore] Usuário já fez check-in neste desafio hoje. Bloqueando duplicata.');
+          return { success: false, error: 'Você já realizou check-in neste desafio hoje.' };
+        }
+      } catch (dupErr) {
+        console.warn('[RankingStore] Erro ao verificar check-in duplicado:', dupErr.message);
+      }
+    }
+
     const newProgress = (challenge.progress || 0) + 1;
+    console.log('[RankingStore] newProgress =', newProgress);
 
     set((state) => ({
       challenges: state.challenges.map((c) =>
@@ -267,11 +301,17 @@ export const useRankingStore = create((set, get) => ({
 
     if (userId) {
       try {
-        await supabase
+        const { error: progressUpdateErr } = await supabase
           .from('challenge_participants')
           .update({ progress: Math.min(newProgress, challenge.duration || 30) })
           .eq('challenge_id', challengeId)
           .eq('user_id', userId);
+
+        if (progressUpdateErr) {
+          console.error('[RankingStore] ❌ FALHA ao atualizar progress no DB:', progressUpdateErr.message, progressUpdateErr);
+        } else {
+          console.log('[RankingStore] ✅ Progress atualizado no DB para:', Math.min(newProgress, challenge.duration || 30));
+        }
 
         let uploadedPhotoUrl = checkInData.photoUrl || '';
         let compressedPhoto = checkInData.photoFile;
@@ -296,13 +336,19 @@ export const useRankingStore = create((set, get) => ({
           }
         }
 
-        await supabase.from('challenge_checkins').insert({
+        const { error: checkinInsertErr } = await supabase.from('challenge_checkins').insert({
           challenge_id: challengeId,
           user_id: userId,
           activity_title: checkInData.activityTitle || 'Treino Concluído',
           photo_url: uploadedPhotoUrl,
           metric_value: checkInData.metricValue || 1,
         });
+
+        if (checkinInsertErr) {
+          console.error('[RankingStore] ❌ FALHA ao inserir challenge_checkins:', checkinInsertErr.message, checkinInsertErr);
+        } else {
+          console.log('[RankingStore] ✅ Check-in registrado na tabela challenge_checkins');
+        }
 
         const { useFeedStore } = await import('./feedStore');
         const feedState = useFeedStore.getState();

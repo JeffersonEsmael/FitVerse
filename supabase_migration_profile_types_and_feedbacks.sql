@@ -9,6 +9,9 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS profile_type text DEFAULT '
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS address text;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS whatsapp text;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS profile_theme_color text DEFAULT 'default';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS has_garage text DEFAULT 'não';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS operating_hours text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS business_photos jsonb DEFAULT '[]'::jsonb;
 
 -- 2. Criar a tabela de feedbacks para perfis empresariais (academias/empresas)
 CREATE TABLE IF NOT EXISTS public.business_feedbacks (

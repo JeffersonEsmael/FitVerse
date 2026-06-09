@@ -896,11 +896,19 @@ export default function PublicProfileScreen() {
           </div>
 
           {/* Stats inside profile card */}
-          <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0 }}>
-            <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
-            <StatBox label="Medalhas" value={totalMedalsCount} icon={Award} color="#FFD700" onClick={() => setShowMedalsModal(true)} />
-            <StatBox label="Chat" value="Conversar" icon={MessageCircle} color="#00D4FF" onClick={handleMessage} />
-          </div>
+          {profile?.profile_type === 'business' ? (
+            <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0 }}>
+              <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
+              <StatBox label="Avaliações" value={feedbacks.length} icon={Star} color="#FFD700" onClick={() => setActiveTab('sobre')} />
+              <StatBox label="Chat" value="Conversar" icon={MessageCircle} color="#00D4FF" onClick={handleMessage} />
+            </div>
+          ) : (
+            <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0 }}>
+              <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
+              <StatBox label="Medalhas" value={totalMedalsCount} icon={Award} color="#FFD700" onClick={() => setShowMedalsModal(true)} />
+              <StatBox label="Chat" value="Conversar" icon={MessageCircle} color="#00D4FF" onClick={handleMessage} />
+            </div>
+          )}
         </motion.div>
 
         {/* Content tabs */}
@@ -997,29 +1005,121 @@ export default function PublicProfileScreen() {
         {/* Content - Sobre (Business details and feedbacks) */}
         {activeTab === 'sobre' && profile?.profile_type === 'business' && (
           <div style={workoutStyles.container}>
-            <div style={styles.sobreCard}>
+            {/* Gallery Row */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+              <div 
+                style={{ 
+                  display: 'flex', 
+                  gap: '12px', 
+                  overflowX: 'auto', 
+                  paddingBottom: '8px',
+                }} 
+                className="hide-scrollbar"
+              >
+                {(() => {
+                  const photos = Array.isArray(profile.business_photos) && profile.business_photos.length > 0 
+                    ? profile.business_photos 
+                    : [
+                        'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=400',
+                        'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=400',
+                        'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=400'
+                      ];
+                  
+                  return photos.map((url, i) => (
+                    <div 
+                      key={i} 
+                      style={{ 
+                        position: 'relative', 
+                        width: 'calc((100% - 24px) / 2.5)', 
+                        minWidth: '135px',
+                        height: '95px', 
+                        borderRadius: '12px', 
+                        overflow: 'hidden', 
+                        flexShrink: 0,
+                        border: '1px solid rgba(255,255,255,0.08)'
+                      }}
+                    >
+                      <img src={url} alt={`Galeria ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {i === 2 && photos.length > 3 && (
+                        <div style={{
+                          position: 'absolute', inset: 0, 
+                          background: 'rgba(0,0,0,0.5)', 
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', fontSize: '13px', fontWeight: 700, fontFamily: "'Outfit', sans-serif"
+                        }}>
+                          +{photos.length - 2}
+                        </div>
+                      )}
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+
+            <div style={{
+              ...styles.sobreCard,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center',
+              gap: '18px',
+              padding: '24px 16px'
+            }}>
               <h4 style={styles.sobreTitle}>Sobre a Empresa</h4>
               
-              <div style={styles.sobreItem}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                 <span style={styles.sobreLabel}>📍 Endereço</span>
-                <span style={styles.sobreValue}>{profile.address || 'Endereço não informado'}</span>
+                {profile.address ? (
+                  <a
+                    href={`https://maps.google.com/?q=${encodeURIComponent(profile.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ ...styles.sobreValue, color: '#00D4FF', textDecoration: 'underline', cursor: 'pointer' }}
+                  >
+                    {profile.address}
+                  </a>
+                ) : (
+                  <span style={styles.sobreValue}>Endereço não informado</span>
+                )}
               </div>
 
-              <div style={styles.sobreItem}>
-                <span style={styles.sobreLabel}>💬 Contato</span>
-                <span style={{ ...styles.sobreValue, color: '#6C6C88' }}>
-                  Entre em contato diretamente para tirar dúvidas e agendar treinos:
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                <span style={styles.sobreLabel}>🚗 Garagem</span>
+                <span style={styles.sobreValue}>
+                  {profile.has_garage === 'sim' ? 'Sim' : 'Não'}
                 </span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                <span style={styles.sobreLabel}>⏰ Horário de Funcionamento</span>
+                <span style={styles.sobreValue}>{profile.operating_hours || 'Não informado'}</span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', marginTop: '8px' }}>
                 {profile.whatsapp ? (
                   <motion.a
                     whileTap={{ scale: 0.97 }}
                     href={`https://wa.me/${profile.whatsapp}?text=${encodeURIComponent('Olá, vim pelo FlowRide e gostaria de mais informações!')}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={styles.whatsappBtn}
+                    style={{
+                      ...styles.whatsappBtn,
+                      background: '#25D366',
+                      color: '#fff',
+                      border: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '12px 24px',
+                      borderRadius: '12px',
+                      fontWeight: 700,
+                      width: '80%',
+                      boxShadow: '0 4px 12px rgba(37, 211, 102, 0.3)'
+                    }}
                   >
-                    <MessageSquare size={16} color="#000" fill="#000" />
-                    Chamar no WhatsApp
+                    <MessageSquare size={18} color="#fff" fill="#fff" />
+                    WhatsApp
                   </motion.a>
                 ) : (
                   <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>

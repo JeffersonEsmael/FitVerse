@@ -50,9 +50,15 @@ export const useGymStore = create((set, get) => ({
 
       if (error) {
         if (error.code === '42P01') { // Table not found
+          console.warn('[GymStore] fetchUserCheckins: tabela gym_checkins não encontrada, usando localStorage');
           return get()._loadCheckinsFromLocalStorage(userId);
         }
         throw error;
+      }
+
+      console.log('[GymStore] 📊 fetchUserCheckins: encontrados', (data || []).length, 'check-ins no DB');
+      if (data && data.length > 0) {
+        console.log('[GymStore] 📊 Último check-in no DB:', data[0].created_at, '| Gym ID:', data[0].gym_id);
       }
 
       set({ checkins: data || [], isLoading: false });
@@ -94,7 +100,41 @@ export const useGymStore = create((set, get) => ({
     set({ isLoading: true, error: null });
 
     // 1. Validate the token
-    const gym = get().gymsList.find(g => g.qr_code_token === qrCodeToken);
+    let gym = get().gymsList.find(g => g.qr_code_token === qrCodeToken || g.id === qrCodeToken);
+
+    if (!gym) {
+      console.log('[GymStore] Token not found in static list, querying database profiles...');
+      try {
+        // Check UUID pattern first to avoid SQL errors
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(qrCodeToken);
+        const query = supabase
+          .from('profiles')
+          .select('id, display_name, address')
+          .eq('profile_type', 'business');
+        
+        let businessProfile = null;
+        if (isUuid) {
+          const { data } = await query.eq('id', qrCodeToken).maybeSingle();
+          businessProfile = data;
+        } else {
+          const { data } = await query.eq('username', qrCodeToken).maybeSingle();
+          businessProfile = data;
+        }
+
+        if (businessProfile) {
+          gym = {
+            id: businessProfile.id,
+            name: businessProfile.display_name,
+            address: businessProfile.address,
+            qr_code_token: qrCodeToken
+          };
+          console.log('[GymStore] Business profile found dynamically:', gym);
+        }
+      } catch (err) {
+        console.warn('[GymStore] Error querying profiles for dynamic gym token:', err.message);
+      }
+    }
+
     if (!gym) {
       const errText = 'QR Code inválido ou não pertencente a nenhuma academia cadastrada.';
       set({ error: errText, isLoading: false });
@@ -112,9 +152,14 @@ export const useGymStore = create((set, get) => ({
           .order('created_at', { ascending: false });
         if (error) throw error;
         userCheckins = data || [];
+        console.log('[GymStore] 📋 Checkins carregados do DB:', userCheckins.length, 'registros');
+        if (userCheckins.length > 0) {
+          console.log('[GymStore] 📋 Último check-in:', userCheckins[0].created_at);
+        }
       } catch (dbErr) {
         console.warn('[GymStore] DB query for checkins failed, using local storage fallback for verification...');
         userCheckins = get()._getLocalCheckins(userId);
+        console.log('[GymStore] 📋 Checkins carregados do localStorage:', userCheckins.length, 'registros');
       }
 
       // Check if user already checked in TODAY
@@ -136,7 +181,14 @@ export const useGymStore = create((set, get) => ({
       const lastCheckIn = userCheckins[0]; // Ordered by created_at desc, so index 0 is most recent
       const lastCheckInDateStr = lastCheckIn ? lastCheckIn.created_at : null;
 
+      console.log('[GymStore] 🔢 Calculando streak:', {
+        currentStreak,
+        lastCheckInDate: lastCheckInDateStr,
+        totalCheckins: userCheckins.length,
+      });
+
       const newStreak = get()._calculateStreak(lastCheckInDateStr, currentStreak);
+      console.log('[GymStore] 🔥 Novo streak calculado:', newStreak);
 
       // 4. Save checkin row
       const newCheckinId = `checkin_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -187,7 +239,7 @@ export const useGymStore = create((set, get) => ({
   // Internal: streak calculator
   _calculateStreak: (lastCheckInDateStr, currentStreak, todayDate = new Date()) => {
     if (!lastCheckInDateStr) {
-      // First checkin: always starts at 1, even on Sunday!
+      console.log('[GymStore] _calculateStreak: primeiro check-in, retornando 1');
       return 1;
     }
 
@@ -200,8 +252,15 @@ export const useGymStore = create((set, get) => ({
     const diffTime = today - last;
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     
+    console.log('[GymStore] _calculateStreak:', {
+      lastDateLocal: last.toLocaleDateString('pt-BR'),
+      todayLocal: today.toLocaleDateString('pt-BR'),
+      diffDays,
+      currentStreak,
+    });
+
     if (diffDays <= 0) {
-      // Already checked in today, keep current streak
+      console.log('[GymStore] _calculateStreak: mesmo dia, mantendo streak:', currentStreak);
       return currentStreak;
     }
     
@@ -211,15 +270,16 @@ export const useGymStore = create((set, get) => ({
       const checkDay = new Date(last.getTime() + i * 24 * 60 * 60 * 1000);
       if (checkDay.getDay() !== 0) { // 0 is Sunday
         hasSkippedWeekday = true;
+        console.log('[GymStore] _calculateStreak: dia pulado (não-domingo):', checkDay.toLocaleDateString('pt-BR'), 'dia da semana:', checkDay.getDay());
         break;
       }
     }
     
     if (hasSkippedWeekday) {
-      // Skipped a weekday or Saturday, streak resets to 1
+      console.log('[GymStore] _calculateStreak: streak resetado para 1 (dia pulado)');
       return 1;
     } else {
-      // Consecutive checkin (possibly skipping only Sunday)
+      console.log('[GymStore] _calculateStreak: streak incrementado:', currentStreak, '->', currentStreak + 1);
       return currentStreak + 1;
     }
   },

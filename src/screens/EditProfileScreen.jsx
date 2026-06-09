@@ -52,7 +52,12 @@ export default function EditProfileScreen() {
   const [saveStatus, setSaveStatus] = useState(null); // null | 'success' | 'error'
   const [errorMsg, setErrorMsg] = useState('');
 
+  const [hasGarage, setHasGarage] = useState('não');
+  const [operatingHours, setOperatingHours] = useState('');
+  const [businessPhotos, setBusinessPhotos] = useState([]);
+
   const fileInputRef = useRef(null);
+  const businessPhotoInputRef = useRef(null);
 
   useEffect(() => {
     if (profile) {
@@ -64,6 +69,10 @@ export default function EditProfileScreen() {
       setAddress(profile.address || '');
       setWhatsapp(profile.whatsapp || '');
       setProfileThemeColor(profile.profile_theme_color || 'default');
+      setHasGarage(profile.has_garage || 'não');
+      setOperatingHours(profile.operating_hours || '');
+      const pPhotos = Array.isArray(profile.business_photos) ? profile.business_photos : [];
+      setBusinessPhotos(pPhotos.map((url, i) => ({ id: `existing_${i}_${url}`, url, file: null })));
     }
   }, [profile]);
 
@@ -124,6 +133,34 @@ export default function EditProfileScreen() {
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
     setSaveStatus(null);
+  };
+
+  const handleBusinessPhotoSelect = (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const newPhotos = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (!validTypes.includes(file.type)) {
+        alert('Formato inválido. Use JPG, PNG, WEBP ou GIF.');
+        continue;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert('A imagem deve ter no máximo 5MB.');
+        continue;
+      }
+      newPhotos.push({
+        id: `temp_${Date.now()}_${i}_${Math.random()}`,
+        url: URL.createObjectURL(file),
+        file,
+      });
+    }
+    setBusinessPhotos((prev) => [...prev, ...newPhotos]);
+  };
+
+  const handleRemoveBusinessPhoto = (id) => {
+    setBusinessPhotos((prev) => prev.filter((p) => p.id !== id));
   };
 
   const handleSave = async () => {
@@ -194,6 +231,43 @@ export default function EditProfileScreen() {
         }
       }
 
+      // Upload business photos if any
+      const uploadedPhotoUrls = [];
+      if (profileType === 'business') {
+        console.log('[EditProfile] Uploading business gallery photos...');
+        for (const photo of businessPhotos) {
+          if (photo.file) {
+            const fileExt = photo.file.name ? photo.file.name.split('.').pop().toLowerCase() : 'jpg';
+            const fileName = `business_photos/${user.uid}/${Date.now()}_${Math.random().toString(36).substr(2, 5)}.${fileExt}`;
+            
+            let finalFile = photo.file;
+            try {
+              const { compressImage } = await import('../utils/compression');
+              finalFile = await compressImage(photo.file, { maxWidth: 800, maxHeight: 800, quality: 0.85 });
+            } catch (compErr) {
+              console.warn('[EditProfile] Business photo compression failed, using original file:', compErr);
+            }
+
+            const { error: uploadError } = await supabase.storage
+              .from('avatars')
+              .upload(fileName, finalFile, {
+                contentType: finalFile.type,
+                upsert: true,
+              });
+
+            if (uploadError) {
+              console.error('[EditProfile] Business photo upload error:', uploadError);
+              throw new Error(`Falha ao enviar foto da galeria: ${uploadError.message}`);
+            }
+
+            const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+            uploadedPhotoUrls.push(urlData?.publicUrl);
+          } else {
+            uploadedPhotoUrls.push(photo.url);
+          }
+        }
+      }
+
       // ── 2. Save profile data ──
       const updates = {
         display_name: displayName.trim(),
@@ -203,6 +277,9 @@ export default function EditProfileScreen() {
         profile_type: profileType,
         address: profileType === 'business' ? address.trim() : null,
         whatsapp: profileType === 'business' ? whatsapp.trim() : null,
+        has_garage: profileType === 'business' ? hasGarage : 'não',
+        operating_hours: profileType === 'business' ? operatingHours.trim() : null,
+        business_photos: profileType === 'business' ? uploadedPhotoUrls : null,
         profile_theme_color: profileThemeColor,
         updated_at: new Date().toISOString(),
       };
@@ -407,6 +484,91 @@ export default function EditProfileScreen() {
                     Insira apenas números com código do país. Ex: 55 (Brasil) + 11 (SP) + 999999999.
                   </span>
                 </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Tem garagem?</label>
+                  <div style={styles.toggleRow}>
+                    <button
+                      type="button"
+                      style={{ ...styles.toggleBtn, ...(hasGarage === 'sim' ? styles.toggleActive : {}) }}
+                      onClick={() => setHasGarage('sim')}
+                    >
+                      Sim
+                    </button>
+                    <button
+                      type="button"
+                      style={{ ...styles.toggleBtn, ...(hasGarage === 'não' ? styles.toggleActive : {}) }}
+                      onClick={() => setHasGarage('não')}
+                    >
+                      Não
+                    </button>
+                  </div>
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Horário de funcionamento</label>
+                  <input
+                    type="text"
+                    value={operatingHours}
+                    onChange={(e) => setOperatingHours(e.target.value)}
+                    style={styles.input}
+                    placeholder="Ex: Seg a Sex: 06h - 22h, Sáb: 08h - 14h"
+                    maxLength={100}
+                    disabled={isSaving}
+                  />
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Fotos da Empresa (Galeria)</label>
+                  <span style={{ fontSize: '11px', color: '#6C6C88', marginBottom: '4px' }}>
+                    O padrão são 3 fotos, mas você pode adicionar mais. A primeira foto será usada na galeria principal.
+                  </span>
+                  
+                  {/* Photo previews list */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                    {businessPhotos.map((photo) => (
+                      <div key={photo.id} style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '8px', overflow: 'hidden' }}>
+                        <img src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveBusinessPhoto(photo.id)}
+                          style={{
+                            position: 'absolute', top: '2px', right: '2px',
+                            background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%',
+                            width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', zIndex: 10
+                          }}
+                        >
+                          <X size={12} color="#fff" />
+                        </button>
+                      </div>
+                    ))}
+                    
+                    {/* Add button */}
+                    <button
+                      type="button"
+                      onClick={() => businessPhotoInputRef.current?.click()}
+                      style={{
+                        width: '80px', height: '80px', borderRadius: '8px',
+                        border: '2.5px dashed rgba(255,255,255,0.15)',
+                        background: 'rgba(255,255,255,0.02)',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        color: 'rgba(255,255,255,0.4)', fontSize: '11px', gap: '4px', cursor: 'pointer'
+                      }}
+                    >
+                      <Plus size={20} />
+                      Adicionar
+                    </button>
+                  </div>
+                  <input
+                    ref={businessPhotoInputRef}
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={handleBusinessPhotoSelect}
+                    style={{ display: 'none' }}
+                  />
+                </div>
               </>
             )}
 
@@ -414,11 +576,13 @@ export default function EditProfileScreen() {
             <div style={styles.field}>
               <label style={styles.label}>Cor de Fundo do Perfil</label>
               <span style={{ fontSize: '12px', color: '#6C6C88', marginBottom: '4px' }}>
-                Desbloqueie novas cores ganhando medalhas! Você tem <strong>{medalsCount}</strong> medalhas.
+                {profileType === 'business' 
+                  ? 'Perfis empresariais possuem todas as cores liberadas!' 
+                  : `Desbloqueie novas cores ganhando medalhas! Você tem ${medalsCount} medalhas.`}
               </span>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '6px' }}>
                 {PROFILE_THEME_OPTIONS.map((opt) => {
-                  const isUnlocked = medalsCount >= opt.medalsRequired;
+                  const isUnlocked = profileType === 'business' || medalsCount >= opt.medalsRequired;
                   const isSelected = profileThemeColor === opt.id;
                   
                   return (
