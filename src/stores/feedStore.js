@@ -10,6 +10,7 @@ export const useFeedStore = create(
       isLoading: false,
       hasMore: true,
       activeTab: 'forYou',
+      sessionWatched: [],
 
       // ─── Global upload state (shown in FeedScreen while uploading) ──
       uploadingPost: null,   // null = idle | { progress: 0-100, mediaType, caption }
@@ -128,11 +129,30 @@ export const useFeedStore = create(
   },
 
   incrementViews: async (videoId) => {
-    set((state) => ({
-      videos: state.videos.map((v) =>
-        v.id === videoId ? { ...v, views: (v.views || 0) + 1 } : v
-      ),
-    }));
+    if (!videoId) return;
+
+    // 1. Mark video as viewed locally in history
+    try {
+      const { recordVideoView } = await import('../utils/videoSelector');
+      recordVideoView(videoId);
+    } catch (e) {
+      console.warn('[FeedStore] Error recording video view:', e);
+    }
+
+    set((state) => {
+      // Avoid duplicates in sessionWatched
+      const alreadyWatched = state.sessionWatched || [];
+      const updatedSession = alreadyWatched.includes(videoId) 
+        ? alreadyWatched 
+        : [...alreadyWatched, videoId];
+
+      return {
+        sessionWatched: updatedSession,
+        videos: state.videos.map((v) =>
+          v.id === videoId ? { ...v, views: (v.views || 0) + 1 } : v
+        ),
+      };
+    });
 
     try {
       const { data, error: fetchError } = await supabase
@@ -251,8 +271,19 @@ export const useFeedStore = create(
         };
       });
 
+      let processedVideos = newVideos;
+      if (!loadMore) {
+        try {
+          const { selectNextVideos } = await import('../utils/videoSelector');
+          const sessionWatched = get().sessionWatched || [];
+          processedVideos = selectNextVideos(newVideos, new Set(sessionWatched));
+        } catch (selErr) {
+          console.warn('[FeedStore] Error ordering videos with smart selector:', selErr);
+        }
+      }
+
       set((state) => ({
-        videos: loadMore ? [...state.videos, ...newVideos] : newVideos,
+        videos: loadMore ? [...state.videos, ...newVideos] : processedVideos,
         hasMore: data.length === limit,
         isLoading: false,
       }));
