@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play, MoreVertical, Check, MapPin, QrCode, Calendar, Shield, Copy, Info, MessageSquare } from 'lucide-react';
+import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play, MoreVertical, Check, MapPin, QrCode, Calendar, Shield, Copy, Info, MessageSquare, Lock } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -12,6 +12,25 @@ import { useGymStore } from '../stores/gymStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import ShapeIcon from '../components/icons/ShapeIcon';
 import ProfileChallengeCard from '../components/profile/ProfileChallengeCard';
+
+const MASTERY_MAP = {
+  none: 'Sem Maestria',
+  Iniciante: '🟢 Iniciante',
+  Casual: '🎮 Casual',
+  Intermediário: '🟡 Intermediário',
+  Avançado: '🔴 Avançado',
+  Atleta: '🏃 Atleta',
+  Maratonista: '👟 Maratonista',
+  Maromba: '💪 Maromba',
+  Jogador: '🕹️ Jogador',
+  Monstro: '👹 Monstro',
+  Bodybuilder: '🏋️ Bodybuilder',
+  Fibrado: '⚡ Fibrado',
+  'Mestre do Cardio': '🚴 Mestre do Cardio',
+  'Foco Total': '🎯 Foco Total',
+  Elite: '👑 Elite',
+  Lutador: '🥋 Lutador'
+};
 
 import { PRESET_EXERCISES_BY_GROUP } from '../utils/exercises';
 import ExerciseVideoModal from '../components/workout/ExerciseVideoModal';
@@ -878,7 +897,7 @@ export default function ProfileScreen() {
                   style={{ ...styles.masteryTitle, cursor: 'pointer' }}
                   onClick={() => setShowMasteryModal(true)}
                 >
-                  {p.mastery || 'Iniciante'}
+                  {MASTERY_MAP[p.mastery] || 'Iniciante'}
                 </span>
               ) : (
                 <span
@@ -891,7 +910,7 @@ export default function ProfileScreen() {
                   }}
                   onClick={() => setShowMasteryModal(true)}
                 >
-                  Sem Maestria
+                  ❌ Sem Maestria
                 </span>
               )}
             </div>
@@ -1613,23 +1632,29 @@ export default function ProfileScreen() {
                   A maestria selecionada aparecerá logo abaixo da sua foto de perfil.
                 </span>
 
-                {/* Option list */}
                 {[
-                  { value: 'none', label: '❌ Sem Maestria (Ocultar)' },
-                  { value: 'Iniciante', label: '🟢 Iniciante' },
-                  { value: 'Intermediário', label: '🟡 Intermediário' },
-                  { value: 'Avançado', label: '🔴 Avançado' },
-                  { value: 'Maromba', label: '💪 Maromba' },
-                  { value: 'Monstro', label: '👹 Monstro' },
-                  { value: 'Fibrado', label: '⚡ Fibrado' },
-                  { value: 'Mestre do Cardio', label: '🏃 Mestre do Cardio' },
-                  { value: 'Foco Total', label: '🎯 Foco Total' },
-                  { value: 'Elite', label: '👑 Elite' },
-                  { value: 'Guerreiro', label: '🛡️ Guerreiro' }
+                  { value: 'none', label: '❌ Sem Maestria (Ocultar)', minMedals: 0, minXp: 0 },
+                  { value: 'Iniciante', label: '🟢 Iniciante', minMedals: 0, minXp: 0 },
+                  { value: 'Casual', label: '🎮 Casual', minMedals: 0, minXp: 0 },
+                  { value: 'Intermediário', label: '🟡 Intermediário', minMedals: 0, minXp: 0 },
+                  { value: 'Avançado', label: '🔴 Avançado', minMedals: 1, minXp: 100 },
+                  { value: 'Atleta', label: '🏃 Atleta', minMedals: 2, minXp: 300 },
+                  { value: 'Maratonista', label: '👟 Maratonista', minMedals: 3, minXp: 500 },
+                  { value: 'Maromba', label: '💪 Maromba', minMedals: 5, minXp: 800 },
+                  { value: 'Jogador', label: '🕹️ Jogador', minMedals: 6, minXp: 1200 },
+                  { value: 'Monstro', label: '👹 Monstro', minMedals: 8, minXp: 1800 },
+                  { value: 'Bodybuilder', label: '🏋️ Bodybuilder', minMedals: 10, minXp: 2500 },
+                  { value: 'Fibrado', label: '⚡ Fibrado', minMedals: 12, minXp: 3500 },
+                  { value: 'Mestre do Cardio', label: '🚴 Mestre do Cardio', minMedals: 15, minXp: 4500 },
+                  { value: 'Foco Total', label: '🎯 Foco Total', minMedals: 18, minXp: 6000 },
+                  { value: 'Elite', label: '👑 Elite', minMedals: 22, minXp: 8000 },
+                  { value: 'Lutador', label: '🥋 Lutador', minMedals: 25, minXp: 10000 }
                 ].map((opt) => {
                   const isCurrent = opt.value === 'none' 
                     ? p.show_mastery === false 
                     : (p.show_mastery !== false && p.mastery === opt.value);
+
+                  const isUnlocked = totalMedalsCount >= opt.minMedals && (p.xp || 0) >= opt.minXp;
 
                   return (
                     <motion.button
@@ -1638,22 +1663,39 @@ export default function ProfileScreen() {
                       style={{
                         padding: '12px 16px',
                         borderRadius: '14px',
-                        border: isCurrent ? '1px solid #39FF14' : '1px solid rgba(255,255,255,0.08)',
-                        background: isCurrent ? 'rgba(57,255,20,0.15)' : 'rgba(255,255,255,0.03)',
-                        color: isCurrent ? '#39FF14' : '#fff',
+                        border: isCurrent 
+                          ? '1px solid #39FF14' 
+                          : isUnlocked 
+                            ? '1px solid rgba(255,255,255,0.08)' 
+                            : '1px solid rgba(255,255,255,0.03)',
+                        background: isCurrent 
+                          ? 'rgba(57,255,20,0.15)' 
+                          : isUnlocked 
+                            ? 'rgba(255,255,255,0.03)' 
+                            : 'rgba(255,255,255,0.01)',
+                        color: isCurrent 
+                          ? '#39FF14' 
+                          : isUnlocked 
+                            ? '#fff' 
+                            : 'rgba(255,255,255,0.3)',
                         fontSize: '13px',
                         fontWeight: 600,
                         textAlign: 'left',
-                        cursor: 'pointer',
+                        cursor: isUnlocked ? 'pointer' : 'not-allowed',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         fontFamily: "'Outfit', sans-serif",
                         outline: 'none',
-                        transition: 'all 0.15s ease'
+                        transition: 'all 0.15s ease',
+                        opacity: isUnlocked ? 1 : 0.6
                       }}
-                      whileTap={{ scale: 0.98 }}
+                      whileTap={isUnlocked ? { scale: 0.98 } : {}}
                       onClick={async () => {
+                        if (!isUnlocked) {
+                          alert(`Esta maestria está bloqueada!\n\nRequisitos:\n• ${opt.minMedals} medalha${opt.minMedals > 1 ? 's' : ''} (Você tem ${totalMedalsCount})\n• ${opt.minXp} XP (Você tem ${p.xp || 0} XP)`);
+                          return;
+                        }
                         if (opt.value === 'none') {
                           await updateProfile({ show_mastery: false });
                         } else {
@@ -1662,8 +1704,19 @@ export default function ProfileScreen() {
                         setShowMasteryModal(false);
                       }}
                     >
-                      <span>{opt.label}</span>
-                      {isCurrent && <Check size={16} color="#39FF14" strokeWidth={3} />}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span>{opt.label}</span>
+                        {!isUnlocked && (
+                          <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
+                            Requer: {opt.minMedals} medalha{opt.minMedals > 1 ? 's' : ''} • {opt.minXp} XP
+                          </span>
+                        )}
+                      </div>
+                      {isCurrent ? (
+                        <Check size={16} color="#39FF14" strokeWidth={3} />
+                      ) : !isUnlocked ? (
+                        <Lock size={14} color="rgba(255,255,255,0.3)" />
+                      ) : null}
                     </motion.button>
                   );
                 })}

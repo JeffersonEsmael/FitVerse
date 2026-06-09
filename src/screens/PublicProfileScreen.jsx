@@ -40,6 +40,25 @@ const BADGE_DEFINITIONS = [
   { id: 'gym_rat', name: 'Gym Rat', description: 'Salvou 10 vídeos no Gym Bag', icon: Dumbbell, color: '#00D4FF', gradient: 'linear-gradient(135deg, #00D4FF, #00AAFF)', check: (p, posts, gymBag) => (gymBag || []).length >= 10 },
 ];
 
+const MASTERY_MAP = {
+  none: 'Sem Maestria',
+  Iniciante: '🟢 Iniciante',
+  Casual: '🎮 Casual',
+  Intermediário: '🟡 Intermediário',
+  Avançado: '🔴 Avançado',
+  Atleta: '🏃 Atleta',
+  Maratonista: '👟 Maratonista',
+  Maromba: '💪 Maromba',
+  Jogador: '🕹️ Jogador',
+  Monstro: '👹 Monstro',
+  Bodybuilder: '🏋️ Bodybuilder',
+  Fibrado: '⚡ Fibrado',
+  'Mestre do Cardio': '🚴 Mestre do Cardio',
+  'Foco Total': '🎯 Foco Total',
+  Elite: '👑 Elite',
+  Lutador: '🥋 Lutador'
+};
+
 function StatBox({ label, value, icon: Icon, color, onClick }) {
   return (
     <motion.div 
@@ -931,7 +950,7 @@ export default function PublicProfileScreen() {
               {/* Mastery Title */}
               {profile.show_mastery !== false && (
                 <span style={styles.masteryTitle}>
-                  {profile.mastery || 'Iniciante'}
+                  {MASTERY_MAP[profile.mastery] || profile.mastery || '🟢 Iniciante'}
                 </span>
               )}
             </div>
