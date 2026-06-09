@@ -1103,22 +1103,7 @@ export default function PublicProfileScreen() {
                     href={`https://wa.me/${profile.whatsapp}?text=${encodeURIComponent('Olá, vim pelo FlowRide e gostaria de mais informações!')}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{
-                      ...styles.whatsappBtn,
-                      background: 'transparent',
-                      color: '#25D366',
-                      border: '2px solid #25D366',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      padding: '12px 24px',
-                      borderRadius: '12px',
-                      fontWeight: 700,
-                      width: '80%',
-                      maxWidth: '280px',
-                      boxShadow: 'none',
-                    }}
+                    style={styles.whatsappBtn}
                   >
                     <MessageSquare size={18} color="#25D366" fill="transparent" />
                     WhatsApp
@@ -1576,19 +1561,22 @@ const styles = {
   sobreLabel: { fontSize: '12px', color: '#6C6C88', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' },
   sobreValue: { fontSize: '14px', color: '#fff', lineHeight: '1.4', fontFamily: "'Inter', sans-serif" },
   whatsappBtn: {
-    alignSelf: 'flex-start',
-    display: 'flex',
+    display: 'inline-flex',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: '8px',
-    background: '#25D366',
-    color: '#000',
-    padding: '12px 20px',
+    background: 'transparent',
+    color: '#25D366',
+    border: '2px solid #25D366',
+    padding: '8px 16px',
     borderRadius: '12px',
     fontWeight: 700,
     fontSize: '14px',
     textDecoration: 'none',
-    marginTop: '6px',
-    boxShadow: '0 4px 12px rgba(37, 211, 102, 0.25)',
+    marginTop: '12px',
+    boxShadow: 'none',
+    width: 'fit-content',
+    alignSelf: 'center',
   },
   feedbacksHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', padding: '0 4px' },
   feedbacksTitle: { fontSize: '16px', fontWeight: 700, color: '#fff', margin: 0, fontFamily: "'Outfit', sans-serif" },
