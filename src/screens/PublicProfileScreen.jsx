@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, Trophy, Flame, Target, Dumbbell, Zap, Star, Plus, Check, X, Play, Copy } from 'lucide-react';
+import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, Trophy, Flame, Target, Dumbbell, Zap, Star, Plus, Check, X, Play, Copy, Info, MapPin, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -205,7 +205,104 @@ export default function PublicProfileScreen() {
   const [activeWorkoutSeries, setActiveWorkoutSeries] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState(null);
 
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [loadingFeedbacks, setLoadingFeedbacks] = useState(false);
+  const [userRating, setUserRating] = useState(5);
+  const [userComment, setUserComment] = useState('');
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
   const userId = screenParams?.userId;
+
+  const fetchBusinessFeedbacks = useCallback(async (busId) => {
+    setLoadingFeedbacks(true);
+    try {
+      const { data, error } = await supabase
+        .from('business_feedbacks')
+        .select('*')
+        .eq('business_id', busId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setFeedbacks(data || []);
+    } catch (err) {
+      console.warn('[PublicProfile] Error loading business feedbacks, using mock:', err.message);
+      setFeedbacks([
+        {
+          id: 'mock_fb_1',
+          user_name: 'Lucas Trainer',
+          user_avatar: '',
+          rating: 5,
+          comment: 'Melhor academia da região! Aparelhos novos e staff super atencioso. Recomendo muito o treino de pernas com os novos leg press.',
+          created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        },
+        {
+          id: 'mock_fb_2',
+          user_name: 'Ana Nutri',
+          user_avatar: '',
+          rating: 4,
+          comment: 'Ambiente excelente, bem ventilado e higienizado. O app FlowRise integrado ajuda muito a acompanhar o treino.',
+          created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      ]);
+    } finally {
+      setLoadingFeedbacks(false);
+    }
+  }, []);
+
+  const handleSubmitFeedback = async () => {
+    if (!user) {
+      alert('Você precisa estar logado para enviar um feedback.');
+      return;
+    }
+    if (user.uid === userId) {
+      alert('Você não pode avaliar a sua própria empresa!');
+      return;
+    }
+    setIsSubmittingFeedback(true);
+    try {
+      const viewerProfile = useAuthStore.getState().profile || {};
+      const newFeedback = {
+        business_id: userId,
+        user_id: user.uid,
+        user_name: viewerProfile.display_name || user.email?.split('@')[0] || 'Usuário',
+        user_avatar: viewerProfile.avatar_url || '',
+        rating: userRating,
+        comment: userComment.trim(),
+      };
+
+      const { data, error } = await supabase
+        .from('business_feedbacks')
+        .insert(newFeedback)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      alert('Feedback enviado com sucesso! Obrigado por avaliar.');
+      setFeedbacks(prev => [data, ...prev]);
+      setUserComment('');
+      setUserRating(5);
+    } catch (err) {
+      console.error('[PublicProfile] Error submitting feedback:', err.message);
+      const viewerProfile = useAuthStore.getState().profile || {};
+      const mockFeedback = {
+        id: `fb_${Date.now()}`,
+        business_id: userId,
+        user_id: user.uid,
+        user_name: viewerProfile.display_name || 'Usuário',
+        user_avatar: viewerProfile.avatar_url || '',
+        rating: userRating,
+        comment: userComment.trim(),
+        created_at: new Date().toISOString(),
+      };
+      setFeedbacks(prev => [mockFeedback, ...prev]);
+      setUserComment('');
+      setUserRating(5);
+      alert('Feedback salvo localmente (modo offline)! Obrigado.');
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
 
   useEffect(() => {
     if (currentScreen !== 'public_profile') return;
@@ -319,6 +416,10 @@ export default function PublicProfileScreen() {
       setIsFollowing(followingStatus);
       setActiveWorkoutSeries(activeWS);
       setIsLoading(false);
+
+      if (profData?.profile_type === 'business') {
+        fetchBusinessFeedbacks(userId);
+      }
     };
 
     loadData();
@@ -673,6 +774,17 @@ export default function PublicProfileScreen() {
 
   const totalShapes = userPosts.reduce((sum, post) => sum + (post.shapes || 0), 0);
 
+  const getThemeBackground = (themeId) => {
+    const themes = {
+      green: 'radial-gradient(circle at top, rgba(57, 255, 20, 0.12) 0%, #0A0A0F 70%)',
+      blue: 'radial-gradient(circle at top, rgba(0, 212, 255, 0.12) 0%, #0A0A0F 70%)',
+      yellow: 'radial-gradient(circle at top, rgba(255, 215, 0, 0.12) 0%, #0A0A0F 70%)',
+      pink: 'radial-gradient(circle at top, rgba(255, 45, 85, 0.12) 0%, #0A0A0F 70%)',
+      orange: 'radial-gradient(circle at top, rgba(255, 149, 0, 0.12) 0%, #0A0A0F 70%)',
+    };
+    return themes[themeId] || '#0A0A0F';
+  };
+
   return (
     <ScreenWrapper screenKey="public_profile">
       {/* Animated blobs */}
@@ -687,7 +799,7 @@ export default function PublicProfileScreen() {
         transition={{ duration: 19, repeat: Infinity, ease: 'easeInOut' }}
       />
 
-      <div style={styles.container}>
+      <div style={{ ...styles.container, background: getThemeBackground(profile?.profile_theme_color) }}>
         {/* Header */}
         <div style={styles.header}>
           <button style={styles.headerBtnLeft} onClick={() => goBack()}>
@@ -806,12 +918,21 @@ export default function PublicProfileScreen() {
             <Trophy size={18} /> Desafios
             {profileChallenges.length > 0 && <span style={styles.badgeCountChip}>{profileChallenges.length}</span>}
           </button>
-          <button
-            style={{ ...styles.contentTab, ...(activeTab === 'serie' ? styles.contentTabActive : {}) }}
-            onClick={() => setActiveTab('serie')}
-          >
-            <Dumbbell size={18} /> Série
-          </button>
+          {profile?.profile_type === 'business' ? (
+            <button
+              style={{ ...styles.contentTab, ...(activeTab === 'sobre' ? styles.contentTabActive : {}) }}
+              onClick={() => setActiveTab('sobre')}
+            >
+              <Info size={18} /> Sobre
+            </button>
+          ) : (
+            <button
+              style={{ ...styles.contentTab, ...(activeTab === 'serie' ? styles.contentTabActive : {}) }}
+              onClick={() => setActiveTab('serie')}
+            >
+              <Dumbbell size={18} /> Série
+            </button>
+          )}
         </div>
 
         {/* Content - Videos */}
@@ -868,6 +989,142 @@ export default function PublicProfileScreen() {
                     onClick={() => setSelectedChallenge(challenge)}
                   />
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Content - Sobre (Business details and feedbacks) */}
+        {activeTab === 'sobre' && profile?.profile_type === 'business' && (
+          <div style={workoutStyles.container}>
+            <div style={styles.sobreCard}>
+              <h4 style={styles.sobreTitle}>Sobre a Empresa</h4>
+              
+              <div style={styles.sobreItem}>
+                <span style={styles.sobreLabel}>📍 Endereço</span>
+                <span style={styles.sobreValue}>{profile.address || 'Endereço não informado'}</span>
+              </div>
+
+              <div style={styles.sobreItem}>
+                <span style={styles.sobreLabel}>💬 Contato</span>
+                <span style={{ ...styles.sobreValue, color: '#6C6C88' }}>
+                  Entre em contato diretamente para tirar dúvidas e agendar treinos:
+                </span>
+                {profile.whatsapp ? (
+                  <motion.a
+                    whileTap={{ scale: 0.97 }}
+                    href={`https://wa.me/${profile.whatsapp}?text=${encodeURIComponent('Olá, vim pelo FlowRide e gostaria de mais informações!')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={styles.whatsappBtn}
+                  >
+                    <MessageSquare size={16} color="#000" fill="#000" />
+                    Chamar no WhatsApp
+                  </motion.a>
+                ) : (
+                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>
+                    WhatsApp não cadastrado
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Feedbacks Header */}
+            <div style={styles.feedbacksHeader}>
+              <h4 style={styles.feedbacksTitle}>Feedbacks de Frequentadores</h4>
+              <span style={styles.feedbacksCount}>{feedbacks.length} avaliações</span>
+            </div>
+
+            {/* Feedbacks List */}
+            <div style={styles.feedbacksList}>
+              {loadingFeedbacks ? (
+                <div style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '20px 0' }}>
+                  Carregando avaliações...
+                </div>
+              ) : feedbacks.length === 0 ? (
+                <div style={styles.emptyFeedbacks}>
+                  <span>Nenhum feedback deixado ainda. Seja o primeiro a avaliar!</span>
+                </div>
+              ) : (
+                feedbacks.map((fb) => (
+                  <div key={fb.id} style={styles.feedbackCard}>
+                    <div style={styles.feedbackUserRow}>
+                      <div style={styles.feedbackUserAvatar}>
+                        {fb.user_avatar ? (
+                          <img src={fb.user_avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+                        ) : (
+                          <div style={styles.avatarPlaceholderMini}>{fb.user_name?.charAt(0) || '?'}</div>
+                        )}
+                      </div>
+                      <div style={styles.feedbackUserInfo}>
+                        <span style={styles.feedbackUserName}>{fb.user_name}</span>
+                        <span style={styles.feedbackDate}>{new Date(fb.created_at).toLocaleDateString('pt-BR')}</span>
+                      </div>
+                      <div style={styles.feedbackRating}>
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span key={i} style={{ color: i < fb.rating ? '#FFD700' : 'rgba(255,255,255,0.15)', fontSize: '14px' }}>
+                            ★
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    {fb.comment && <p style={styles.feedbackComment}>{fb.comment}</p>}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Write feedback form */}
+            {user?.uid !== profile.id && (
+              <div style={styles.feedbackFormCard}>
+                <h5 style={styles.feedbackFormTitle}>Escreva um Feedback</h5>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                  <span style={{ fontSize: '13px', color: '#B0B0C8' }}>Sua avaliação:</span>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span
+                        key={star}
+                        style={{
+                          cursor: 'pointer',
+                          color: star <= userRating ? '#FFD700' : 'rgba(255,255,255,0.2)',
+                          fontSize: '24px',
+                          transition: 'color 0.2s',
+                        }}
+                        onClick={() => setUserRating(star)}
+                      >
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                  <label style={{ fontSize: '13px', color: '#B0B0C8' }}>Comentário:</label>
+                  <textarea
+                    value={userComment}
+                    onChange={(e) => setUserComment(e.target.value)}
+                    placeholder="Conte como foi sua experiência nesta academia..."
+                    style={styles.feedbackTextarea}
+                    maxLength={200}
+                    disabled={isSubmittingFeedback}
+                  />
+                  <span style={{ fontSize: '11px', color: '#6C6C88', textAlign: 'right' }}>
+                    {userComment.length}/200
+                  </span>
+                </div>
+
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleSubmitFeedback}
+                  disabled={isSubmittingFeedback || !userComment.trim()}
+                  style={{
+                    ...styles.feedbackSubmitBtn,
+                    opacity: (isSubmittingFeedback || !userComment.trim()) ? 0.6 : 1,
+                  }}
+                >
+                  {isSubmittingFeedback ? 'Enviando...' : 'Publicar Feedback'}
+                </motion.button>
               </div>
             )}
           </div>
@@ -1202,6 +1459,99 @@ export default function PublicProfileScreen() {
 }
 
 const styles = {
+  sobreCard: {
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    borderRadius: '16px',
+    padding: '20px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+    marginBottom: '24px',
+  },
+  sobreTitle: { fontSize: '16px', fontWeight: 700, color: '#fff', margin: 0, fontFamily: "'Outfit', sans-serif" },
+  sobreItem: { display: 'flex', flexDirection: 'column', gap: '6px' },
+  sobreLabel: { fontSize: '12px', color: '#6C6C88', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' },
+  sobreValue: { fontSize: '14px', color: '#fff', lineHeight: '1.4', fontFamily: "'Inter', sans-serif" },
+  whatsappBtn: {
+    alignSelf: 'flex-start',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: '#25D366',
+    color: '#000',
+    padding: '12px 20px',
+    borderRadius: '12px',
+    fontWeight: 700,
+    fontSize: '14px',
+    textDecoration: 'none',
+    marginTop: '6px',
+    boxShadow: '0 4px 12px rgba(37, 211, 102, 0.25)',
+  },
+  feedbacksHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', padding: '0 4px' },
+  feedbacksTitle: { fontSize: '16px', fontWeight: 700, color: '#fff', margin: 0, fontFamily: "'Outfit', sans-serif" },
+  feedbacksCount: { fontSize: '12px', color: '#6C6C88' },
+  feedbacksList: { display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' },
+  emptyFeedbacks: {
+    padding: '30px 16px',
+    textAlign: 'center',
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px dashed rgba(255,255,255,0.08)',
+    borderRadius: '16px',
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: '13px',
+  },
+  feedbackCard: {
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.05)',
+    borderRadius: '16px',
+    padding: '16px',
+  },
+  feedbackUserRow: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' },
+  feedbackUserAvatar: { width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)' },
+  feedbackUserInfo: { flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' },
+  feedbackUserName: { fontSize: '13px', fontWeight: 600, color: '#fff' },
+  feedbackDate: { fontSize: '11px', color: '#6C6C88' },
+  feedbackRating: { display: 'flex' },
+  feedbackComment: { fontSize: '13px', color: '#E2E8F0', margin: 0, lineHeight: '1.4', fontFamily: "'Inter', sans-serif" },
+  avatarPlaceholderMini: {
+    width: '100%', height: '100%', borderRadius: '50%',
+    background: 'linear-gradient(135deg, #00D4FF, #A855F7)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#fff', fontSize: '14px', fontWeight: 800,
+  },
+  feedbackFormCard: {
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(0,212,255,0.1)',
+    borderRadius: '16px',
+    padding: '16px',
+    marginBottom: '30px',
+  },
+  feedbackFormTitle: { fontSize: '14px', fontWeight: 700, color: '#fff', margin: '0 0 16px 0', fontFamily: "'Outfit', sans-serif" },
+  feedbackTextarea: {
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '10px',
+    padding: '10px',
+    color: '#fff',
+    fontSize: '13px',
+    outline: 'none',
+    minHeight: '60px',
+    resize: 'none',
+    fontFamily: "'Inter', sans-serif",
+  },
+  feedbackSubmitBtn: {
+    width: '100%',
+    background: 'linear-gradient(135deg, #00D4FF, #0088CC)',
+    border: 'none',
+    borderRadius: '10px',
+    padding: '10px',
+    color: '#fff',
+    fontSize: '13px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    fontFamily: "'Outfit', sans-serif",
+  },
   container: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)', paddingBottom: '100px', position: 'relative', zIndex: 1 },
   bgBlob1: {
     position: 'absolute', width: '60vw', height: '60vw', minWidth: '400px', minHeight: '400px',

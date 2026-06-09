@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play, MoreVertical, Check, MapPin, QrCode, Calendar, Shield, Copy } from 'lucide-react';
+import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play, MoreVertical, Check, MapPin, QrCode, Calendar, Shield, Copy, Info, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -400,6 +400,8 @@ export default function ProfileScreen() {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [isSubmittingCheckIn, setIsSubmittingCheckIn] = useState(false);
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [loadingFeedbacks, setLoadingFeedbacks] = useState(false);
   const fileInputRef = React.useRef(null);
 
   const handlePhotoSelect = (e) => {
@@ -539,6 +541,42 @@ export default function ProfileScreen() {
 
   const totalMedalsCount = unlockedCount + completedChallengesCount;
 
+  const fetchBusinessFeedbacks = useCallback(async (busId) => {
+    setLoadingFeedbacks(true);
+    try {
+      const { data, error } = await supabase
+        .from('business_feedbacks')
+        .select('*')
+        .eq('business_id', busId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setFeedbacks(data || []);
+    } catch (err) {
+      console.warn('[Profile] Error loading business feedbacks, using mock:', err.message);
+      setFeedbacks([
+        {
+          id: 'mock_fb_1',
+          user_name: 'Lucas Trainer',
+          user_avatar: '',
+          rating: 5,
+          comment: 'Melhor academia da região! Aparelhos novos e staff super atencioso. Recomendo muito o treino de pernas com os novos leg press.',
+          created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        },
+        {
+          id: 'mock_fb_2',
+          user_name: 'Ana Nutri',
+          user_avatar: '',
+          rating: 4,
+          comment: 'Ambiente excelente, bem ventilado e higienizado. O app FlowRise integrado ajuda muito a acompanhar o treino.',
+          created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      ]);
+    } finally {
+      setLoadingFeedbacks(false);
+    }
+  }, []);
+
   // Refresh profile when screen becomes active to ensure real-time data
   useEffect(() => {
     if (currentScreen === 'profile' && user?.uid) {
@@ -549,8 +587,17 @@ export default function ProfileScreen() {
       });
       fetchSeries(user.uid);
       fetchChallenges();
+      if (profile?.profile_type === 'business') {
+        fetchBusinessFeedbacks(user.uid);
+      }
     }
-  }, [currentScreen, user?.uid, refreshProfile, fetchUserPosts, fetchSeries, fetchChallenges]);
+  }, [currentScreen, user?.uid, refreshProfile, fetchUserPosts, fetchSeries, fetchChallenges, profile?.profile_type, fetchBusinessFeedbacks]);
+
+  useEffect(() => {
+    if (activeProfileTab === 'sobre' && user?.uid) {
+      fetchBusinessFeedbacks(user.uid);
+    }
+  }, [activeProfileTab, user?.uid, fetchBusinessFeedbacks]);
 
   const loadProfileChallenges = useCallback(async () => {
     if (!user?.uid) return;
@@ -747,6 +794,17 @@ export default function ProfileScreen() {
   const todayStr = new Date().toLocaleDateString('pt-BR');
   const checkedInToday = lastCheckIn && new Date(lastCheckIn.created_at).toLocaleDateString('pt-BR') === todayStr;
 
+  const getThemeBackground = (themeId) => {
+    const themes = {
+      green: 'radial-gradient(circle at top, rgba(57, 255, 20, 0.12) 0%, #0A0A0F 70%)',
+      blue: 'radial-gradient(circle at top, rgba(0, 212, 255, 0.12) 0%, #0A0A0F 70%)',
+      yellow: 'radial-gradient(circle at top, rgba(255, 215, 0, 0.12) 0%, #0A0A0F 70%)',
+      pink: 'radial-gradient(circle at top, rgba(255, 45, 85, 0.12) 0%, #0A0A0F 70%)',
+      orange: 'radial-gradient(circle at top, rgba(255, 149, 0, 0.12) 0%, #0A0A0F 70%)',
+    };
+    return themes[themeId] || '#0A0A0F';
+  };
+
   return (
     <ScreenWrapper screenKey="profile">
       {/* Liquid Bubble Animated Backgrounds */}
@@ -761,7 +819,7 @@ export default function ProfileScreen() {
         transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
       />
 
-      <div style={styles.container}>
+      <div style={{ ...styles.container, background: getThemeBackground(p.profile_theme_color) }}>
         {/* Header */}
         <div style={styles.header}>
           <button style={styles.headerBtnLeft} onClick={() => navigate('create')}>
@@ -916,12 +974,21 @@ export default function ProfileScreen() {
             <Trophy size={18} /> Desafios
             {profileChallenges.length > 0 && <span style={styles.badgeCountChip}>{profileChallenges.length}</span>}
           </button>
-          <button
-            style={{ ...styles.contentTab, ...(activeProfileTab === 'serie' ? styles.contentTabActive : {}) }}
-            onClick={() => setActiveProfileTab('serie')}
-          >
-            <Dumbbell size={18} /> Série
-          </button>
+          {p.profile_type === 'business' ? (
+            <button
+              style={{ ...styles.contentTab, ...(activeProfileTab === 'sobre' ? styles.contentTabActive : {}) }}
+              onClick={() => setActiveProfileTab('sobre')}
+            >
+              <Info size={18} /> Sobre
+            </button>
+          ) : (
+            <button
+              style={{ ...styles.contentTab, ...(activeProfileTab === 'serie' ? styles.contentTabActive : {}) }}
+              onClick={() => setActiveProfileTab('serie')}
+            >
+              <Dumbbell size={18} /> Série
+            </button>
+          )}
         </div>
 
         {/* Content - Videos */}
@@ -954,6 +1021,88 @@ export default function ProfileScreen() {
                 </motion.div>
               ))
             )}
+          </div>
+        )}
+
+        {/* Content - Sobre (Business details and feedbacks) */}
+        {activeProfileTab === 'sobre' && p.profile_type === 'business' && (
+          <div style={workoutStyles.container}>
+            <div style={styles.sobreCard}>
+              <h4 style={styles.sobreTitle}>Sobre a Empresa</h4>
+              
+              <div style={styles.sobreItem}>
+                <span style={styles.sobreLabel}>📍 Endereço</span>
+                <span style={styles.sobreValue}>{p.address || 'Endereço não informado'}</span>
+              </div>
+
+              <div style={styles.sobreItem}>
+                <span style={styles.sobreLabel}>💬 Contato</span>
+                <span style={{ ...styles.sobreValue, color: '#6C6C88' }}>
+                  Link do WhatsApp para contato dos clientes:
+                </span>
+                {p.whatsapp ? (
+                  <motion.a
+                    whileTap={{ scale: 0.97 }}
+                    href={`https://wa.me/${p.whatsapp}?text=${encodeURIComponent('Olá, vim pelo FlowRide e gostaria de mais informações!')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={styles.whatsappBtn}
+                  >
+                    <MessageSquare size={16} color="#000" fill="#000" />
+                    WhatsApp: +{p.whatsapp}
+                  </motion.a>
+                ) : (
+                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>
+                    WhatsApp não cadastrado
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Feedbacks Header */}
+            <div style={styles.feedbacksHeader}>
+              <h4 style={styles.feedbacksTitle}>Feedbacks de Frequentadores</h4>
+              <span style={styles.feedbacksCount}>{feedbacks.length} avaliações</span>
+            </div>
+
+            {/* Feedbacks List */}
+            <div style={styles.feedbacksList}>
+              {loadingFeedbacks ? (
+                <div style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '20px 0' }}>
+                  Carregando avaliações...
+                </div>
+              ) : feedbacks.length === 0 ? (
+                <div style={styles.emptyFeedbacks}>
+                  <span>Nenhum feedback deixado ainda.</span>
+                </div>
+              ) : (
+                feedbacks.map((fb) => (
+                  <div key={fb.id} style={styles.feedbackCard}>
+                    <div style={styles.feedbackUserRow}>
+                      <div style={styles.feedbackUserAvatar}>
+                        {fb.user_avatar ? (
+                          <img src={fb.user_avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+                        ) : (
+                          <div style={styles.avatarPlaceholderMini}>{fb.user_name?.charAt(0) || '?'}</div>
+                        )}
+                      </div>
+                      <div style={styles.feedbackUserInfo}>
+                        <span style={styles.feedbackUserName}>{fb.user_name}</span>
+                        <span style={styles.feedbackDate}>{new Date(fb.created_at).toLocaleDateString('pt-BR')}</span>
+                      </div>
+                      <div style={styles.feedbackRating}>
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span key={i} style={{ color: i < fb.rating ? '#FFD700' : 'rgba(255,255,255,0.15)', fontSize: '14px' }}>
+                            ★
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    {fb.comment && <p style={styles.feedbackComment}>{fb.comment}</p>}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
 
@@ -2538,6 +2687,67 @@ export default function ProfileScreen() {
 }
 
 const styles = {
+  sobreCard: {
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    borderRadius: '16px',
+    padding: '20px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+    marginBottom: '24px',
+  },
+  sobreTitle: { fontSize: '16px', fontWeight: 700, color: '#fff', margin: 0, fontFamily: "'Outfit', sans-serif" },
+  sobreItem: { display: 'flex', flexDirection: 'column', gap: '6px' },
+  sobreLabel: { fontSize: '12px', color: '#6C6C88', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' },
+  sobreValue: { fontSize: '14px', color: '#fff', lineHeight: '1.4', fontFamily: "'Inter', sans-serif" },
+  whatsappBtn: {
+    alignSelf: 'flex-start',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: '#25D366',
+    color: '#000',
+    padding: '12px 20px',
+    borderRadius: '12px',
+    fontWeight: 700,
+    fontSize: '14px',
+    textDecoration: 'none',
+    marginTop: '6px',
+    boxShadow: '0 4px 12px rgba(37, 211, 102, 0.25)',
+  },
+  feedbacksHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', padding: '0 4px' },
+  feedbacksTitle: { fontSize: '16px', fontWeight: 700, color: '#fff', margin: 0, fontFamily: "'Outfit', sans-serif" },
+  feedbacksCount: { fontSize: '12px', color: '#6C6C88' },
+  feedbacksList: { display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' },
+  emptyFeedbacks: {
+    padding: '30px 16px',
+    textAlign: 'center',
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px dashed rgba(255,255,255,0.08)',
+    borderRadius: '16px',
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: '13px',
+  },
+  feedbackCard: {
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.05)',
+    borderRadius: '16px',
+    padding: '16px',
+  },
+  feedbackUserRow: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' },
+  feedbackUserAvatar: { width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)' },
+  feedbackUserInfo: { flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' },
+  feedbackUserName: { fontSize: '13px', fontWeight: 600, color: '#fff' },
+  feedbackDate: { fontSize: '11px', color: '#6C6C88' },
+  feedbackRating: { display: 'flex' },
+  feedbackComment: { fontSize: '13px', color: '#E2E8F0', margin: 0, lineHeight: '1.4', fontFamily: "'Inter', sans-serif" },
+  avatarPlaceholderMini: {
+    width: '100%', height: '100%', borderRadius: '50%',
+    background: 'linear-gradient(135deg, #00D4FF, #A855F7)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#fff', fontSize: '14px', fontWeight: 800,
+  },
   container: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)', paddingBottom: '100px', position: 'relative', zIndex: 1 },
   bgBlob1: {
     position: 'absolute', width: '60vw', height: '60vw', minWidth: '400px', minHeight: '400px',

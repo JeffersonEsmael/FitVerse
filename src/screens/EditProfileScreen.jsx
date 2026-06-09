@@ -1,10 +1,37 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Camera, Save, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Camera, Save, Loader2, CheckCircle, AlertCircle, Lock } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import { supabase } from '../config/supabase';
+
+const PROFILE_THEME_OPTIONS = [
+  { id: 'default', name: 'Padrão', color: '#0A0A0F', glow: '#0A0A0F', medalsRequired: 0 },
+  { id: 'green', name: 'Verde', color: '#39FF14', glow: 'rgba(57, 255, 20, 0.12)', medalsRequired: 1 },
+  { id: 'blue', name: 'Azul', color: '#00D4FF', glow: 'rgba(0, 212, 255, 0.12)', medalsRequired: 2 },
+  { id: 'yellow', name: 'Dourado', color: '#FFD700', glow: 'rgba(255, 215, 0, 0.12)', medalsRequired: 3 },
+  { id: 'pink', name: 'Rosa', color: '#FF2D55', glow: 'rgba(255, 45, 85, 0.12)', medalsRequired: 5 },
+  { id: 'orange', name: 'Laranja', color: '#FF9500', glow: 'rgba(255, 149, 0, 0.12)', medalsRequired: 8 },
+];
+
+const calculateMedalsCount = (profileData, posts, completedChallenges) => {
+  let count = 0;
+  const followers = profileData.followers || 0;
+  const postsCount = posts?.length || 0;
+  const totalShapes = posts?.reduce((sum, p) => sum + (p.shapes || 0), 0) || 0;
+  
+  if (postsCount >= 1) count++;
+  if (postsCount >= 5) count++;
+  if (postsCount >= 10) count++;
+  if (followers >= 1) count++;
+  if (followers >= 10) count++;
+  if (followers >= 100) count++;
+  if (totalShapes >= 50) count++;
+  
+  count += completedChallenges?.length || 0;
+  return count;
+};
 
 export default function EditProfileScreen() {
   const { user, profile, updateProfile } = useAuthStore();
@@ -13,6 +40,12 @@ export default function EditProfileScreen() {
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
+  const [profileType, setProfileType] = useState('personal');
+  const [address, setAddress] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [profileThemeColor, setProfileThemeColor] = useState('default');
+  const [medalsCount, setMedalsCount] = useState(0);
+  const [isLoadingMedals, setIsLoadingMedals] = useState(true);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -27,8 +60,52 @@ export default function EditProfileScreen() {
       setUsername(profile.username || '');
       setBio(profile.bio || '');
       setPhotoPreview(profile.avatar_url || '');
+      setProfileType(profile.profile_type || 'personal');
+      setAddress(profile.address || '');
+      setWhatsapp(profile.whatsapp || '');
+      setProfileThemeColor(profile.profile_theme_color || 'default');
     }
   }, [profile]);
+
+  useEffect(() => {
+    const loadMedalsData = async () => {
+      if (!user?.uid) return;
+      try {
+        const { data: posts } = await supabase
+          .from('videos')
+          .select('id, shapes')
+          .eq('user_id', user.uid);
+        
+        const { data: participations } = await supabase
+          .from('challenge_participants')
+          .select('progress, challenge_id')
+          .eq('user_id', user.uid);
+
+        let completedChallenges = [];
+        if (participations && participations.length > 0) {
+          const ids = participations.map(p => p.challenge_id);
+          const { data: challenges } = await supabase
+            .from('challenges')
+            .select('id, duration')
+            .in('id', ids);
+          
+          const durationMap = {};
+          (challenges || []).forEach(c => { durationMap[c.id] = c.duration || 30; });
+          
+          completedChallenges = participations.filter(p => (p.progress || 0) >= (durationMap[p.challenge_id] || 30));
+        }
+
+        const totalMedals = calculateMedalsCount(profile || {}, posts || [], completedChallenges);
+        setMedalsCount(totalMedals);
+      } catch (err) {
+        console.error('[EditProfile] Error loading medals count:', err);
+      } finally {
+        setIsLoadingMedals(false);
+      }
+    };
+
+    loadMedalsData();
+  }, [user?.uid, profile]);
 
   const handlePhotoSelect = (e) => {
     const file = e.target.files?.[0];
@@ -107,12 +184,26 @@ export default function EditProfileScreen() {
         console.log('[EditProfile] Avatar URL:', avatarUrl);
       }
 
+      // Validate business inputs
+      if (profileType === 'business') {
+        if (!address.trim()) {
+          throw new Error('O endereço da empresa é obrigatório para perfis empresariais.');
+        }
+        if (!whatsapp.trim()) {
+          throw new Error('O WhatsApp de contato é obrigatório para perfis empresariais.');
+        }
+      }
+
       // ── 2. Save profile data ──
       const updates = {
         display_name: displayName.trim(),
         username: username.trim().toLowerCase() || profile?.username || 'user',
         bio: bio.trim(),
         avatar_url: avatarUrl,
+        profile_type: profileType,
+        address: profileType === 'business' ? address.trim() : null,
+        whatsapp: profileType === 'business' ? whatsapp.trim() : null,
+        profile_theme_color: profileThemeColor,
         updated_at: new Date().toISOString(),
       };
 
@@ -140,9 +231,16 @@ export default function EditProfileScreen() {
 
 
 
+  const getThemeBackground = (themeId) => {
+    const option = PROFILE_THEME_OPTIONS.find(o => o.id === themeId);
+    return option && option.id !== 'default' 
+      ? `radial-gradient(circle at top, ${option.glow} 0%, #0A0A0F 70%)` 
+      : '#0A0A0F';
+  };
+
   return (
     <ScreenWrapper screenKey="edit_profile">
-      <div style={styles.container}>
+      <div style={{ ...styles.container, background: getThemeBackground(profileThemeColor) }}>
         {/* Header */}
         <div style={styles.header}>
           <button style={styles.backBtn} onClick={() => navigate('profile')} disabled={isSaving}>
@@ -255,6 +353,126 @@ export default function EditProfileScreen() {
                 disabled={isSaving}
               />
               <span style={styles.charCount}>{bio.length}/150</span>
+            </div>
+
+            {/* Tipo de Perfil */}
+            <div style={styles.field}>
+              <label style={styles.label}>Tipo de Perfil</label>
+              <div style={styles.toggleRow}>
+                <button
+                  type="button"
+                  style={{ ...styles.toggleBtn, ...(profileType === 'personal' ? styles.toggleActive : {}) }}
+                  onClick={() => setProfileType('personal')}
+                >
+                  Pessoal
+                </button>
+                <button
+                  type="button"
+                  style={{ ...styles.toggleBtn, ...(profileType === 'business' ? styles.toggleActive : {}) }}
+                  onClick={() => setProfileType('business')}
+                >
+                  Empresarial (Academia)
+                </button>
+              </div>
+            </div>
+
+            {/* Business Fields */}
+            {profileType === 'business' && (
+              <>
+                <div style={styles.field}>
+                  <label style={styles.label}>Endereço da Empresa *</label>
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    style={styles.input}
+                    placeholder="Ex: Av. Paulista, 1000 - Bela Vista, São Paulo - SP"
+                    maxLength={150}
+                    disabled={isSaving}
+                  />
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>WhatsApp de Contato (DDI + DDD + Número) *</label>
+                  <input
+                    type="text"
+                    value={whatsapp}
+                    onChange={(e) => setWhatsapp(e.target.value.replace(/[^0-9]/g, ''))}
+                    style={styles.input}
+                    placeholder="Ex: 5511999999999"
+                    maxLength={20}
+                    disabled={isSaving}
+                  />
+                  <span style={{ fontSize: '11px', color: '#6C6C88' }}>
+                    Insira apenas números com código do país. Ex: 55 (Brasil) + 11 (SP) + 999999999.
+                  </span>
+                </div>
+              </>
+            )}
+
+            {/* Cor de Fundo do Perfil */}
+            <div style={styles.field}>
+              <label style={styles.label}>Cor de Fundo do Perfil</label>
+              <span style={{ fontSize: '12px', color: '#6C6C88', marginBottom: '4px' }}>
+                Desbloqueie novas cores ganhando medalhas! Você tem <strong>{medalsCount}</strong> medalhas.
+              </span>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '6px' }}>
+                {PROFILE_THEME_OPTIONS.map((opt) => {
+                  const isUnlocked = medalsCount >= opt.medalsRequired;
+                  const isSelected = profileThemeColor === opt.id;
+                  
+                  return (
+                    <div
+                      key={opt.id}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => {
+                        if (isUnlocked) {
+                          setProfileThemeColor(opt.id);
+                        } else {
+                          alert(`Esta cor exige ${opt.medalsRequired} medalhas! Ganhe mais medalhas participando e concluindo desafios.`);
+                        }
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '50%',
+                          background: opt.color === '#0A0A0F' ? '#12121A' : opt.color,
+                          border: isSelected 
+                            ? `3px solid #00D4FF` 
+                            : isUnlocked 
+                              ? `2px solid rgba(255,255,255,0.2)` 
+                              : `2px solid rgba(255,255,255,0.05)`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: isSelected && opt.color !== '#0A0A0F' ? `0 0 14px ${opt.color}aa` : 'none',
+                          opacity: isUnlocked ? 1 : 0.4,
+                          position: 'relative',
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        {!isUnlocked && (
+                          <Lock size={14} color="rgba(255,255,255,0.6)" />
+                        )}
+                        {isSelected && isUnlocked && (
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#00D4FF' }} />
+                        )}
+                      </div>
+                      <span style={{ fontSize: '11px', color: isSelected ? '#00D4FF' : '#B0B0C8', fontWeight: isSelected ? 700 : 500 }}>
+                        {opt.name}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
