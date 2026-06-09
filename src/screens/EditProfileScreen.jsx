@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Camera, Save, Loader2, CheckCircle, AlertCircle, Lock } from 'lucide-react';
+import { ChevronLeft, Camera, Save, Loader2, CheckCircle, AlertCircle, Lock, X, Plus } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';

@@ -1642,7 +1642,17 @@ const styles = {
     cursor: 'pointer',
     fontFamily: "'Outfit', sans-serif",
   },
-  container: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)', paddingBottom: '100px', position: 'relative', zIndex: 1 },
+  container: {
+    padding: '0 16px',
+    paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)',
+    paddingBottom: '100px',
+    position: 'relative',
+    zIndex: 1,
+    minHeight: '100%',
+    boxSizing: 'border-box',
+    display: 'flex',
+    flexDirection: 'column',
+  },
   bgBlob1: {
     position: 'absolute', width: '60vw', height: '60vw', minWidth: '400px', minHeight: '400px',
     background: 'radial-gradient(circle, rgba(168,85,247,0.15) 0%, rgba(0,0,0,0) 60%)',

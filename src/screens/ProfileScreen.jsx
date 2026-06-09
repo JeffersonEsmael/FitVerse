@@ -2937,7 +2937,17 @@ const styles = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     color: '#fff', fontSize: '14px', fontWeight: 800,
   },
-  container: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)', paddingBottom: '100px', position: 'relative', zIndex: 1 },
+  container: {
+    padding: '0 16px',
+    paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)',
+    paddingBottom: '100px',
+    position: 'relative',
+    zIndex: 1,
+    minHeight: '100%',
+    boxSizing: 'border-box',
+    display: 'flex',
+    flexDirection: 'column',
+  },
   bgBlob1: {
     position: 'absolute', width: '60vw', height: '60vw', minWidth: '400px', minHeight: '400px',
     background: 'radial-gradient(circle, rgba(0,122,255,0.2) 0%, rgba(0,0,0,0) 60%)',
