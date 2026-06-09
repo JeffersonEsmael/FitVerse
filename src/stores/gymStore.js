@@ -187,8 +187,8 @@ export const useGymStore = create((set, get) => ({
   // Internal: streak calculator
   _calculateStreak: (lastCheckInDateStr, currentStreak, todayDate = new Date()) => {
     if (!lastCheckInDateStr) {
-      // First checkin: if Sunday, does not increment/stays 0. Weekdays and Saturday starts at 1.
-      return todayDate.getDay() === 0 ? 0 : 1;
+      // First checkin: always starts at 1, even on Sunday!
+      return 1;
     }
 
     const lastDate = new Date(lastCheckInDateStr);
@@ -216,17 +216,11 @@ export const useGymStore = create((set, get) => ({
     }
     
     if (hasSkippedWeekday) {
-      // Skipped a weekday or Saturday, streak resets to 1 (or 0 if today is Sunday)
-      return todayDate.getDay() === 0 ? 0 : 1;
+      // Skipped a weekday or Saturday, streak resets to 1
+      return 1;
     } else {
       // Consecutive checkin (possibly skipping only Sunday)
-      if (todayDate.getDay() === 0) {
-        // Today is Sunday, does not increment
-        return currentStreak;
-      } else {
-        // Weekday/Saturday increments streak by 1
-        return currentStreak + 1;
-      }
+      return currentStreak + 1;
     }
   },
 
