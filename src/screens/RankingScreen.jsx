@@ -88,18 +88,7 @@ export default function RankingScreen() {
   const { screenParams, goBack, navigate } = useNavigationStore();
   const { user, profile } = useAuthStore();
 
-  const [activeMainTab, setActiveMainTab] = useState('challenges'); // 'challenges' | 'ranking'
-  const [selectedChallenge, setSelectedChallenge] = useState(null);
   const [selectedChallengeId, setSelectedChallengeId] = useState(null);
-  
-  // Check-in state modal
-  const [showCheckInModal, setShowCheckInModal] = useState(false);
-  const [activityTitle, setActivityTitle] = useState('Treino Concluído');
-  const [metricValue, setMetricValue] = useState(1);
-  const [photoFile, setPhotoFile] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(null);
-  const [isSubmittingCheckIn, setIsSubmittingCheckIn] = useState(false);
-  const fileInputRef = useRef(null);
 
   // Challenge leaderboard/participants state
   const [participants, setParticipants] = useState([]);
@@ -147,9 +136,6 @@ export default function RankingScreen() {
   }, [fetchLeaderboard, fetchChallenges]);
 
   useEffect(() => {
-    if (screenParams?.tab) {
-      setActiveMainTab(screenParams.tab); // eslint-disable-line react-hooks/set-state-in-effect
-    }
     if (screenParams?.challengeId) {
       setSelectedChallengeId(screenParams.challengeId);
     }
@@ -353,493 +339,102 @@ export default function RankingScreen() {
               <ArrowLeft size={22} color="#fff" />
             </button>
             <Trophy size={22} color="#FFD700" />
-            <h2 style={styles.title}>{activeMainTab === 'challenges' ? 'Desafios Fitness' : 'Ranking de Líderes'}</h2>
-            {activeMainTab === 'challenges' && (
-              <button style={styles.createBtn} onClick={() => navigate('create', { params: { type: 'challenge' } })}>
-                <Plus size={18} color="#fff" style={{ marginRight: 4 }} /> Criar
-              </button>
-            )}
-          </div>
-          
-          {/* Main Tabs */}
-          <div style={styles.mainTabs}>
-            <button
-              style={{ ...styles.mainTab, ...(activeMainTab === 'challenges' ? styles.mainTabActive : {}) }}
-              onClick={() => setActiveMainTab('challenges')}
-            >
-              Desafios
-            </button>
-            <button
-              style={{ ...styles.mainTab, ...(activeMainTab === 'ranking' ? styles.mainTabActive : {}) }}
-              onClick={() => setActiveMainTab('ranking')}
-            >
-              FriendRanking
-            </button>
+            <h2 style={styles.title}>Ranking de Líderes</h2>
           </div>
         </div>
 
-        {/* Tab content: CHALLENGES */}
-        {activeMainTab === 'challenges' && (
-          <div style={styles.challengesTabContent}>
-            {/* Section: Participando */}
-            <div style={styles.sectionHeaderRow}>
-              <h3 style={styles.sectionTitle}>💪 Participando ({joinedChallenges.length})</h3>
-            </div>
-            {joinedChallenges.length === 0 ? (
-              <div style={styles.emptyChallengesCard}>
-                <span style={styles.emptyText}>Você não aderiu a nenhum desafio de terceiros ainda.</span>
-                <span style={styles.emptySubtext}>Dê uma olhada nos desafios disponíveis para descobrir abaixo!</span>
-              </div>
-            ) : (
-              joinedChallenges.map(renderChallengeCard)
-            )}
-
-            {/* Section: Criados por mim */}
-            <div style={{ ...styles.sectionHeaderRow, marginTop: '24px' }}>
-              <h3 style={styles.sectionTitle}>🏆 Criados por Você ({createdChallenges.length})</h3>
-            </div>
-            {createdChallenges.length === 0 ? (
-              <div style={styles.emptyChallengesCard}>
-                <span style={styles.emptyText}>Você não criou nenhum desafio ainda.</span>
-                <button
-                  style={styles.inlineCreateBtn}
-                  onClick={() => navigate('create', { params: { type: 'challenge' } })}
-                >
-                  Criar Primeiro Desafio
-                </button>
-              </div>
-            ) : (
-              createdChallenges.map(renderChallengeCard)
-            )}
-
-            {/* Section: Concluídos */}
-            <div style={{ ...styles.sectionHeaderRow, marginTop: '24px' }}>
-              <h3 style={styles.sectionTitle}>✅ Concluídos ({completedChallenges.length})</h3>
-            </div>
-            {completedChallenges.length === 0 ? (
-              <div style={styles.emptyChallengesCard}>
-                <span style={styles.emptyText}>Nenhum desafio concluído ainda. Continue firme! 🚀</span>
-              </div>
-            ) : (
-              completedChallenges.map(renderChallengeCard)
-            )}
-
-            {/* Section: Descobrir Desafios */}
-            <div style={{ ...styles.sectionHeaderRow, marginTop: '24px' }}>
-              <h3 style={styles.sectionTitle}>🔍 Descobrir Desafios ({discoverChallenges.length})</h3>
-            </div>
-            {discoverChallenges.length === 0 ? (
-              <div style={styles.emptyChallengesCard}>
-                <span style={styles.emptyText}>Nenhum novo desafio disponível no momento.</span>
-              </div>
-            ) : (
-              discoverChallenges.map(renderChallengeCard)
-            )}
-          </div>
-        )}
-
         {/* Tab content: RANKING */}
-        {activeMainTab === 'ranking' && (
-          <div>
-            {/* Challenge selector dropdown */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '16px',
-              background: 'rgba(255, 255, 255, 0.03)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '16px',
-              padding: '8px 16px',
-              backdropFilter: 'blur(20px)',
-            }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', fontFamily: "'Outfit', sans-serif" }}>
-                Filtrar Placar:
-              </span>
-              <select
-                value={selectedChallengeId || 'global'}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSelectedChallengeId(val === 'global' ? null : val);
-                }}
-                style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '10px',
-                  color: '#fff',
-                  padding: '6px 12px',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  outline: 'none',
-                  cursor: 'pointer',
-                  fontFamily: "'Outfit', sans-serif",
-                }}
-              >
-                <option value="global" style={{ color: '#000', backgroundColor: '#fff' }}>🌐 Geral (Amigos)</option>
-                {challenges.filter(c => c.joined || c.creator_id === user?.uid).map((c) => (
-                  <option key={c.id} value={c.id} style={{ color: '#000', backgroundColor: '#fff' }}>
-                    {c.icon} {c.title}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 20px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* Challenge selector dropdown */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '16px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '16px',
+            padding: '8px 16px',
+            backdropFilter: 'blur(20px)',
+          }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', fontFamily: "'Outfit', sans-serif" }}>
+              Filtrar Placar:
+            </span>
+            <select
+              value={selectedChallengeId || 'global'}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSelectedChallengeId(val === 'global' ? null : val);
+              }}
+              style={{
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '10px',
+                color: '#fff',
+                padding: '6px 12px',
+                fontSize: '13px',
+                fontWeight: 600,
+                outline: 'none',
+                cursor: 'pointer',
+                fontFamily: "'Outfit', sans-serif",
+              }}
+            >
+              <option value="global" style={{ color: '#000', backgroundColor: '#fff' }}>🌐 Geral (Amigos)</option>
+              {challenges.filter(c => c.joined || c.creator_id === user?.uid).map((c) => (
+                <option key={c.id} value={c.id} style={{ color: '#000', backgroundColor: '#fff' }}>
+                  {c.icon} {c.title}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            {/* Period tabs (only shown for global ranking) */}
-            {!isChallengeRanking && (
-              <div style={styles.tabs}>
-                {['weekly', 'monthly'].map((p) => (
-                  <button
-                    key={p}
-                    style={{ ...styles.tab, ...(period === p ? styles.tabActive : {}) }}
-                    onClick={() => setPeriod(p)}
-                  >
-                    {p === 'weekly' ? 'Semanal' : 'Mensal'}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Your rank banner */}
-            <motion.div style={styles.myRank} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-              <div style={styles.myRankLeft}>
-                <span style={styles.myRankLabel}>Sua Posição</span>
-                <span style={styles.myRankPos}>{displayRank}</span>
-              </div>
-              <div style={styles.myRankRight}>
-                <span style={styles.myRankPts}>
-                  {isChallengeRanking ? `${displayPoints} dias` : `${formatNum(displayPoints)} pts`}
-                </span>
-                {isChallengeRanking ? (
-                  <span style={{ fontSize: '18px' }}>{activeChallenge?.icon || '🏆'}</span>
-                ) : (
-                  <Star size={16} color="#FFD700" />
-                )}
-              </div>
-            </motion.div>
-
-            {/* Podium */}
-            <div style={styles.podium}>
-              {[1, 0, 2].map((pos) => top3[pos] && <PodiumCard key={pos} user={top3[pos]} position={pos} isChallenge={isChallengeRanking} />)}
-            </div>
-
-            {/* Leaderboard */}
-            <div style={styles.leaderboard}>
-              {rest.map((user, i) => (
-                <RankRow key={user.uid} user={user} position={i + 3} isChallenge={isChallengeRanking} />
+          {/* Period tabs (only shown for global ranking) */}
+          {!isChallengeRanking && (
+            <div style={styles.tabs}>
+              {['weekly', 'monthly'].map((p) => (
+                <button
+                  key={p}
+                  style={{ ...styles.tab, ...(period === p ? styles.tabActive : {}) }}
+                  onClick={() => setPeriod(p)}
+                >
+                  {p === 'weekly' ? 'Semanal' : 'Mensal'}
+                </button>
               ))}
             </div>
+          )}
+
+          {/* Your rank banner */}
+          <motion.div style={styles.myRank} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+            <div style={styles.myRankLeft}>
+              <span style={styles.myRankLabel}>Sua Posição</span>
+              <span style={styles.myRankPos}>{displayRank}</span>
+            </div>
+            <div style={styles.myRankRight}>
+              <span style={styles.myRankPts}>
+                {isChallengeRanking ? `${displayPoints} dias` : `${formatNum(displayPoints)} pts`}
+              </span>
+              {isChallengeRanking ? (
+                <span style={{ fontSize: '18px' }}>{activeChallenge?.icon || '🏆'}</span>
+              ) : (
+                <Star size={16} color="#FFD700" />
+              )}
+            </div>
+          </motion.div>
+
+          {/* Podium */}
+          <div style={styles.podium}>
+            {[1, 0, 2].map((pos) => top3[pos] && <PodiumCard key={pos} user={top3[pos]} position={pos} isChallenge={isChallengeRanking} />)}
           </div>
-        )}
+
+          {/* Leaderboard */}
+          <div style={styles.leaderboard}>
+            {rest.map((user, i) => (
+              <RankRow key={user.uid} user={user} position={i + 3} isChallenge={isChallengeRanking} />
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* MODAL / DRAWER: Challenge Details */}
-      <AnimatePresence>
-        {selectedChallenge && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              style={modalStyles.backdrop}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSelectedChallenge(null)}
-            />
-            {/* Sheet */}
-            <motion.div
-              style={modalStyles.sheet}
-              initial={{ y: '100%', x: '-50%' }}
-              animate={{ y: 0, x: '-50%' }}
-              exit={{ y: '100%', x: '-50%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-            >
-               <div style={modalStyles.handle} />
-              
-              <div style={modalStyles.headerRow}>
-                <div style={{ ...modalStyles.iconBg, backgroundColor: `${selectedChallenge.color}15` }}>
-                  <span style={modalStyles.icon}>{selectedChallenge.icon || '🏆'}</span>
-                </div>
-                <div style={modalStyles.headerInfo}>
-                  <h3 style={modalStyles.title}>{selectedChallenge.title}</h3>
-                  <span style={{ ...modalStyles.badge, color: selectedChallenge.color, borderColor: `${selectedChallenge.color}44` }}>
-                    Métrica: {getMetricLabel(selectedChallenge.type)}
-                  </span>
-                </div>
-                <button style={modalStyles.closeBtn} onClick={() => setSelectedChallenge(null)}>
-                  <X size={20} color="#fff" />
-                </button>
-              </div>
-
-              {/* Description */}
-              <div style={modalStyles.body}>
-                <h4 style={modalStyles.subtitle}>Objetivo e Regras</h4>
-                <p style={modalStyles.description}>{selectedChallenge.description || 'Sem descrição cadastrada.'}</p>
-
-                <div style={modalStyles.statsGrid}>
-                  <div style={modalStyles.statBox}>
-                    <span style={modalStyles.statLabel}>Duração</span>
-                    <span style={modalStyles.statValue}>{selectedChallenge.duration || 30} dias</span>
-                  </div>
-                  <div style={modalStyles.statBox}>
-                    <span style={modalStyles.statLabel}>Recompensa</span>
-                    <span style={{ ...modalStyles.statValue, color: selectedChallenge.color }}>+{selectedChallenge.reward || 100} XP</span>
-                  </div>
-                  <div style={modalStyles.statBox}>
-                    <span style={modalStyles.statLabel}>Participantes</span>
-                    <span style={modalStyles.statValue}>{selectedChallenge.participants || 0}</span>
-                  </div>
-                </div>
-
-                {selectedChallenge.joined ? (
-                  <>
-                    {/* User progress progress fill */}
-                    <div style={modalStyles.userProgressRow}>
-                      <span style={modalStyles.subtitle}>Seu Progresso Atual</span>
-                      <span style={modalStyles.progressText}>{selectedChallenge.progress || 0}/{selectedChallenge.duration || 30} dias completos</span>
-                    </div>
-                    <div style={modalStyles.progressBarTrack}>
-                      <div
-                        style={{
-                          ...modalStyles.progressBarFill,
-                          backgroundColor: selectedChallenge.color || '#00D4FF',
-                          width: `${Math.round(((selectedChallenge.progress || 0) / (selectedChallenge.duration || 30)) * 100)}%`,
-                        }}
-                      />
-                    </div>
-
-                    {/* Leaderboard interna do Desafio */}
-                    <h4 style={{ ...modalStyles.subtitle, marginTop: '20px', marginBottom: '10px' }}>📊 Quadro de Líderes do Desafio</h4>
-                    <div style={modalStyles.membersList}>
-                      {loadingParticipants ? (
-                        <div style={modalStyles.loadingMembers}>Carregando placar...</div>
-                      ) : participants.length === 0 ? (
-                        <div style={modalStyles.loadingMembers}>Nenhum participante ativo ainda.</div>
-                      ) : (
-                        participants.map((p, idx) => (
-                          <div key={p.userId} style={modalStyles.memberRow}>
-                            <span style={modalStyles.memberPos}>{idx + 1}</span>
-                            <div style={modalStyles.memberAvatar}>
-                              {p.photoURL ? <img src={p.photoURL} alt="" style={modalStyles.avatarImg} /> : (
-                                <div style={modalStyles.avatarPlaceholder}>{p.displayName?.charAt(0)}</div>
-                              )}
-                            </div>
-                            <span style={modalStyles.memberName}>{p.displayName}</span>
-                            <span style={{ ...modalStyles.memberProgress, color: selectedChallenge.color }}>
-                              {p.progress} dias
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    {/* Action Button: Checkin */}
-                    {(selectedChallenge.progress || 0) < (selectedChallenge.duration || 30) ? (
-                      <motion.button
-                        style={{ ...modalStyles.actionBtn, background: selectedChallenge.color || '#00D4FF' }}
-                        whileTap={{ scale: 0.96 }}
-                        onClick={() => setShowCheckInModal(true)}
-                      >
-                        Realizar Check-In Diário
-                      </motion.button>
-                    ) : (
-                      <div
-                        style={{
-                          background: 'rgba(57,255,20,0.1)',
-                          border: '1px solid #39FF14',
-                          color: '#39FF14',
-                          padding: '14px',
-                          borderRadius: '12px',
-                          textAlign: 'center',
-                          fontWeight: 700,
-                          fontSize: '14px',
-                          fontFamily: "'Outfit', sans-serif",
-                          marginTop: '24px',
-                          boxShadow: '0 0 12px rgba(57,255,20,0.2)',
-                        }}
-                      >
-                        🎉 Desafio Concluído! Excelente trabalho!
-                      </div>
-                    )}
-
-                    {/* Ver Classificação Completa Button */}
-                    <button
-                      style={{
-                        width: '100%',
-                        padding: '14px',
-                        borderRadius: '12px',
-                        background: 'rgba(255,255,255,0.08)',
-                        border: '1px solid rgba(255,255,255,0.15)',
-                        color: '#fff',
-                        fontWeight: 700,
-                        fontSize: '14px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        fontFamily: "'Outfit', sans-serif",
-                        marginTop: '12px'
-                      }}
-                      onClick={() => {
-                        const cid = selectedChallenge.id;
-                        setSelectedChallenge(null);
-                        setSelectedChallengeId(cid);
-                        setActiveMainTab('ranking');
-                      }}
-                    >
-                      <Trophy size={16} color={selectedChallenge.color || '#00D4FF'} />
-                      Ver Classificação Completa
-                    </button>
-
-                    {/* Sair do Desafio Button */}
-                    <button
-                      style={{
-                        width: '100%',
-                        padding: '14px',
-                        borderRadius: '12px',
-                        background: 'rgba(255, 45, 85, 0.15)',
-                        border: '1px solid rgba(255, 45, 85, 0.3)',
-                        color: '#FF453A',
-                        fontWeight: 700,
-                        fontSize: '14px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        fontFamily: "'Outfit', sans-serif",
-                        marginTop: '6px'
-                      }}
-                      onClick={async () => {
-                        if (window.confirm('Tem certeza que deseja cancelar e sair deste desafio? Todo o seu progresso neste desafio será excluído.')) {
-                          await leaveChallenge(selectedChallenge.id);
-                          setSelectedChallenge(null);
-                          fetchChallenges();
-                        }
-                      }}
-                    >
-                      Sair do Desafio
-                    </button>
-                  </>
-                ) : (
-                  <motion.button
-                    style={{ ...modalStyles.actionBtn, background: selectedChallenge.color || '#00D4FF' }}
-                    whileTap={{ scale: 0.96 }}
-                    onClick={(e) => {
-                      handleJoin(e, selectedChallenge);
-                      setSelectedChallenge(null);
-                    }}
-                  >
-                    Participar do Desafio
-                  </motion.button>
-                )}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL: Check-In Form */}
-      <AnimatePresence>
-        {showCheckInModal && selectedChallenge && (
-          <>
-            {/* Backdrop Check-in */}
-            <motion.div
-              style={{ ...modalStyles.backdrop, zIndex: 100000 }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowCheckInModal(false)}
-            />
-            {/* Card Modal Form */}
-            <motion.div
-              style={modalStyles.checkInModal}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-            >
-              <div style={modalStyles.checkInHeader}>
-                <h3 style={modalStyles.checkInTitle}>Check-in: {selectedChallenge.title}</h3>
-                <button style={modalStyles.closeBtn} onClick={() => setShowCheckInModal(false)}>
-                  <X size={20} color="#fff" />
-                </button>
-              </div>
-
-              <div style={modalStyles.checkInForm}>
-                {/* Title */}
-                <div style={modalStyles.checkInField}>
-                  <label style={modalStyles.checkInLabel}>Título da Atividade</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Treino de Pernas, Corrida na Esteira"
-                    value={activityTitle}
-                    onChange={(e) => setActivityTitle(e.target.value)}
-                    style={modalStyles.checkInInput}
-                  />
-                </div>
-
-                {/* Metric value input if applicable */}
-                {selectedChallenge.type !== 'treino' && (
-                  <div style={modalStyles.checkInField}>
-                    <label style={modalStyles.checkInLabel}>
-                      Quantidade Realizada ({getMetricLabel(selectedChallenge.type)})
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={metricValue}
-                      onChange={(e) => setMetricValue(Math.max(1, parseFloat(e.target.value) || 1))}
-                      style={modalStyles.checkInInput}
-                    />
-                  </div>
-                )}
-
-                {/* Photo Upload Area */}
-                <div style={modalStyles.checkInField}>
-                  <label style={modalStyles.checkInLabel}>Comprovação (Foto)</label>
-                  {photoPreview ? (
-                    <div style={modalStyles.photoPreviewContainer}>
-                      <img src={photoPreview} alt="Comprovação" style={modalStyles.photoPreviewImg} />
-                      <button style={modalStyles.removePhotoBtn} onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}>
-                        <X size={16} color="#fff" />
-                      </button>
-                    </div>
-                  ) : (
-                    <motion.div
-                      style={modalStyles.photoUploadBox}
-                      onClick={() => fileInputRef.current?.click()}
-                      whileTap={{ scale: 0.97 }}
-                    >
-                      <Camera size={24} color="#00D4FF" />
-                      <span style={modalStyles.photoUploadText}>Tirar foto ou carregar print</span>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handlePhotoSelect}
-                        style={{ display: 'none' }}
-                      />
-                    </motion.div>
-                  )}
-                </div>
-
-                {/* Confirm Button */}
-                <motion.button
-                  style={{
-                    ...modalStyles.confirmBtn,
-                    background: selectedChallenge.color || '#00D4FF',
-                    color: selectedChallenge.color === '#FFD700' || selectedChallenge.color === '#39FF14' ? '#000' : '#fff',
-                  }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleConfirmCheckIn}
-                  disabled={isSubmittingCheckIn}
-                >
-                  {isSubmittingCheckIn ? 'Realizando Check-in...' : 'Confirmar Check-in'}
-                </motion.button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
     </ScreenWrapper>
   );
 }
@@ -900,72 +495,4 @@ const rowStyles = {
   level: { fontSize: '11px', color: '#6C6C88' },
   right: { display: 'flex', alignItems: 'center', gap: '6px' },
   points: { fontSize: '14px', fontWeight: 700, color: '#FFD700', fontFamily: "'Inter', sans-serif" },
-};
-
-const challStyles = {
-  card: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px', padding: '14px', marginBottom: '4px', cursor: 'pointer', boxSizing: 'border-box' },
-  header: { display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '10px' },
-  icon: { fontSize: '28px' },
-  info: { display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 },
-  title: { fontSize: '15px', fontWeight: 600, color: '#fff', fontFamily: "'Inter', sans-serif" },
-  desc: { fontSize: '12px', color: '#6C6C88', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' },
-  creatorBadge: { fontSize: '10px', fontWeight: 700, color: '#00D4FF', padding: '2px 6px', borderRadius: '6px', background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.2)' },
-  progressTrack: { width: '100%', height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '9999px', overflow: 'hidden', marginBottom: '10px' },
-  progressFill: { height: '100%', borderRadius: '9999px' },
-  footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  participants: { fontSize: '11px', color: '#6C6C88', display: 'flex', alignItems: 'center', gap: '4px' },
-  progress: { fontSize: '11px', color: '#B0B0C8', fontWeight: 600 },
-  reward: { fontSize: '12px', fontWeight: 700 },
-  footerDiscover: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' },
-  joinBtn: { padding: '6px 14px', borderRadius: '8px', border: 'none', color: '#000', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Outfit', sans-serif" },
-};
-
-const modalStyles = {
-  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, backdropFilter: 'blur(10px)' },
-  sheet: { position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '500px', background: '#0A0A0F', borderTop: '1px solid rgba(255,255,255,0.1)', borderTopLeftRadius: '32px', borderTopRightRadius: '32px', padding: '20px', zIndex: 10000, display: 'flex', flexDirection: 'column', maxHeight: '85vh', boxSizing: 'border-box' },
-  handle: { width: '36px', height: '4px', background: 'rgba(255,255,255,0.15)', borderRadius: '2px', alignSelf: 'center', marginBottom: '12px' },
-  headerRow: { display: 'flex', gap: '12px', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '14px', width: '100%' },
-  iconBg: { width: '48px', height: '48px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  icon: { fontSize: '24px' },
-  headerInfo: { display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 },
-  title: { fontSize: '18px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0 },
-  badge: { display: 'inline-block', width: 'max-content', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '6px', border: '1px solid' },
-  closeBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px' },
-  body: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '16px', paddingBottom: '24px' },
-  subtitle: { fontSize: '14px', fontWeight: 700, color: '#B0B0C8', fontFamily: "'Outfit', sans-serif", margin: 0 },
-  description: { fontSize: '13px', color: 'rgba(255,255,255,0.6)', lineHeight: '1.5', margin: 0, fontFamily: "'Inter', sans-serif" },
-  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', margin: '8px 0' },
-  statBox: { padding: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' },
-  statLabel: { fontSize: '10px', color: '#6C6C88', fontFamily: "'Inter', sans-serif" },
-  statValue: { fontSize: '13px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif" },
-  userProgressRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' },
-  progressText: { fontSize: '12px', fontWeight: 600, color: '#fff' },
-  progressBarTrack: { width: '100%', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '9999px', overflow: 'hidden', marginTop: '6px' },
-  progressBarFill: { height: '100%', borderRadius: '9999px', transition: 'width 0.5s ease-out' },
-  actionBtn: { width: '100%', padding: '14px', borderRadius: '12px', border: 'none', color: '#000', fontSize: '14px', fontWeight: 800, cursor: 'pointer', fontFamily: "'Outfit', sans-serif", marginTop: '24px' },
-  // Members List
-  membersList: { display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '10px', maxHeight: '180px', overflowY: 'auto' },
-  loadingMembers: { fontSize: '12px', color: '#6C6C88', textAlign: 'center', padding: '12px' },
-  memberRow: { display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 8px', borderRadius: '10px' },
-  memberPos: { width: '20px', fontSize: '12px', fontWeight: 700, color: '#6C6C88', textAlign: 'center' },
-  memberAvatar: { width: '28px', height: '28px', borderRadius: '50%', overflow: 'hidden' },
-  avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  avatarPlaceholder: { width: '100%', height: '100%', background: 'linear-gradient(135deg, #00D4FF, #A855F7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '11px', fontWeight: 700 },
-  memberName: { fontSize: '13px', fontWeight: 600, color: '#fff', flex: 1 },
-  memberProgress: { fontSize: '12px', fontWeight: 700 },
-  // Check-In Modal Form
-
-  checkInModal: { position: 'fixed', top: 0, bottom: 0, left: 0, right: 0, margin: 'auto', height: 'fit-content', width: '90%', maxWidth: '420px', background: '#0F0F15', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '20px', zIndex: 101000, display: 'flex', flexDirection: 'column', gap: '16px', boxSizing: 'border-box' },
-  checkInHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px' },
-  checkInTitle: { fontSize: '16px', fontWeight: 800, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0 },
-  checkInForm: { display: 'flex', flexDirection: 'column', gap: '14px' },
-  checkInField: { display: 'flex', flexDirection: 'column', gap: '6px' },
-  checkInLabel: { fontSize: '12px', fontWeight: 600, color: '#B0B0C8', fontFamily: "'Inter', sans-serif" },
-  checkInInput: { width: '100%', padding: '12px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: '#fff', fontSize: '14px', fontFamily: "'Inter', sans-serif", outline: 'none', boxSizing: 'border-box' },
-  photoUploadBox: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '24px', border: '1px dashed rgba(0,212,255,0.3)', borderRadius: '12px', background: 'rgba(0,212,255,0.02)', cursor: 'pointer' },
-  photoUploadText: { fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontFamily: "'Inter', sans-serif" },
-  photoPreviewContainer: { position: 'relative', width: '100%', height: '140px', borderRadius: '12px', overflow: 'hidden' },
-  photoPreviewImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  removePhotoBtn: { position: 'absolute', top: '8px', right: '8px', width: '26px', height: '26px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  confirmBtn: { width: '100%', padding: '14px', borderRadius: '12px', border: 'none', fontSize: '14px', fontWeight: 800, cursor: 'pointer', fontFamily: "'Outfit', sans-serif" },
 };

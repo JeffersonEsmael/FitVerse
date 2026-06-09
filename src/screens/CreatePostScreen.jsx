@@ -29,6 +29,7 @@ export default function CreatePostScreen() {
   const [challengeReward, setChallengeReward] = useState(100);
   const [challengeIcon, setChallengeIcon] = useState('🏆');
   const [challengeColor, setChallengeColor] = useState('#00D4FF');
+  const [challengeExpiresAt, setChallengeExpiresAt] = useState('');
   const [isSubmittingChallenge, setIsSubmittingChallenge] = useState(false);
 
   const { addChallenge } = useRankingStore();
@@ -319,6 +320,7 @@ export default function CreatePostScreen() {
         duration: challengeDuration,
         reward: challengeReward,
         color: challengeColor,
+        expires_at: challengeExpiresAt ? new Date(challengeExpiresAt).toISOString() : null,
       });
 
       alert('Desafio criado com sucesso! 🏆');
@@ -329,9 +331,11 @@ export default function CreatePostScreen() {
       setChallengeReward(100);
       setChallengeIcon('🏆');
       setChallengeColor('#00D4FF');
+      setChallengeExpiresAt('');
 
-      // Navigate to ranking -> challenges tab
-      navigate('ranking', { params: { tab: 'challenges' } });
+      // Navigate to Feed -> challenges tab
+      useFeedStore.getState().setActiveTab('challenges');
+      navigate('feed');
     } catch (err) {
       console.error('Error creating challenge:', err);
       alert('Falha ao criar o desafio. Tente novamente.');
@@ -459,6 +463,18 @@ export default function CreatePostScreen() {
                   style={styles.inputField}
                 />
               </div>
+            </div>
+
+            {/* Expiration Date */}
+            <div style={styles.field}>
+              <label style={styles.label}>Data de Validade (Opcional)</label>
+              <input
+                type="date"
+                value={challengeExpiresAt}
+                onChange={(e) => setChallengeExpiresAt(e.target.value)}
+                style={styles.inputField}
+                min={new Date().toISOString().split('T')[0]}
+              />
             </div>
 
             {/* Icon/Emoji Selector */}

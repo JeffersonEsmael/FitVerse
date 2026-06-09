@@ -158,11 +158,19 @@ export default function ChallengesView() {
     return mapping[type] || 'Atividade';
   };
 
+  const isExpired = (c) => c.expires_at && new Date(c.expires_at) < new Date();
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pt-BR');
+  };
+
   // Split challenges list
-  const completedChallenges = challenges.filter(c => (c.joined || c.creator_id === user?.uid) && (c.progress || 0) >= (c.duration || 30));
-  const createdChallenges = challenges.filter(c => c.creator_id === user?.uid && (c.progress || 0) < (c.duration || 30));
-  const joinedChallenges = challenges.filter(c => c.joined && c.creator_id !== user?.uid && (c.progress || 0) < (c.duration || 30));
-  const discoverChallenges = challenges.filter(c => !c.joined);
+  const completedChallenges = challenges.filter(c => (c.joined || c.creator_id === user?.uid) && ((c.progress || 0) >= (c.duration || 30) || isExpired(c)));
+  const createdChallenges = challenges.filter(c => c.creator_id === user?.uid && (c.progress || 0) < (c.duration || 30) && !isExpired(c));
+  const joinedChallenges = challenges.filter(c => c.joined && c.creator_id !== user?.uid && (c.progress || 0) < (c.duration || 30) && !isExpired(c));
+  const discoverChallenges = challenges.filter(c => !c.joined && !isExpired(c));
 
   const renderChallengeCard = (c) => {
     const pct = Math.round(((c.progress || 0) / (c.duration || 30)) * 100);
@@ -179,6 +187,11 @@ export default function ChallengesView() {
           <div style={challStyles.info}>
             <span style={challStyles.title}>{c.title}</span>
             <span style={challStyles.desc}>{c.description}</span>
+            {c.expires_at && (
+              <span style={{ fontSize: '11px', color: '#FF6B35', fontWeight: 500, marginTop: '2px', display: 'block' }}>
+                Validade: {formatDate(c.expires_at)}
+              </span>
+            )}
           </div>
           {c.creator_id === user?.uid && (
             <span style={challStyles.creatorBadge}>Criador</span>
@@ -251,6 +264,11 @@ export default function ChallengesView() {
           <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
             {c.duration || 30} dias • {c.reward || 100} XP
           </span>
+          {c.expires_at && (
+            <span style={{ fontSize: '10px', color: '#FF6B35', fontWeight: 600 }}>
+              Até {formatDate(c.expires_at)}
+            </span>
+          )}
         </div>
         <button
           style={{
@@ -442,6 +460,11 @@ export default function ChallengesView() {
               <div style={modalStyles.body}>
                 <h4 style={modalStyles.subtitle}>Objetivo e Regras</h4>
                 <p style={modalStyles.description}>{selectedChallenge.description || 'Sem descrição cadastrada.'}</p>
+                {selectedChallenge.expires_at && (
+                  <p style={{ fontSize: '12px', color: '#FF6B35', fontWeight: 600, margin: '4px 0 0 0' }}>
+                    ⏳ Válido até: {formatDate(selectedChallenge.expires_at)}
+                  </p>
+                )}
 
                 <div style={modalStyles.statsGrid}>
                   <div style={modalStyles.statBox}>
@@ -498,7 +521,11 @@ export default function ChallengesView() {
                       )}
                     </div>
 
-                    {(selectedChallenge.progress || 0) < (selectedChallenge.duration || 30) ? (
+                    {isExpired(selectedChallenge) ? (
+                      <div style={{ ...modalStyles.completedBadge, background: 'rgba(255,45,85,0.1)', border: '1px solid #FF2D55', color: '#FF2D55', boxShadow: '0 0 12px rgba(255,45,85,0.2)' }}>
+                        ⏳ Desafio Finalizado (Expirou em {formatDate(selectedChallenge.expires_at)})
+                      </div>
+                    ) : (selectedChallenge.progress || 0) < (selectedChallenge.duration || 30) ? (
                       <motion.button
                         style={{ ...modalStyles.actionBtn, background: selectedChallenge.color || '#00D4FF' }}
                         whileTap={{ scale: 0.96 }}

@@ -190,6 +190,7 @@ export const useRankingStore = create((set, get) => ({
       active: true,
       joined: true,
       creator_id: userId,
+      expires_at: challenge.expires_at,
     };
 
     set((state) => ({
@@ -211,6 +212,7 @@ export const useRankingStore = create((set, get) => ({
             color: challenge.color || '#00D4FF',
             active: true,
             creator_id: userId,
+            expires_at: challenge.expires_at,
           })
           .select()
           .single();

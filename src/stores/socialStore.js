@@ -206,7 +206,8 @@ export const useSocialStore = create((set, get) => ({
       if (error) throw error;
       
       if (data && data.length > 0) {
-        set({ searchResults: data });
+        const activeOnly = data.filter(c => !c.expires_at || new Date(c.expires_at) > new Date());
+        set({ searchResults: activeOnly });
       } else {
         const mockChallenges = [
           { id: 'c1', title: '30 Dias de Treino', description: 'Treine todos os dias por 30 dias', icon: '🏋️', type: 'treino', duration: 30, participants: 1247, progress: 12, reward: 500, color: '#00D4FF' },

@@ -1240,7 +1240,10 @@ export default function ProfileScreen() {
                     cursor: 'pointer',
                     fontFamily: "'Outfit', sans-serif",
                   }}
-                  onClick={() => navigate('ranking', { params: { tab: 'challenges' } })}
+                  onClick={() => {
+                    useFeedStore.getState().setActiveTab('challenges');
+                    navigate('feed');
+                  }}
                 >
                   Descobrir Desafios
                 </button>
@@ -1275,7 +1278,10 @@ export default function ProfileScreen() {
                     gap: '8px',
                     marginBottom: '20px',
                   }}
-                  onClick={() => navigate('ranking', { params: { tab: 'challenges' } })}
+                  onClick={() => {
+                    useFeedStore.getState().setActiveTab('challenges');
+                    navigate('feed');
+                  }}
                 >
                   <Trophy size={16} color="#FFD700" />
                   Descobrir mais Desafios
