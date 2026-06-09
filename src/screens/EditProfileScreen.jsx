@@ -15,6 +15,26 @@ const PROFILE_THEME_OPTIONS = [
   { id: 'orange', name: 'Laranja', color: '#FF9500', glow: 'rgba(255, 149, 0, 0.12)', medalsRequired: 8 },
 ];
 
+const DAYS_OF_WEEK = [
+  'Segunda-feira',
+  'Terça-feira',
+  'Quarta-feira',
+  'Quinta-feira',
+  'Sexta-feira',
+  'Sábado',
+  'Domingo'
+];
+
+const DEFAULT_HOURS = {
+  'Segunda-feira': { closed: false, open: '06:00', close: '22:00' },
+  'Terça-feira': { closed: false, open: '06:00', close: '22:00' },
+  'Quarta-feira': { closed: false, open: '06:00', close: '22:00' },
+  'Quinta-feira': { closed: false, open: '06:00', close: '22:00' },
+  'Sexta-feira': { closed: false, open: '06:00', close: '22:00' },
+  'Sábado': { closed: false, open: '08:00', close: '14:00' },
+  'Domingo': { closed: true, open: '08:00', close: '14:00' },
+};
+
 const calculateMedalsCount = (profileData, posts, completedChallenges) => {
   let count = 0;
   const followers = profileData.followers || 0;
@@ -53,7 +73,7 @@ export default function EditProfileScreen() {
   const [errorMsg, setErrorMsg] = useState('');
 
   const [hasGarage, setHasGarage] = useState('não');
-  const [operatingHours, setOperatingHours] = useState('');
+  const [operatingHoursObj, setOperatingHoursObj] = useState(DEFAULT_HOURS);
   const [businessPhotos, setBusinessPhotos] = useState([]);
 
   const fileInputRef = useRef(null);
@@ -70,7 +90,18 @@ export default function EditProfileScreen() {
       setWhatsapp(profile.whatsapp || '');
       setProfileThemeColor(profile.profile_theme_color || 'default');
       setHasGarage(profile.has_garage || 'não');
-      setOperatingHours(profile.operating_hours || '');
+      
+      let parsedHours = DEFAULT_HOURS;
+      if (profile.operating_hours) {
+        try {
+          if (profile.operating_hours.trim().startsWith('{')) {
+            parsedHours = JSON.parse(profile.operating_hours);
+          }
+        } catch (e) {
+          console.warn('Error parsing operating_hours:', e);
+        }
+      }
+      setOperatingHoursObj(parsedHours);
       const pPhotos = Array.isArray(profile.business_photos) ? profile.business_photos : [];
       setBusinessPhotos(pPhotos.map((url, i) => ({ id: `existing_${i}_${url}`, url, file: null })));
     }
@@ -278,7 +309,7 @@ export default function EditProfileScreen() {
         address: profileType === 'business' ? address.trim() : null,
         whatsapp: profileType === 'business' ? whatsapp.trim() : null,
         has_garage: profileType === 'business' ? hasGarage : 'não',
-        operating_hours: profileType === 'business' ? operatingHours.trim() : null,
+        operating_hours: profileType === 'business' ? JSON.stringify(operatingHoursObj) : null,
         business_photos: profileType === 'business' ? uploadedPhotoUrls : null,
         profile_theme_color: profileThemeColor,
         updated_at: new Date().toISOString(),
@@ -506,16 +537,65 @@ export default function EditProfileScreen() {
                 </div>
 
                 <div style={styles.field}>
-                  <label style={styles.label}>Horário de funcionamento</label>
-                  <input
-                    type="text"
-                    value={operatingHours}
-                    onChange={(e) => setOperatingHours(e.target.value)}
-                    style={styles.input}
-                    placeholder="Ex: Seg a Sex: 06h - 22h, Sáb: 08h - 14h"
-                    maxLength={100}
-                    disabled={isSaving}
-                  />
+                  <label style={styles.label}>Horário de Funcionamento por Dia</label>
+                  <div style={styles.daysContainer}>
+                    {DAYS_OF_WEEK.map((day) => {
+                      const dayData = operatingHoursObj[day] || { closed: false, open: '06:00', close: '22:00' };
+                      return (
+                        <div key={day} style={styles.dayRow}>
+                          <span style={styles.dayName}>{day}</span>
+                          <div style={styles.dayInputs}>
+                            <label style={styles.closedCheckboxLabel}>
+                              <input
+                                type="checkbox"
+                                checked={dayData.closed}
+                                onChange={(e) => {
+                                  const val = e.target.checked;
+                                  setOperatingHoursObj(prev => ({
+                                    ...prev,
+                                    [day]: { ...dayData, closed: val }
+                                  }));
+                                }}
+                                style={styles.checkbox}
+                              />
+                              Fechado
+                            </label>
+                            {!dayData.closed && (
+                              <div style={styles.timeInputsRow}>
+                                <input
+                                  type="time"
+                                  value={dayData.open || '06:00'}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setOperatingHoursObj(prev => ({
+                                      ...prev,
+                                      [day]: { ...dayData, open: val }
+                                    }));
+                                  }}
+                                  style={styles.timeInput}
+                                  disabled={isSaving}
+                                />
+                                <span style={{ color: '#B0B0C8', fontSize: '13px' }}>às</span>
+                                <input
+                                  type="time"
+                                  value={dayData.close || '22:00'}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setOperatingHoursObj(prev => ({
+                                      ...prev,
+                                      [day]: { ...dayData, close: val }
+                                    }));
+                                  }}
+                                  style={styles.timeInput}
+                                  disabled={isSaving}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div style={styles.field}>
@@ -747,5 +827,69 @@ const styles = {
     background: 'rgba(255,45,85,0.06)', border: '1px solid rgba(255,45,85,0.1)',
     color: '#FF2D55', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
     fontFamily: "'Inter', sans-serif", marginTop: '16px'
+  },
+  daysContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+    background: 'rgba(255,255,255,0.02)',
+    padding: '16px',
+    borderRadius: '16px',
+    border: '1px solid rgba(255,255,255,0.06)'
+  },
+  dayRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: '12px',
+    borderBottom: '1px solid rgba(255,255,255,0.04)',
+    flexWrap: 'wrap',
+    gap: '8px'
+  },
+  dayName: {
+    fontSize: '14px',
+    color: '#fff',
+    fontWeight: 600,
+    minWidth: '100px',
+    fontFamily: "'Inter', sans-serif"
+  },
+  dayInputs: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    flexWrap: 'wrap'
+  },
+  closedCheckboxLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '13px',
+    color: '#B0B0C8',
+    cursor: 'pointer',
+    fontFamily: "'Inter', sans-serif",
+    userSelect: 'none'
+  },
+  checkbox: {
+    accentColor: '#00D4FF',
+    width: '16px',
+    height: '16px',
+    cursor: 'pointer'
+  },
+  timeInputsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
+  },
+  timeInput: {
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '8px',
+    padding: '6px 10px',
+    color: '#fff',
+    fontSize: '14px',
+    fontFamily: "'Inter', sans-serif",
+    outline: 'none',
+    width: '90px',
+    textAlign: 'center'
   }
 };

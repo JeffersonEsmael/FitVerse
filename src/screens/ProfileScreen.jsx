@@ -1141,9 +1141,35 @@ export default function ProfileScreen() {
                 </span>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', width: '100%' }}>
                 <span style={styles.sobreLabel}>⏰ Horário de Funcionamento</span>
-                <span style={styles.sobreValue}>{p.operating_hours || 'Não informado'}</span>
+                {(() => {
+                  if (!p.operating_hours) {
+                    return <span style={styles.sobreValue}>Não informado</span>;
+                  }
+                  try {
+                    if (p.operating_hours.trim().startsWith('{')) {
+                      const hoursObj = JSON.parse(p.operating_hours);
+                      return (
+                        <div style={styles.hoursList}>
+                          {Object.entries(hoursObj).map(([day, data]) => (
+                            <div key={day} style={styles.hoursRow}>
+                              <span style={styles.hoursDay}>{day}</span>
+                              {data.closed ? (
+                                <span style={styles.hoursClosed}>Fechado</span>
+                              ) : (
+                                <span style={styles.hoursTime}>{data.open} às {data.close}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+                  } catch (e) {
+                    console.warn('Error parsing operating_hours in render:', e);
+                  }
+                  return <span style={styles.sobreValue}>{p.operating_hours}</span>;
+                })()}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', marginTop: '8px' }}>
@@ -1195,7 +1221,10 @@ export default function ProfileScreen() {
                       </div>
                       <div style={styles.feedbackUserInfo}>
                         <span style={styles.feedbackUserName}>{fb.user_name}</span>
-                        <span style={styles.feedbackDate}>{new Date(fb.created_at).toLocaleDateString('pt-BR')}</span>
+                        <span style={styles.feedbackDate}>
+                          {new Date(fb.created_at).toLocaleDateString('pt-BR')}
+                          {fb.is_edited && <span style={styles.editedLabel}> (Editado)</span>}
+                        </span>
                       </div>
                       <div style={styles.feedbackRating}>
                         {Array.from({ length: 5 }).map((_, i) => (
@@ -2887,6 +2916,52 @@ const styles = {
   sobreItem: { display: 'flex', flexDirection: 'column', gap: '6px' },
   sobreLabel: { fontSize: '12px', color: '#6C6C88', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' },
   sobreValue: { fontSize: '14px', color: '#fff', lineHeight: '1.4', fontFamily: "'Inter', sans-serif" },
+  hoursList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    width: '100%',
+    maxWidth: '320px',
+    background: 'rgba(255,255,255,0.02)',
+    padding: '14px',
+    borderRadius: '12px',
+    border: '1px solid rgba(255,255,255,0.06)',
+    marginTop: '6px',
+  },
+  hoursRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: '6px',
+    borderBottom: '1px solid rgba(255,255,255,0.04)',
+  },
+  hoursDay: {
+    fontSize: '13px',
+    color: '#B0B0C8',
+    fontWeight: 600,
+    fontFamily: "'Inter', sans-serif",
+  },
+  hoursClosed: {
+    fontSize: '11px',
+    color: '#FF2D55',
+    fontWeight: 700,
+    fontFamily: "'Inter', sans-serif",
+    background: 'rgba(255,45,85,0.1)',
+    padding: '2px 8px',
+    borderRadius: '6px',
+  },
+  hoursTime: {
+    fontSize: '13px',
+    color: '#fff',
+    fontWeight: 500,
+    fontFamily: "'Inter', sans-serif",
+  },
+  editedLabel: {
+    fontSize: '11px',
+    color: '#6C6C88',
+    fontStyle: 'italic',
+    marginLeft: '6px',
+  },
   whatsappBtn: {
     display: 'inline-flex',
     alignItems: 'center',

@@ -213,6 +213,17 @@ export default function PublicProfileScreen() {
 
   const userId = screenParams?.userId;
 
+  // Pre-populate rating/comment if user has already reviewed
+  useEffect(() => {
+    if (user && feedbacks.length > 0) {
+      const myFeedback = feedbacks.find(fb => fb.user_id === user.uid);
+      if (myFeedback) {
+        setUserRating(myFeedback.rating);
+        setUserComment(myFeedback.comment || '');
+      }
+    }
+  }, [user, feedbacks]);
+
   const fetchBusinessFeedbacks = useCallback(async (busId) => {
     setLoadingFeedbacks(true);
     try {
@@ -259,46 +270,81 @@ export default function PublicProfileScreen() {
       return;
     }
     setIsSubmittingFeedback(true);
+    
+    const existingFeedback = feedbacks.find(fb => fb.user_id === user.uid);
+    const viewerProfile = useAuthStore.getState().profile || {};
+
     try {
-      const viewerProfile = useAuthStore.getState().profile || {};
-      const newFeedback = {
-        business_id: userId,
-        user_id: user.uid,
-        user_name: viewerProfile.display_name || user.email?.split('@')[0] || 'Usuário',
-        user_avatar: viewerProfile.avatar_url || '',
-        rating: userRating,
-        comment: userComment.trim(),
-      };
+      if (existingFeedback) {
+        // Mode: UPDATE
+        const { data, error } = await supabase
+          .from('business_feedbacks')
+          .update({
+            rating: userRating,
+            comment: userComment.trim(),
+            is_edited: true,
+            created_at: new Date().toISOString()
+          })
+          .eq('id', existingFeedback.id)
+          .select()
+          .single();
 
-      const { data, error } = await supabase
-        .from('business_feedbacks')
-        .insert(newFeedback)
-        .select()
-        .single();
+        if (error) throw error;
 
-      if (error) throw error;
+        alert('Feedback atualizado com sucesso!');
+        setFeedbacks(prev => prev.map(fb => fb.id === existingFeedback.id ? data : fb));
+      } else {
+        // Mode: INSERT
+        const newFeedback = {
+          business_id: userId,
+          user_id: user.uid,
+          user_name: viewerProfile.display_name || user.email?.split('@')[0] || 'Usuário',
+          user_avatar: viewerProfile.avatar_url || '',
+          rating: userRating,
+          comment: userComment.trim(),
+        };
 
-      alert('Feedback enviado com sucesso! Obrigado por avaliar.');
-      setFeedbacks(prev => [data, ...prev]);
-      setUserComment('');
-      setUserRating(5);
+        const { data, error } = await supabase
+          .from('business_feedbacks')
+          .insert(newFeedback)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        alert('Feedback enviado com sucesso! Obrigado por avaliar.');
+        setFeedbacks(prev => [data, ...prev]);
+        setUserComment('');
+        setUserRating(5);
+      }
     } catch (err) {
       console.error('[PublicProfile] Error submitting feedback:', err.message);
-      const viewerProfile = useAuthStore.getState().profile || {};
-      const mockFeedback = {
-        id: `fb_${Date.now()}`,
-        business_id: userId,
-        user_id: user.uid,
-        user_name: viewerProfile.display_name || 'Usuário',
-        user_avatar: viewerProfile.avatar_url || '',
-        rating: userRating,
-        comment: userComment.trim(),
-        created_at: new Date().toISOString(),
-      };
-      setFeedbacks(prev => [mockFeedback, ...prev]);
-      setUserComment('');
-      setUserRating(5);
-      alert('Feedback salvo localmente (modo offline)! Obrigado.');
+      if (existingFeedback) {
+        const mockUpdatedFeedback = {
+          ...existingFeedback,
+          rating: userRating,
+          comment: userComment.trim(),
+          is_edited: true,
+          created_at: new Date().toISOString(),
+        };
+        setFeedbacks(prev => prev.map(fb => fb.id === existingFeedback.id ? mockUpdatedFeedback : fb));
+        alert('Feedback atualizado localmente (modo offline)!');
+      } else {
+        const mockFeedback = {
+          id: `fb_${Date.now()}`,
+          business_id: userId,
+          user_id: user.uid,
+          user_name: viewerProfile.display_name || 'Usuário',
+          user_avatar: viewerProfile.avatar_url || '',
+          rating: userRating,
+          comment: userComment.trim(),
+          created_at: new Date().toISOString(),
+        };
+        setFeedbacks(prev => [mockFeedback, ...prev]);
+        setUserComment('');
+        setUserRating(5);
+        alert('Feedback salvo localmente (modo offline)! Obrigado.');
+      }
     } finally {
       setIsSubmittingFeedback(false);
     }
@@ -1091,9 +1137,35 @@ export default function PublicProfileScreen() {
                 </span>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', width: '100%' }}>
                 <span style={styles.sobreLabel}>⏰ Horário de Funcionamento</span>
-                <span style={styles.sobreValue}>{profile.operating_hours || 'Não informado'}</span>
+                {(() => {
+                  if (!profile.operating_hours) {
+                    return <span style={styles.sobreValue}>Não informado</span>;
+                  }
+                  try {
+                    if (profile.operating_hours.trim().startsWith('{')) {
+                      const hoursObj = JSON.parse(profile.operating_hours);
+                      return (
+                        <div style={styles.hoursList}>
+                          {Object.entries(hoursObj).map(([day, data]) => (
+                            <div key={day} style={styles.hoursRow}>
+                              <span style={styles.hoursDay}>{day}</span>
+                              {data.closed ? (
+                                <span style={styles.hoursClosed}>Fechado</span>
+                              ) : (
+                                <span style={styles.hoursTime}>{data.open} às {data.close}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+                  } catch (e) {
+                    console.warn('Error parsing operating_hours in render:', e);
+                  }
+                  return <span style={styles.sobreValue}>{profile.operating_hours}</span>;
+                })()}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', marginTop: '8px' }}>
@@ -1145,7 +1217,10 @@ export default function PublicProfileScreen() {
                       </div>
                       <div style={styles.feedbackUserInfo}>
                         <span style={styles.feedbackUserName}>{fb.user_name}</span>
-                        <span style={styles.feedbackDate}>{new Date(fb.created_at).toLocaleDateString('pt-BR')}</span>
+                        <span style={styles.feedbackDate}>
+                          {new Date(fb.created_at).toLocaleDateString('pt-BR')}
+                          {fb.is_edited && <span style={styles.editedLabel}> (Editado)</span>}
+                        </span>
                       </div>
                       <div style={styles.feedbackRating}>
                         {Array.from({ length: 5 }).map((_, i) => (
@@ -1162,58 +1237,63 @@ export default function PublicProfileScreen() {
             </div>
 
             {/* Write feedback form */}
-            {user?.uid !== profile.id && (
-              <div style={styles.feedbackFormCard}>
-                <h5 style={styles.feedbackFormTitle}>Escreva um Feedback</h5>
+            {user?.uid !== profile.id && (() => {
+              const myFeedback = feedbacks.find(fb => fb.user_id === user?.uid);
+              return (
+                <div style={styles.feedbackFormCard}>
+                  <h5 style={styles.feedbackFormTitle}>
+                    {myFeedback ? 'Editar seu Feedback' : 'Escreva um Feedback'}
+                  </h5>
                 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                  <span style={{ fontSize: '13px', color: '#B0B0C8' }}>Sua avaliação:</span>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <span
-                        key={star}
-                        style={{
-                          cursor: 'pointer',
-                          color: star <= userRating ? '#FFD700' : 'rgba(255,255,255,0.2)',
-                          fontSize: '24px',
-                          transition: 'color 0.2s',
-                        }}
-                        onClick={() => setUserRating(star)}
-                      >
-                        ★
-                      </span>
-                    ))}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                    <span style={{ fontSize: '13px', color: '#B0B0C8' }}>Sua avaliação:</span>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <span
+                          key={star}
+                          style={{
+                            cursor: 'pointer',
+                            color: star <= userRating ? '#FFD700' : 'rgba(255,255,255,0.2)',
+                            fontSize: '24px',
+                            transition: 'color 0.2s',
+                          }}
+                          onClick={() => setUserRating(star)}
+                        >
+                          ★
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                  <label style={{ fontSize: '13px', color: '#B0B0C8' }}>Comentário:</label>
-                  <textarea
-                    value={userComment}
-                    onChange={(e) => setUserComment(e.target.value)}
-                    placeholder="Conte como foi sua experiência nesta academia..."
-                    style={styles.feedbackTextarea}
-                    maxLength={200}
-                    disabled={isSubmittingFeedback}
-                  />
-                  <span style={{ fontSize: '11px', color: '#6C6C88', textAlign: 'right' }}>
-                    {userComment.length}/200
-                  </span>
-                </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                    <label style={{ fontSize: '13px', color: '#B0B0C8' }}>Comentário:</label>
+                    <textarea
+                      value={userComment}
+                      onChange={(e) => setUserComment(e.target.value)}
+                      placeholder="Conte como foi sua experiência nesta academia..."
+                      style={styles.feedbackTextarea}
+                      maxLength={200}
+                      disabled={isSubmittingFeedback}
+                    />
+                    <span style={{ fontSize: '11px', color: '#6C6C88', textAlign: 'right' }}>
+                      {userComment.length}/200
+                    </span>
+                  </div>
 
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleSubmitFeedback}
-                  disabled={isSubmittingFeedback || !userComment.trim()}
-                  style={{
-                    ...styles.feedbackSubmitBtn,
-                    opacity: (isSubmittingFeedback || !userComment.trim()) ? 0.6 : 1,
-                  }}
-                >
-                  {isSubmittingFeedback ? 'Enviando...' : 'Publicar Feedback'}
-                </motion.button>
-              </div>
-            )}
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={handleSubmitFeedback}
+                    disabled={isSubmittingFeedback || !userComment.trim()}
+                    style={{
+                      ...styles.feedbackSubmitBtn,
+                      opacity: (isSubmittingFeedback || !userComment.trim()) ? 0.6 : 1,
+                    }}
+                  >
+                    {isSubmittingFeedback ? 'Enviando...' : myFeedback ? 'Atualizar Feedback' : 'Publicar Feedback'}
+                  </motion.button>
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -1560,6 +1640,52 @@ const styles = {
   sobreItem: { display: 'flex', flexDirection: 'column', gap: '6px' },
   sobreLabel: { fontSize: '12px', color: '#6C6C88', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' },
   sobreValue: { fontSize: '14px', color: '#fff', lineHeight: '1.4', fontFamily: "'Inter', sans-serif" },
+  hoursList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    width: '100%',
+    maxWidth: '320px',
+    background: 'rgba(255,255,255,0.02)',
+    padding: '14px',
+    borderRadius: '12px',
+    border: '1px solid rgba(255,255,255,0.06)',
+    marginTop: '6px',
+  },
+  hoursRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: '6px',
+    borderBottom: '1px solid rgba(255,255,255,0.04)',
+  },
+  hoursDay: {
+    fontSize: '13px',
+    color: '#B0B0C8',
+    fontWeight: 600,
+    fontFamily: "'Inter', sans-serif",
+  },
+  hoursClosed: {
+    fontSize: '11px',
+    color: '#FF2D55',
+    fontWeight: 700,
+    fontFamily: "'Inter', sans-serif",
+    background: 'rgba(255,45,85,0.1)',
+    padding: '2px 8px',
+    borderRadius: '6px',
+  },
+  hoursTime: {
+    fontSize: '13px',
+    color: '#fff',
+    fontWeight: 500,
+    fontFamily: "'Inter', sans-serif",
+  },
+  editedLabel: {
+    fontSize: '11px',
+    color: '#6C6C88',
+    fontStyle: 'italic',
+    marginLeft: '6px',
+  },
   whatsappBtn: {
     display: 'inline-flex',
     alignItems: 'center',
