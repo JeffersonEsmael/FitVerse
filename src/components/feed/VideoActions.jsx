@@ -203,7 +203,7 @@ const styles = {
   container: {
     position: 'absolute',
     right: '8px',
-    bottom: '84px',
+    bottom: '114px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',

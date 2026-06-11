@@ -84,7 +84,7 @@ export default function VideoInfo({ video, isFollowing, isSelf, onFollowToggle }
 const styles = {
   container: {
     position: 'absolute',
-    bottom: '80px',
+    bottom: '110px',
     left: '16px',
     right: '80px',
     zIndex: 5,

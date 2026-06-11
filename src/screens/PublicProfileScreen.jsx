@@ -841,13 +841,13 @@ export default function PublicProfileScreen() {
 
   const getThemeBackground = (themeId) => {
     const themes = {
-      green: 'radial-gradient(circle at top, rgba(57, 255, 20, 0.12) 0%, #0A0A0F 70%)',
-      blue: 'radial-gradient(circle at top, rgba(0, 212, 255, 0.12) 0%, #0A0A0F 70%)',
-      yellow: 'radial-gradient(circle at top, rgba(255, 215, 0, 0.12) 0%, #0A0A0F 70%)',
-      pink: 'radial-gradient(circle at top, rgba(255, 45, 85, 0.12) 0%, #0A0A0F 70%)',
-      orange: 'radial-gradient(circle at top, rgba(255, 149, 0, 0.12) 0%, #0A0A0F 70%)',
+      green: 'radial-gradient(circle at top, rgba(57, 255, 20, 0.12) 0%, rgba(10, 10, 15, 0) 70%)',
+      blue: 'radial-gradient(circle at top, rgba(0, 212, 255, 0.12) 0%, rgba(10, 10, 15, 0) 70%)',
+      yellow: 'radial-gradient(circle at top, rgba(255, 215, 0, 0.12) 0%, rgba(10, 10, 15, 0) 70%)',
+      pink: 'radial-gradient(circle at top, rgba(255, 45, 85, 0.12) 0%, rgba(10, 10, 15, 0) 70%)',
+      orange: 'radial-gradient(circle at top, rgba(255, 149, 0, 0.12) 0%, rgba(10, 10, 15, 0) 70%)',
     };
-    return themes[themeId] || '#0A0A0F';
+    return themes[themeId] || 'transparent';
   };
 
   return (
