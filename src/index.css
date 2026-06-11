@@ -641,18 +641,9 @@ a {
 
 .profile-stats-row {
   display: flex;
-  justify-content: center;
-  gap: 20px;
+  justify-content: flex-start;
+  gap: 16px;
   width: 100%;
-}
-
-@media (max-width: 480px) {
-  .profile-card-header {
-    flex-direction: column-reverse;
-    gap: 18px;
-    align-items: center;
-    text-align: center;
-  }
 }
 
 @media (max-width: 360px) {
