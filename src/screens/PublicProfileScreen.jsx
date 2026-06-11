@@ -882,7 +882,7 @@ export default function PublicProfileScreen() {
         <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
           <div style={styles.profileCardHeader}>
             <div style={styles.profileInfoBlock}>
-              <h3 style={{ ...styles.usernameLeft, display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+              <h3 style={{ ...styles.usernameLeft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 @{profile.username}
                 {(profile.username?.toLowerCase() === 'flowrise' || profile.username?.toLowerCase() === 'flowride') && (
                   <img src={verifiedBadgeImg} alt="verificado" style={{ width: '22px', height: '22px', marginLeft: '6px', objectFit: 'contain', flexShrink: 0 }} />
@@ -1839,7 +1839,7 @@ const styles = {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   avatarContainerRight: {
     position: 'relative',
@@ -1884,7 +1884,7 @@ const styles = {
     color: '#fff',
     fontFamily: "'Outfit', sans-serif",
     margin: '0 0 4px',
-    textAlign: 'left',
+    textAlign: 'center',
     width: '100%',
     letterSpacing: '-0.5px'
   },
@@ -1892,12 +1892,12 @@ const styles = {
     fontSize: '14px',
     color: 'rgba(255,255,255,0.5)',
     marginBottom: '12px',
-    textAlign: 'left',
+    textAlign: 'center',
     width: '100%'
   },
   statsRowLeft: {
     display: 'flex',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     gap: '16px',
     width: '100%',
   },
