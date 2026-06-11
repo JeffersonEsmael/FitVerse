@@ -853,7 +853,7 @@ export default function ProfileScreen() {
 
         {/* Profile card - Glassmorphism */}
         <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-          <div style={styles.profileCardHeader}>
+          <div className="profile-card-header">
             <div style={styles.profileInfoBlock}>
               <h3 style={{ ...styles.usernameLeft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 @{usernameToShow}
@@ -863,7 +863,7 @@ export default function ProfileScreen() {
               </h3>
               <span style={styles.displayNameLeft}>{displayNameToShow}</span>
 
-              <div style={styles.statsRowLeft}>
+              <div className="profile-stats-row">
                 <div style={styles.statItemLeft}>
                   <span style={styles.statValueLeft}>{filteredUserPosts.length}</span>
                   <span style={styles.statLabelLeft}>posts</span>
@@ -879,7 +879,7 @@ export default function ProfileScreen() {
               </div>
             </div>
 
-            <div style={styles.avatarContainerRight}>
+            <div className="profile-avatar-container">
               {/* Streak Badge */}
               {p.streak >= 3 && (
                 <div style={styles.streakBadge}>
@@ -1349,149 +1349,108 @@ export default function ProfileScreen() {
                     </div>
                   </div>
 
-                  {/* Series Header Card */}
-                  <div style={{
-                    ...workoutStyles.headerCard,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    textAlign: 'center',
-                    gap: '4px',
-                    padding: '16px'
-                  }}>
-                    <h4 style={workoutStyles.seriesTitle}>{activeSeries.name}</h4>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '4px' }}>
-                      <span style={workoutStyles.seriesFreq}>{activeSeries.weekly_frequency}</span>
-                      <span style={{
-                        fontSize: '10px',
-                        padding: '2px 8px',
-                        borderRadius: '8px',
-                        background: activeSeries.is_public ? 'rgba(57, 255, 20, 0.15)' : 'rgba(255, 255, 255, 0.1)',
-                        color: activeSeries.is_public ? '#39FF14' : 'rgba(255, 255, 255, 0.6)',
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                      }}>
-                        {activeSeries.is_public ? 'Pública' : 'Privada'}
-                      </span>
-                      {activeSeries.is_public && (() => {
-                        const hasCopies = (activeSeries.copies_count > 0);
-                        return (
-                          <span style={{
-                            fontSize: '11px',
-                            padding: '4px 10px',
-                            borderRadius: '10px',
-                            background: hasCopies ? 'rgba(57, 255, 20, 0.12)' : 'rgba(255, 255, 255, 0.04)',
-                            border: hasCopies ? '1px solid #39FF14' : '1px solid rgba(255, 255, 255, 0.08)',
-                            color: hasCopies ? '#39FF14' : 'rgba(255, 255, 255, 0.4)',
-                            fontWeight: 700,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            boxShadow: hasCopies ? '0 0 12px rgba(57, 255, 20, 0.25)' : 'none',
-                            transition: 'all 0.3s ease',
-                            fontFamily: "'Outfit', sans-serif"
-                          }}>
-                            <Copy size={11} color={hasCopies ? '#39FF14' : 'rgba(255, 255, 255, 0.4)'} />
-                            {activeSeries.copies_count || 0} {activeSeries.copies_count === 1 ? 'cópia' : 'cópias'}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* Exercises Grid/List */}
-                  <div style={{ ...workoutStyles.exercisesList, marginTop: '16px' }}>
-                    {(!activeSeries.exercises || activeSeries.exercises.length === 0) ? (
-                      <div style={workoutStyles.noExercisesCard}>
-                        <span>Nenhum exercício cadastrado nesta série.</span>
-                        <button
-                          style={workoutStyles.addExerciseInlineBtn}
-                          onClick={() => {
-                            setSeriesModalName(activeSeries.name);
-                            setSeriesModalFrequency(activeSeries.weekly_frequency);
-                            setSeriesModalTotal(activeSeries.progress_total);
-                            setSeriesModalIsPublic(activeSeries.is_public !== false);
-                            setSeriesModalExercises(activeSeries.exercises || []);
-                            setShowEditSeriesModal(true);
-                          }}
-                        >
-                          Adicionar Exercícios
-                        </button>
+                  {/* Prancheta de Exercícios (Clipboard) */}
+                  <div className="workout-clipboard">
+                    <div className="workout-clipboard-header">
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <h4 className="workout-clipboard-title">{activeSeries.name}</h4>
+                        <span className="workout-clipboard-freq">{activeSeries.weekly_frequency}</span>
                       </div>
-                    ) : (
-                      activeSeries.exercises.map((ex) => {
-                        return (
-                          <div
-                            key={ex.id}
-                            style={{
-                              ...workoutStyles.exerciseCard,
-                              ...(ex.done_today ? workoutStyles.exerciseCardDone : {}),
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                        <span style={{
+                          fontSize: '10px',
+                          padding: '2px 8px',
+                          borderRadius: '8px',
+                          background: activeSeries.is_public ? 'rgba(34, 197, 94, 0.15)' : 'rgba(0, 0, 0, 0.05)',
+                          color: activeSeries.is_public ? '#16A34A' : '#718096',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}>
+                          {activeSeries.is_public ? 'Pública' : 'Privada'}
+                        </span>
+                        {activeSeries.is_public && activeSeries.copies_count > 0 && (
+                          <span style={{ fontSize: '11px', color: '#718096', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Copy size={10} color="#718096" />
+                            {activeSeries.copies_count} {activeSeries.copies_count === 1 ? 'cópia' : 'cópias'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="workout-clipboard-progress">
+                      <div className="workout-clipboard-progress-labels">
+                        <span className="workout-clipboard-progress-label">Progresso Geral</span>
+                        <span className="workout-clipboard-progress-val">
+                          {activeSeries.progress_completed || 0}/{activeSeries.progress_total || 30} treinos
+                        </span>
+                      </div>
+                      <div className="workout-clipboard-progress-track">
+                        <div 
+                          className="workout-clipboard-progress-fill" 
+                          style={{ width: `${Math.min(100, Math.round(((activeSeries.progress_completed || 0) / (activeSeries.progress_total || 30)) * 100))}%` }} 
+                        />
+                      </div>
+                    </div>
+
+                    {/* Exercises List */}
+                    <div className="workout-clipboard-list">
+                      {(!activeSeries.exercises || activeSeries.exercises.length === 0) ? (
+                        <div style={{ ...workoutStyles.noExercisesCard, background: '#F8FAFC', border: '1px dashed #CBD5E0', color: '#718096' }}>
+                          <span>Nenhum exercício cadastrado nesta série.</span>
+                          <button
+                            style={{ ...workoutStyles.addExerciseInlineBtn, background: '#EDF2F7', border: '1px solid #CBD5E0', color: '#4A5568' }}
+                            onClick={() => {
+                              setSeriesModalName(activeSeries.name);
+                              setSeriesModalFrequency(activeSeries.weekly_frequency);
+                              setSeriesModalTotal(activeSeries.progress_total);
+                              setSeriesModalIsPublic(activeSeries.is_public !== false);
+                              setSeriesModalExercises(activeSeries.exercises || []);
+                              setShowEditSeriesModal(true);
                             }}
                           >
-                            <div style={workoutStyles.exerciseInfo}>
-                              <span style={workoutStyles.exerciseName}>{ex.name}</span>
-                              <span style={workoutStyles.exerciseMeta}>
+                            Adicionar Exercícios
+                          </button>
+                        </div>
+                      ) : (
+                        activeSeries.exercises.map((ex) => (
+                          <div
+                            key={ex.id}
+                            className={`workout-clipboard-item ${ex.done_today ? 'workout-clipboard-item-done' : ''}`}
+                          >
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, paddingRight: '12px' }}>
+                              <span className={`workout-clipboard-item-name ${ex.done_today ? 'workout-clipboard-item-name-done' : ''}`}>
+                                {ex.name}
+                              </span>
+                              <span className="workout-clipboard-item-meta">
                                 {ex.sets} séries x {ex.reps} reps {ex.weight > 0 ? `• ${ex.weight}kg` : ''}
                               </span>
                             </div>
 
-                            <div style={workoutStyles.exerciseActionRow}>
+                            <div className="workout-clipboard-item-actions">
                               {/* Video Button */}
                               <button
-                                style={workoutStyles.videoDemoBtn}
+                                className="workout-clipboard-video-btn"
                                 onClick={() => setSelectedExercise(ex.name)}
+                                title="Ver vídeo do exercício"
                               >
-                                <Play size={14} color="#00D4FF" fill="#00D4FF" />
+                                <Play size={14} color="#0088CC" fill="#0088CC" />
                               </button>
 
                               {/* Done Button (Circular Checkbox) */}
                               <button
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  padding: '4px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  outline: 'none',
-                                }}
+                                className="workout-clipboard-check-btn"
                                 onClick={() => toggleExerciseDone(user?.uid, activeSeries.id, ex.id)}
                               >
-                                {ex.done_today ? (
-                                  <div style={{
-                                    width: '28px',
-                                    height: '28px',
-                                    borderRadius: '50%',
-                                    background: '#39FF14',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    boxShadow: '0 0 8px rgba(57,255,20,0.4)',
-                                    transition: 'all 0.2s ease'
-                                  }}>
-                                    <Check size={16} color="#0A0A0F" strokeWidth={3} />
-                                  </div>
-                                ) : (
-                                  <div style={{
-                                    width: '28px',
-                                    height: '28px',
-                                    borderRadius: '50%',
-                                    border: '2px solid rgba(255,255,255,0.3)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    transition: 'all 0.2s ease'
-                                  }} />
-                                )}
+                                <div className={`workout-clipboard-check-circle ${ex.done_today ? 'workout-clipboard-check-circle-done' : ''}`}>
+                                  {ex.done_today && <Check size={16} color="#ffffff" strokeWidth={3} />}
+                                </div>
                               </button>
                             </div>
                           </div>
-                        );
-                      })
-                    )}
+                        ))
+                      )}
+                    </div>
                   </div>
 
                   {/* Concluir Treino Button */}
@@ -2198,39 +2157,47 @@ export default function ProfileScreen() {
                       {/* Exercises Grid under active Group */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '110px', overflowY: 'auto', padding: '2px' }} className="hide-scrollbar">
                         {PRESET_EXERCISES_BY_GROUP[activePresetGroup]?.map((preset) => {
-                          const isSelected = tempExerciseName === preset;
                           const isAlreadyAdded = seriesModalExercises.some(ex => ex.name.trim().toLowerCase() === preset.trim().toLowerCase());
                           return (
                             <button
                               key={preset}
                               type="button"
-                              disabled={isAlreadyAdded}
                               style={{
                                 padding: '6px 12px',
-                                background: isSelected 
-                                  ? 'rgba(57,255,20,0.15)' 
-                                  : isAlreadyAdded
-                                    ? 'rgba(255, 255, 255, 0.01)'
-                                    : 'rgba(255, 255, 255, 0.04)',
-                                border: isSelected 
-                                  ? '1px solid #39FF14' 
-                                  : isAlreadyAdded
-                                    ? '1px solid rgba(255, 255, 255, 0.03)'
-                                    : '1px solid rgba(255, 255, 255, 0.1)',
+                                background: isAlreadyAdded 
+                                  ? 'rgba(57,255,20,0.12)' 
+                                  : 'rgba(255, 255, 255, 0.04)',
+                                border: isAlreadyAdded 
+                                  ? '1.5px solid #39FF14' 
+                                  : '1px solid rgba(255, 255, 255, 0.1)',
                                 borderRadius: '20px',
-                                color: isSelected 
+                                color: isAlreadyAdded 
                                   ? '#39FF14' 
-                                  : isAlreadyAdded
-                                    ? 'rgba(255, 255, 255, 0.2)'
-                                    : '#fff',
+                                  : '#fff',
                                 fontSize: '11px',
                                 fontWeight: 600,
-                                cursor: isAlreadyAdded ? 'not-allowed' : 'pointer',
-                                opacity: isAlreadyAdded ? 0.35 : 1,
+                                cursor: 'pointer',
                                 fontFamily: "'Inter', sans-serif",
                                 transition: 'all 0.15s ease'
                               }}
-                              onClick={() => setTempExerciseName(preset)}
+                              onClick={() => {
+                                if (isAlreadyAdded) {
+                                  const confirmRemove = window.confirm(`Deseja remover "${preset}" da sua lista de exercícios?`);
+                                  if (confirmRemove) {
+                                    setSeriesModalExercises(seriesModalExercises.filter(ex => ex.name.trim().toLowerCase() !== preset.trim().toLowerCase()));
+                                  }
+                                } else {
+                                  const newEx = {
+                                    id: `ex_new_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                                    name: preset,
+                                    sets: tempExerciseSets || 4,
+                                    reps: tempExerciseReps || '10',
+                                    weight: tempExerciseWeight || 10,
+                                    done_today: false
+                                  };
+                                  setSeriesModalExercises([...seriesModalExercises, newEx]);
+                                }
+                              }}
                             >
                               {preset}
                             </button>
@@ -2474,39 +2441,47 @@ export default function ProfileScreen() {
                       {/* Exercises Grid under active Group */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '110px', overflowY: 'auto', padding: '2px' }} className="hide-scrollbar">
                         {PRESET_EXERCISES_BY_GROUP[activePresetGroup]?.map((preset) => {
-                          const isSelected = tempExerciseName === preset;
                           const isAlreadyAdded = seriesModalExercises.some(ex => ex.name.trim().toLowerCase() === preset.trim().toLowerCase());
                           return (
                             <button
                               key={preset}
                               type="button"
-                              disabled={isAlreadyAdded}
                               style={{
                                 padding: '6px 12px',
-                                background: isSelected 
-                                  ? 'rgba(57,255,20,0.15)' 
-                                  : isAlreadyAdded
-                                    ? 'rgba(255, 255, 255, 0.01)'
-                                    : 'rgba(255, 255, 255, 0.04)',
-                                border: isSelected 
-                                  ? '1px solid #39FF14' 
-                                  : isAlreadyAdded
-                                    ? '1px solid rgba(255, 255, 255, 0.03)'
-                                    : '1px solid rgba(255, 255, 255, 0.1)',
+                                background: isAlreadyAdded 
+                                  ? 'rgba(57,255,20,0.12)' 
+                                  : 'rgba(255, 255, 255, 0.04)',
+                                border: isAlreadyAdded 
+                                  ? '1.5px solid #39FF14' 
+                                  : '1px solid rgba(255, 255, 255, 0.1)',
                                 borderRadius: '20px',
-                                color: isSelected 
+                                color: isAlreadyAdded 
                                   ? '#39FF14' 
-                                  : isAlreadyAdded
-                                    ? 'rgba(255, 255, 255, 0.2)'
-                                    : '#fff',
+                                  : '#fff',
                                 fontSize: '11px',
                                 fontWeight: 600,
-                                cursor: isAlreadyAdded ? 'not-allowed' : 'pointer',
-                                opacity: isAlreadyAdded ? 0.35 : 1,
+                                cursor: 'pointer',
                                 fontFamily: "'Inter', sans-serif",
                                 transition: 'all 0.15s ease'
                               }}
-                              onClick={() => setTempExerciseName(preset)}
+                              onClick={() => {
+                                if (isAlreadyAdded) {
+                                  const confirmRemove = window.confirm(`Deseja remover "${preset}" da sua lista de exercícios?`);
+                                  if (confirmRemove) {
+                                    setSeriesModalExercises(seriesModalExercises.filter(ex => ex.name.trim().toLowerCase() !== preset.trim().toLowerCase()));
+                                  }
+                                } else {
+                                  const newEx = {
+                                    id: `ex_new_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                                    name: preset,
+                                    sets: tempExerciseSets || 4,
+                                    reps: tempExerciseReps || '10',
+                                    weight: tempExerciseWeight || 10,
+                                    done_today: false
+                                  };
+                                  setSeriesModalExercises([...seriesModalExercises, newEx]);
+                                }
+                              }}
                             >
                               {preset}
                             </button>

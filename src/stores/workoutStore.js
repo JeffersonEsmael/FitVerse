@@ -11,8 +11,8 @@ const defaultWorkouts = [
     progress_total: 30,
     is_active: true,
     exercises: [
-      { id: 'ex_1', name: 'Supino Reto (Barra)', sets: 4, reps: '8-10', weight: 80, done_today: true },
-      { id: 'ex_2', name: 'Desenvolvimento Militar', sets: 4, reps: '8-10', weight: 45, done_today: true },
+      { id: 'ex_1', name: 'Supino Reto (Barra)', sets: 4, reps: '8-10', weight: 80, done_today: false },
+      { id: 'ex_2', name: 'Desenvolvimento Militar', sets: 4, reps: '8-10', weight: 45, done_today: false },
       { id: 'ex_3', name: 'Tríceps Testa', sets: 3, reps: '10-12', weight: 30, done_today: false },
       { id: 'ex_4', name: 'Elevação Lateral', sets: 4, reps: '12-15', weight: 14, done_today: false },
       { id: 'ex_1_5', name: 'Supino Inclinado (Halteres)', sets: 4, reps: '8-10', weight: 30, done_today: false },
