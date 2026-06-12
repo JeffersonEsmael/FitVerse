@@ -319,7 +319,7 @@ export const useRankingStore = create((set, get) => ({
         if (checkInData.photoFile) {
           try {
             const { compressImage } = await import('../utils/compression');
-            compressedPhoto = await compressImage(checkInData.photoFile, { maxWidth: 1080, maxHeight: 1080, quality: 0.8 });
+            compressedPhoto = await compressImage(checkInData.photoFile, { maxWidth: 900, maxHeight: 900, quality: 0.7 });
           } catch (compErr) {
             console.warn('[RankingStore] Check-in photo compression failed, using original:', compErr);
           }

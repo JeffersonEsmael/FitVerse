@@ -190,7 +190,7 @@ export const useChatStore = create((set, get) => ({
       let finalFile = file;
       try {
         const { compressImage } = await import('../utils/compression');
-        finalFile = await compressImage(file, { maxWidth: 1080, maxHeight: 1080, quality: 0.8 });
+        finalFile = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.7 });
       } catch (compErr) {
         console.warn('[ChatStore] Image compression failed, using original file:', compErr);
       }

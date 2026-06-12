@@ -227,7 +227,7 @@ export default function EditProfileScreen() {
         let finalFile = photoFile;
         try {
           const { compressImage } = await import('../utils/compression');
-          finalFile = await compressImage(photoFile, { maxWidth: 800, maxHeight: 800, quality: 0.85 });
+          finalFile = await compressImage(photoFile, { maxWidth: 400, maxHeight: 400, quality: 0.7 });
         } catch (compErr) {
           console.warn('[EditProfile] Avatar compression failed, using original file:', compErr);
         }
@@ -274,7 +274,7 @@ export default function EditProfileScreen() {
             let finalFile = photo.file;
             try {
               const { compressImage } = await import('../utils/compression');
-              finalFile = await compressImage(photo.file, { maxWidth: 800, maxHeight: 800, quality: 0.85 });
+              finalFile = await compressImage(photo.file, { maxWidth: 800, maxHeight: 800, quality: 0.7 });
             } catch (compErr) {
               console.warn('[EditProfile] Business photo compression failed, using original file:', compErr);
             }

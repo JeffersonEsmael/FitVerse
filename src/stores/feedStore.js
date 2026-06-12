@@ -527,7 +527,12 @@ export const useFeedStore = create(
 
     // Show upload banner
     set({
-      uploadingPost: { progress: 5, mediaType: file.type.startsWith('video') ? 'video' : 'image', caption: metadata.caption || '' },
+      uploadingPost: {
+        progress: 5,
+        mediaType: file.type.startsWith('video') ? 'video' : 'image',
+        caption: metadata.caption || '',
+        statusText: file.type.startsWith('video') ? '🎥 Inicializando...' : '📷 Otimizando imagem...'
+      },
       uploadError: null,
     });
 
@@ -537,10 +542,33 @@ export const useFeedStore = create(
       const bucketName = isVideo ? 'videos' : 'posts';
 
       let finalFile = file;
-      if (!isVideo) {
+      if (isVideo) {
+        if (file.size > 2 * 1024 * 1024) {
+          try {
+            const { compressVideo } = await import('../utils/compression');
+            finalFile = await compressVideo(file, {
+              onProgress: (pct) => {
+                // Map transcoding progress (0-100%) to banner progress (5-50%)
+                const progress = Math.round(5 + (pct * 45) / 100);
+                set((s) => ({
+                  uploadingPost: s.uploadingPost
+                    ? {
+                        ...s.uploadingPost,
+                        progress,
+                        statusText: `🎥 Otimizando vídeo para publicação (${pct}%)...`
+                      }
+                    : null
+                }));
+              }
+            });
+          } catch (compErr) {
+            console.warn('[Feed] Video compression failed, using original file:', compErr);
+          }
+        }
+      } else {
         try {
           const { compressImage } = await import('../utils/compression');
-          finalFile = await compressImage(file, { maxWidth: 1080, maxHeight: 1080, quality: 0.8 });
+          finalFile = await compressImage(file, { maxWidth: 900, maxHeight: 900, quality: 0.7 });
         } catch (compErr) {
           console.warn('[Feed] Image compression failed, using original file:', compErr);
         }
@@ -550,7 +578,11 @@ export const useFeedStore = create(
       const fileName = `${metadata.userId}/${Date.now()}.${fileExt}`;
 
       console.log(`[Feed] Uploading ${mediaType} → bucket '${bucketName}': ${fileName}`);
-      set((s) => ({ uploadingPost: { ...s.uploadingPost, progress: 20 } }));
+      set((s) => ({
+        uploadingPost: s.uploadingPost
+          ? { ...s.uploadingPost, progress: 50, statusText: '🎥 Enviando para o servidor...' }
+          : null
+      }));
 
       const { error: uploadError } = await supabase.storage
         .from(bucketName)
@@ -565,7 +597,11 @@ export const useFeedStore = create(
         throw new Error(uploadError.message);
       }
 
-      set((s) => ({ uploadingPost: { ...s.uploadingPost, progress: 70 } }));
+      set((s) => ({
+        uploadingPost: s.uploadingPost
+          ? { ...s.uploadingPost, progress: 75, statusText: '🎥 Processando URL pública...' }
+          : null
+      }));
 
       // Get public URL (synchronous — no network call needed)
       const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
@@ -573,7 +609,11 @@ export const useFeedStore = create(
       if (!publicUrl) throw new Error('Não foi possível obter a URL pública do arquivo.');
 
       console.log('[Feed] File uploaded. URL:', publicUrl);
-      set((s) => ({ uploadingPost: { ...s.uploadingPost, progress: 85 } }));
+      set((s) => ({
+        uploadingPost: s.uploadingPost
+          ? { ...s.uploadingPost, progress: 85, statusText: '🎥 Registrando publicação...' }
+          : null
+      }));
 
       // Insert post record
       const postData = {
@@ -623,7 +663,11 @@ export const useFeedStore = create(
         console.warn('[Feed] Error updating total_videos profile count:', profileErr.message);
       }
 
-      set((s) => ({ uploadingPost: { ...s.uploadingPost, progress: 100 } }));
+      set((s) => ({
+        uploadingPost: s.uploadingPost
+          ? { ...s.uploadingPost, progress: 100, statusText: '🎉 Publicado com sucesso!' }
+          : null
+      }));
 
       // Add to top of feed
       const newVideo = {

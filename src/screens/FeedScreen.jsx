@@ -181,7 +181,7 @@ export default function FeedScreen() {
                 <div style={styles.uploadSpinner} />
                 <div>
                   <span style={styles.uploadBannerTitle}>
-                    {uploadingPost.mediaType === 'video' ? '🎥 Enviando vídeo...' : '📷 Enviando foto...'}
+                    {uploadingPost.statusText || (uploadingPost.mediaType === 'video' ? '🎥 Enviando vídeo...' : '📷 Enviando foto...')}
                   </span>
                   <span style={styles.uploadBannerSub}>
                     {uploadingPost.progress}% concluído

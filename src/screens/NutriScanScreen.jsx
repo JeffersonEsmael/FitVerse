@@ -250,7 +250,7 @@ export default function NutriScanScreen() {
       ctx.drawImage(video, 0, 0, width, height);
 
       // Get JPEG base64
-      const base64 = canvas.toDataURL('image/jpeg', 0.8);
+      const base64 = canvas.toDataURL('image/jpeg', 0.7);
       
       // Stop camera and set image
       setSelectedImage(base64);
