@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../config/supabase';
+import { cacheGet, cacheSet, cacheInvalidate, CACHE_KEYS, CACHE_TTL } from '../utils/localCache';
 
 let messageSubscription = null;
 
@@ -9,8 +10,15 @@ export const useChatStore = create((set, get) => ({
   activeConversation: null,
   isLoading: false,
 
-  // ─── Fetch all conversations for current user ────────────
+  // ─── Fetch all conversations for current user (cached) ────
   fetchConversations: async (userId) => {
+    // Check cache first
+    const cached = cacheGet(CACHE_KEYS.conversations(userId));
+    if (cached) {
+      set({ conversations: cached, isLoading: false });
+      return;
+    }
+
     set({ isLoading: true });
     try {
       const { data, error } = await supabase
@@ -62,6 +70,7 @@ export const useChatStore = create((set, get) => ({
       });
 
       set({ conversations: enriched, isLoading: false });
+      cacheSet(CACHE_KEYS.conversations(userId), enriched, CACHE_TTL.CONVERSATIONS);
     } catch (error) {
       console.error('Error fetching conversations:', error.message);
       set({ isLoading: false });
@@ -153,6 +162,9 @@ export const useChatStore = create((set, get) => ({
         })
         .eq('id', conversationId);
 
+      // Invalidate conversations cache so next fetch shows updated last message
+      cacheInvalidatePattern('conversations_');
+
       // Create notification for the recipient
       try {
         const conv = get().conversations.find(c => c.id === conversationId);
@@ -200,7 +212,7 @@ export const useChatStore = create((set, get) => ({
 
       const { error: uploadError } = await supabase.storage
         .from('chat-media')
-        .upload(fileName, finalFile, { contentType: finalFile.type });
+        .upload(fileName, finalFile, { contentType: finalFile.type, cacheControl: '86400' });
 
       if (uploadError) throw uploadError;
 

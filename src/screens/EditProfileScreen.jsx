@@ -239,6 +239,7 @@ export default function EditProfileScreen() {
           .from('avatars')
           .upload(fileName, finalFile, {
             contentType: finalFile.type,
+            cacheControl: '86400',
             upsert: true,
           });
 
@@ -283,6 +284,7 @@ export default function EditProfileScreen() {
               .from('avatars')
               .upload(fileName, finalFile, {
                 contentType: finalFile.type,
+                cacheControl: '86400',
                 upsert: true,
               });
 

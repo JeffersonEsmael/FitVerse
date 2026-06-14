@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../config/supabase';
+import { cacheGet, cacheSet, cacheInvalidate, CACHE_KEYS, CACHE_TTL } from '../utils/localCache';
 
 const sampleRanking = [
   { uid: 'r1', displayName: 'Lucas Trainer', username: 'fitpro_lucas', photoURL: '', level: 28, xp: 8450, streak: 15, points: 2850, trend: 'up', badges: ['streak15','top3'] },
@@ -32,6 +33,14 @@ export const useRankingStore = create((set, get) => ({
   setPeriod: (period) => set({ period }),
 
   fetchLeaderboard: async () => {
+    // Check cache first
+    const period = get().period;
+    const cached = cacheGet(CACHE_KEYS.leaderboard(period));
+    if (cached) {
+      set({ leaderboard: cached });
+      return;
+    }
+
     set({ isLoading: true });
     try {
       const { data, error } = await supabase
@@ -55,6 +64,7 @@ export const useRankingStore = create((set, get) => ({
           trend: 'same',
           badges: u.badges || [],
         }));
+        cacheSet(CACHE_KEYS.leaderboard(period), users, CACHE_TTL.LEADERBOARD);
         set({ leaderboard: users, isLoading: false });
       } else {
         set({ isLoading: false });
@@ -65,6 +75,13 @@ export const useRankingStore = create((set, get) => ({
   },
 
   fetchChallenges: async () => {
+    // Check cache first
+    const cached = cacheGet(CACHE_KEYS.challenges());
+    if (cached) {
+      set({ challenges: cached });
+      return;
+    }
+
     try {
       const { useAuthStore } = await import('./authStore');
       const userId = useAuthStore.getState().user?.uid;
@@ -102,6 +119,7 @@ export const useRankingStore = create((set, get) => ({
           };
         });
         console.log('[RankingStore] fetchChallenges: carregados', enriched.length, 'desafios,', joinedChallenges.length, 'participações');
+        cacheSet(CACHE_KEYS.challenges(), enriched, CACHE_TTL.CHALLENGES);
         set({ challenges: enriched });
       }
     } catch (err) {
@@ -328,7 +346,7 @@ export const useRankingStore = create((set, get) => ({
           const fileName = `${userId}/${Date.now()}.${fileExt}`;
           const { error: uploadErr } = await supabase.storage
             .from('posts')
-            .upload(fileName, compressedPhoto, { contentType: compressedPhoto.type });
+            .upload(fileName, compressedPhoto, { contentType: compressedPhoto.type, cacheControl: '86400' });
 
           if (!uploadErr) {
             const { data: urlData } = supabase.storage.from('posts').getPublicUrl(fileName);

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../config/supabase';
+import { cacheGet, cacheSet, CACHE_KEYS, CACHE_TTL } from '../utils/localCache';
 
 // Mock/Default workout series to populate for first-time users or as a starter
 const defaultWorkouts = [
@@ -49,9 +50,22 @@ export const useWorkoutStore = create((set, get) => ({
   isLoading: false,
   error: null,
 
-  // Load workout series for the user
+  // Load workout series for the user (local-first)
   fetchSeries: async (userId) => {
     if (!userId) return;
+
+    // Check cache first — only hit Supabase if cache is stale
+    const cached = cacheGet(CACHE_KEYS.workoutSeries(userId));
+    if (cached && cached.length > 0) {
+      const active = cached.find(s => s.is_active) || cached[0];
+      set({
+        seriesList: cached,
+        activeSeriesId: active ? active.id : null,
+        isLoading: false
+      });
+      return;
+    }
+
     set({ isLoading: true, error: null });
 
     try {
@@ -95,6 +109,9 @@ export const useWorkoutStore = create((set, get) => ({
           activeSeriesId: active ? active.id : null,
           isLoading: false
         });
+
+        // Cache for future visits
+        cacheSet(CACHE_KEYS.workoutSeries(userId), list, CACHE_TTL.WORKOUT_SERIES);
       } else {
         // User has no series, initialize with defaults
         console.log('[WorkoutStore] No series found in DB, creating defaults...');

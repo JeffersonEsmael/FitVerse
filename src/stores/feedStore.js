@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '../config/supabase';
+import { cacheGet, cacheSet, cacheInvalidate, cacheInvalidatePattern, CACHE_KEYS, CACHE_TTL } from '../utils/localCache';
 
 export const useFeedStore = create(
   persist(
@@ -154,28 +155,48 @@ export const useFeedStore = create(
       };
     });
 
+    // Use single atomic RPC instead of SELECT + UPDATE (eliminates race condition)
     try {
-      const { data, error: fetchError } = await supabase
-        .from('videos')
-        .select('views')
-        .eq('id', videoId)
-        .maybeSingle();
-
-      if (!fetchError && data) {
-        const currentViews = data.views || 0;
-        await supabase
+      const { error } = await supabase.rpc('increment_video_views', { p_video_id: videoId });
+      if (error) {
+        console.warn('[Feed] increment_video_views RPC error (falling back):', error.message);
+        // Fallback for when the RPC doesn't exist yet
+        const { data } = await supabase
           .from('videos')
-          .update({ views: currentViews + 1 })
-          .eq('id', videoId);
+          .select('views')
+          .eq('id', videoId)
+          .maybeSingle();
+        if (data) {
+          await supabase
+            .from('videos')
+            .update({ views: (data.views || 0) + 1 })
+            .eq('id', videoId);
+        }
       }
     } catch (dbErr) {
       console.error('[Feed] incrementViews DB error:', dbErr.message);
     }
   },
 
-  // ─── Fetch posts from Supabase ───────────────────────────
+  // ─── Fetch posts from Supabase (with local cache) ────────
   fetchVideos: async (loadMore = false) => {
     if (get().isLoading) return;
+
+    // On initial load (not loadMore), check cache first
+    if (!loadMore) {
+      const cached = cacheGet(CACHE_KEYS.feed(get().activeTab));
+      if (cached && cached.length > 0) {
+        // Serve from cache instantly, then refresh in background
+        set({ videos: cached, hasMore: true, isLoading: false });
+        // Background refresh: only if cache is older than 2 minutes
+        const { cacheAge } = await import('../utils/localCache');
+        if (cacheAge(CACHE_KEYS.feed(get().activeTab)) < 2) {
+          return; // Cache is fresh enough, skip network
+        }
+        // Otherwise fall through to fetch fresh data in background (without showing loading)
+      }
+    }
+
     set({ isLoading: true });
 
     try {
@@ -209,6 +230,8 @@ export const useFeedStore = create(
           if (!profilesError && profilesData) {
             profilesData.forEach((p) => {
               profilesMap[p.id] = p;
+              // Cache each profile individually for reuse
+              cacheSet(CACHE_KEYS.publicProfile(p.id), p, CACHE_TTL.PROFILE);
             });
           }
         } catch (pErr) {
@@ -282,19 +305,30 @@ export const useFeedStore = create(
         }
       }
 
-      set((state) => ({
-        videos: loadMore ? [...state.videos, ...newVideos] : processedVideos,
+      const finalVideos = loadMore ? [...get().videos, ...newVideos] : processedVideos;
+
+      // Cache the first 20 videos for next session instant load
+      if (!loadMore) {
+        cacheSet(CACHE_KEYS.feed(get().activeTab), finalVideos.slice(0, 20), CACHE_TTL.FEED);
+      }
+
+      set({
+        videos: finalVideos,
         hasMore: data.length === limit,
         isLoading: false,
-      }));
+      });
     } catch (error) {
       console.error('[Feed] fetchVideos error:', error.message);
       set({ isLoading: false });
     }
   },
 
-  // ─── Fetch posts by specific user ────────────────────────
+  // ─── Fetch posts by specific user (cached per userId) ────
   fetchUserPosts: async (userId) => {
+    // Check cache first
+    const cached = cacheGet(CACHE_KEYS.userPosts(userId));
+    if (cached) return cached;
+
     try {
       const { data, error } = await supabase
         .from('videos')
@@ -306,19 +340,22 @@ export const useFeedStore = create(
 
       if (!data || data.length === 0) return [];
 
-      // Fetch user profile to get up-to-date username/avatar
-      let userProfile = null;
-      try {
-        const { data: profileData, error: profileErr } = await supabase
-          .from('profiles')
-          .select('username, display_name, avatar_url')
-          .eq('id', userId)
-          .maybeSingle();
-        if (!profileErr && profileData) {
-          userProfile = profileData;
+      // Check profile cache before querying
+      let userProfile = cacheGet(CACHE_KEYS.publicProfile(userId));
+      if (!userProfile) {
+        try {
+          const { data: profileData, error: profileErr } = await supabase
+            .from('profiles')
+            .select('username, display_name, avatar_url')
+            .eq('id', userId)
+            .maybeSingle();
+          if (!profileErr && profileData) {
+            userProfile = profileData;
+            cacheSet(CACHE_KEYS.publicProfile(userId), profileData, CACHE_TTL.PROFILE);
+          }
+        } catch (pErr) {
+          console.warn('[Feed] Error fetching user profile:', pErr.message);
         }
-      } catch (pErr) {
-        console.warn('[Feed] Error fetching user profile:', pErr.message);
       }
 
       // Query actual user interactions to set active visual states
@@ -339,7 +376,7 @@ export const useFeedStore = create(
         console.warn('[Feed] Error getting active user interactions:', authErr.message);
       }
 
-      return data.map((v) => {
+      const result = data.map((v) => {
         const hasShaped = userInteractions.some(
           (i) => i.video_id === v.id && i.interaction_type === 'shape'
         );
@@ -373,6 +410,10 @@ export const useFeedStore = create(
           createdAt: new Date(v.created_at),
         };
       });
+
+      // Cache user posts
+      cacheSet(CACHE_KEYS.userPosts(userId), result, CACHE_TTL.USER_POSTS);
+      return result;
     } catch (error) {
       console.error('[Feed] fetchUserPosts error:', error.message);
       return [];
@@ -393,6 +434,10 @@ export const useFeedStore = create(
       set((state) => ({
         videos: state.videos.filter((v) => v.id !== postId),
       }));
+
+      // Invalidate caches
+      cacheInvalidatePattern('feed_');
+      cacheInvalidatePattern('user_posts_');
 
       // Refresh auth profile stats (decrement total posts)
       const { useAuthStore } = await import('./authStore');
@@ -588,7 +633,7 @@ export const useFeedStore = create(
         .from(bucketName)
         .upload(fileName, finalFile, {
           contentType: finalFile.type,
-          cacheControl: '3600',
+          cacheControl: '86400',
           upsert: false,
         });
 
@@ -702,9 +747,15 @@ export const useFeedStore = create(
       set({ uploadingPost: null, uploadError: error.message });
       return { success: false, error: error.message };
     }
+    // Note: feed cache is invalidated by the setTimeout above adding the new video
+    // and will be refreshed on next fetchVideos call
   },
 
   fetchComments: async (videoId) => {
+    // Check cache first
+    const cached = cacheGet(CACHE_KEYS.comments(videoId));
+    if (cached) return cached;
+
     try {
       const { data, error } = await supabase
         .from('video_comments')
@@ -713,7 +764,9 @@ export const useFeedStore = create(
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      const result = data || [];
+      cacheSet(CACHE_KEYS.comments(videoId), result, CACHE_TTL.COMMENTS);
+      return result;
     } catch (err) {
       console.error('[Feed] fetchComments error:', err.message);
       return [];
@@ -784,6 +837,9 @@ export const useFeedStore = create(
           }
         }
       }
+
+      // Invalidate comments cache so next fetch gets fresh data
+      cacheInvalidate(CACHE_KEYS.comments(videoId));
 
       return { success: true, comment: insertedComment };
     } catch (err) {

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../config/supabase';
 import { useAuthStore } from './authStore';
+import { cacheGet, cacheSet, cacheInvalidate, cacheInvalidatePattern, CACHE_KEYS, CACHE_TTL } from '../utils/localCache';
 
 export const useSocialStore = create((set, get) => ({
   searchResults: [],
@@ -39,6 +40,9 @@ export const useSocialStore = create((set, get) => ({
       
       // Send notification
       await get().createNotification(followingId, followerId, 'follow');
+
+      // Invalidate following cache
+      cacheInvalidate(CACHE_KEYS.following(followerId, followingId));
 
       // Refresh authStore profile to update the logged in user's profile
       useAuthStore.getState().refreshProfile();
@@ -82,6 +86,9 @@ export const useSocialStore = create((set, get) => ({
         .update({ following: followingCount || 0 })
         .eq('id', followerId);
       
+      // Invalidate following cache
+      cacheInvalidate(CACHE_KEYS.following(followerId, followingId));
+
       // Refresh authStore profile to update the logged in user's profile
       useAuthStore.getState().refreshProfile();
       
@@ -92,8 +99,12 @@ export const useSocialStore = create((set, get) => ({
     }
   },
 
-  // Check if following
+  // Check if following (cached)
   checkIfFollowing: async (followerId, followingId) => {
+    // Check cache first
+    const cached = cacheGet(CACHE_KEYS.following(followerId, followingId));
+    if (cached !== null) return cached;
+
     try {
       const { count, error } = await supabase
         .from('followers')
@@ -101,7 +112,9 @@ export const useSocialStore = create((set, get) => ({
         .match({ follower_id: followerId, following_id: followingId });
         
       if (error) throw error;
-      return count > 0;
+      const result = count > 0;
+      cacheSet(CACHE_KEYS.following(followerId, followingId), result, CACHE_TTL.FOLLOWING);
+      return result;
     } catch (error) {
       console.error('[SocialStore] checkIfFollowing error:', error.message);
       return false;
@@ -232,8 +245,12 @@ export const useSocialStore = create((set, get) => ({
   // Clear search
   clearSearch: () => set({ searchResults: [] }),
 
-  // Fetch Public Profile
+  // Fetch Public Profile (cached)
   fetchPublicProfile: async (userId) => {
+    // Check cache first
+    const cached = cacheGet(CACHE_KEYS.publicProfile(userId));
+    if (cached) return cached;
+
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -242,6 +259,7 @@ export const useSocialStore = create((set, get) => ({
         .single();
         
       if (error) throw error;
+      cacheSet(CACHE_KEYS.publicProfile(userId), data, CACHE_TTL.PROFILE);
       return data;
     } catch (error) {
       console.error('[SocialStore] fetch public profile error:', error.message);
@@ -272,6 +290,13 @@ export const useSocialStore = create((set, get) => ({
   isLoadingNotifs: false,
 
   fetchNotifications: async (userId) => {
+    // Check cache first
+    const cached = cacheGet(CACHE_KEYS.notifications(userId));
+    if (cached) {
+      set({ notifications: cached });
+      return;
+    }
+
     set({ isLoadingNotifs: true });
     try {
       const { data, error } = await supabase
@@ -285,45 +310,72 @@ export const useSocialStore = create((set, get) => ({
         .limit(30);
 
       if (error) throw error;
-      
-      const notificationsWithData = await Promise.all((data || []).map(async (notif) => {
+
+      const notifications = data || [];
+
+      // ── BATCH fetch all referenced videos in ONE query (eliminates N+1) ──
+      const videoRefIds = [...new Set(
+        notifications
+          .filter(n => ['shape', 'comment', 'save', 'boost', 'mention'].includes(n.type) && n.reference_id)
+          .map(n => n.reference_id)
+      )];
+
+      let videosMap = {};
+      if (videoRefIds.length > 0) {
+        const { data: videosData } = await supabase
+          .from('videos')
+          .select('id, video_url, thumbnail_url, caption')
+          .in('id', videoRefIds);
+        if (videosData) {
+          videosData.forEach(v => { videosMap[v.id] = v; });
+        }
+      }
+
+      // ── BATCH fetch latest comments for comment/mention notifications ──
+      const commentNotifs = notifications.filter(
+        n => ['comment', 'mention'].includes(n.type) && n.reference_id && n.sender_id
+      );
+      let commentsMap = {};
+      if (commentNotifs.length > 0) {
+        const commentVideoIds = [...new Set(commentNotifs.map(n => n.reference_id))];
+        const commentSenderIds = [...new Set(commentNotifs.map(n => n.sender_id))];
+        const { data: commentsData } = await supabase
+          .from('video_comments')
+          .select('video_id, user_id, content')
+          .in('video_id', commentVideoIds)
+          .in('user_id', commentSenderIds)
+          .order('created_at', { ascending: false });
+        if (commentsData) {
+          // Store the first (latest) comment per video_id+user_id
+          commentsData.forEach(c => {
+            const key = `${c.video_id}_${c.user_id}`;
+            if (!commentsMap[key]) commentsMap[key] = c.content;
+          });
+        }
+      }
+
+      // ── Enrich notifications using the batch results ──
+      const notificationsWithData = notifications.map(notif => {
         let reference_data = null;
-        
+
         if (['shape', 'comment', 'save', 'boost', 'mention'].includes(notif.type) && notif.reference_id) {
-          // Fetch video details
-          const { data: videoData } = await supabase
-            .from('videos')
-            .select('video_url, thumbnail_url, caption')
-            .eq('id', notif.reference_id)
-            .maybeSingle();
-            
+          const videoData = videosMap[notif.reference_id];
           if (videoData) {
             reference_data = {
               video_thumbnail: videoData.thumbnail_url || 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=150',
             };
-            
+
             if (notif.type === 'comment' || notif.type === 'mention') {
-              // Fetch the actual comment preview
-              const { data: commentData } = await supabase
-                .from('video_comments')
-                .select('content')
-                .eq('video_id', notif.reference_id)
-                .eq('user_id', notif.sender_id)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-                
-              reference_data.preview = commentData?.content || videoData.caption || 'Comentário';
+              const commentKey = `${notif.reference_id}_${notif.sender_id}`;
+              reference_data.preview = commentsMap[commentKey] || videoData.caption || 'Comentário';
             }
           }
         }
-        
-        return {
-          ...notif,
-          reference_data
-        };
-      }));
 
+        return { ...notif, reference_data };
+      });
+
+      cacheSet(CACHE_KEYS.notifications(userId), notificationsWithData, CACHE_TTL.NOTIFICATIONS);
       set({ notifications: notificationsWithData });
     } catch (error) {
       console.error('[SocialStore] fetch notifs error:', error.message);
