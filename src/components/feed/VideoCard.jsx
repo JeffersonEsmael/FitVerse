@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Volume2, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Volume2, VolumeX } from 'lucide-react';
 import VideoActions from './VideoActions';
 import VideoInfo from './VideoInfo';
 import CommentsSheet from './CommentsSheet';
@@ -133,16 +133,6 @@ export default function VideoCard({ video, isActive, index }) {
     }
   };
 
-  const scrollCarousel = (direction) => {
-    const el = carouselRef.current;
-    if (!el) return;
-    const width = el.clientWidth;
-    el.scrollBy({
-      left: direction === 'next' ? width : -width,
-      behavior: 'smooth',
-    });
-  };
-
   const handleStartPress = (e) => {
     setIsLongPressing(false);
     longPressTimer.current = setTimeout(() => {
@@ -218,18 +208,6 @@ export default function VideoCard({ video, isActive, index }) {
             />
           ))}
         </div>
-      )}
-
-      {/* Carousel Arrow Navigation for Desktop */}
-      {isCarousel && currentCarouselIndex > 0 && (
-        <button style={styles.carouselArrowLeft} onClick={(e) => { e.stopPropagation(); scrollCarousel('prev'); }}>
-          <ChevronLeft size={20} color="#fff" />
-        </button>
-      )}
-      {isCarousel && video.carouselUrls && currentCarouselIndex < video.carouselUrls.length - 1 && (
-        <button style={styles.carouselArrowRight} onClick={(e) => { e.stopPropagation(); scrollCarousel('next'); }}>
-          <ChevronRight size={20} color="#fff" />
-        </button>
       )}
 
       {/* Gradient overlays */}
@@ -467,38 +445,6 @@ const styles = {
     height: '6px',
     borderRadius: '50%',
     transition: 'all 0.2s ease',
-  },
-  carouselArrowLeft: {
-    position: 'absolute',
-    left: '16px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    width: '36px',
-    height: '36px',
-    borderRadius: '50%',
-    background: 'rgba(0,0,0,0.5)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    zIndex: 10,
-  },
-  carouselArrowRight: {
-    position: 'absolute',
-    right: '16px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    width: '36px',
-    height: '36px',
-    borderRadius: '50%',
-    background: 'rgba(0,0,0,0.5)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    zIndex: 10,
   },
   gradientTop: {
     position: 'absolute',

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Image as ImageIcon, Video, Hash, X, ChevronLeft, ChevronRight, Send, Camera, Play, Square, Music, Volume2, ShieldAlert, Trophy, PlusCircle } from 'lucide-react';
+import { Upload, Image as ImageIcon, Video, Hash, X, ChevronLeft, Send, Camera, Play, Square, Music, Volume2, ShieldAlert, Trophy, PlusCircle } from 'lucide-react';
 import { useFeedStore } from '../stores/feedStore';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -284,16 +284,6 @@ export default function CreatePostScreen() {
         setActivePreviewIndex(newIndex);
       }
     }
-  };
-
-  const scrollPreviewCarousel = (direction) => {
-    const el = previewCarouselRef.current;
-    if (!el) return;
-    const width = el.clientWidth;
-    el.scrollBy({
-      left: direction === 'next' ? width : -width,
-      behavior: 'smooth',
-    });
   };
 
   const handleFileSelect = (e) => {
@@ -717,17 +707,6 @@ export default function CreatePostScreen() {
                   </div>
                 )}
 
-                {mediaType === 'carousel' && activePreviewIndex > 0 && (
-                  <button style={styles.carouselArrowLeftPreview} onClick={(e) => { e.stopPropagation(); scrollPreviewCarousel('prev'); }}>
-                    <ChevronLeft size={16} color="#fff" />
-                  </button>
-                )}
-                {mediaType === 'carousel' && previews && activePreviewIndex < previews.length - 1 && (
-                  <button style={styles.carouselArrowRightPreview} onClick={(e) => { e.stopPropagation(); scrollPreviewCarousel('next'); }}>
-                    <ChevronRight size={16} color="#fff" />
-                  </button>
-                )}
-
                 <button
                   style={styles.removeBtn}
                   onClick={resetMediaStates}
@@ -1141,37 +1120,5 @@ const styles = {
     height: '6px',
     borderRadius: '50%',
     transition: 'all 0.2s ease',
-  },
-  carouselArrowLeftPreview: {
-    position: 'absolute',
-    left: '10px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    width: '28px',
-    height: '28px',
-    borderRadius: '50%',
-    background: 'rgba(0,0,0,0.5)',
-    border: 'none',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    zIndex: 10,
-  },
-  carouselArrowRightPreview: {
-    position: 'absolute',
-    right: '10px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    width: '28px',
-    height: '28px',
-    borderRadius: '50%',
-    background: 'rgba(0,0,0,0.5)',
-    border: 'none',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    zIndex: 10,
   },
 };
