@@ -1025,7 +1025,7 @@ export default function PublicProfileScreen() {
                   animate={{ opacity: 1, scale: 1 }}
                   onClick={() => navigate('post_details', { params: { post, allPosts: filteredUserPosts, startIndex: idx } })}
                 >
-                  {post.mediaType === 'image' ? (
+                  {post.mediaType === 'image' || post.mediaType === 'carousel' ? (
                     <img src={post.videoUrl} alt="" style={styles.thumbMedia} />
                   ) : (
                     <video src={post.videoUrl} style={styles.thumbMedia} muted preload="metadata" />

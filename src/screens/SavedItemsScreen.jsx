@@ -79,7 +79,7 @@ export default function SavedItemsScreen() {
                   whileTap={{ scale: 0.98 }}
                   onClick={() => navigate('post_details', { params: { post, allPosts: savedVideos, startIndex: idx } })}
                 >
-                  {post.mediaType === 'image' ? (
+                  {post.mediaType === 'image' || post.mediaType === 'carousel' ? (
                     <img src={post.videoUrl} alt="" style={styles.thumbMedia} />
                   ) : (
                     <video src={post.videoUrl} style={styles.thumbMedia} muted preload="metadata" />

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Image as ImageIcon, Video, Hash, X, ChevronLeft, Send, Camera, Play, Square, Music, Volume2, ShieldAlert, Trophy } from 'lucide-react';
+import { Upload, Image as ImageIcon, Video, Hash, X, ChevronLeft, Send, Camera, Play, Square, Music, Volume2, ShieldAlert, Trophy, PlusCircle } from 'lucide-react';
 import { useFeedStore } from '../stores/feedStore';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -47,6 +47,9 @@ export default function CreatePostScreen() {
   const [mode, setMode] = useState('camera'); // 'camera' | 'gallery'
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [files, setFiles] = useState([]);
+  const [previews, setPreviews] = useState([]);
+  const [activePreviewIndex, setActivePreviewIndex] = useState(0);
   const [mediaType, setMediaType] = useState(null);
   const [caption, setCaption] = useState('');
   const [hashtagInput, setHashtagInput] = useState('');
@@ -249,11 +252,33 @@ export default function CreatePostScreen() {
   };
 
   const handleFileSelect = (e) => {
-    const f = e.target.files?.[0];
-    if (f) {
-      setFile(f);
-      setPreview(URL.createObjectURL(f));
-      setMediaType(f.type.startsWith('video') ? 'video' : 'image');
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
+
+    // Check if there is any video
+    const videoFile = selectedFiles.find(f => f.type.startsWith('video'));
+    if (videoFile) {
+      if (selectedFiles.length > 1) {
+        alert('Publicações de vídeo suportam apenas um arquivo por vez. Selecionamos o primeiro vídeo.');
+      }
+      setFile(videoFile);
+      setPreview(URL.createObjectURL(videoFile));
+      setFiles([videoFile]);
+      setPreviews([URL.createObjectURL(videoFile)]);
+      setMediaType('video');
+      setActivePreviewIndex(0);
+    } else {
+      // All are images
+      const newPreviews = selectedFiles.map(f => URL.createObjectURL(f));
+      const updatedFiles = [...files, ...selectedFiles].slice(0, 10); // Limit to 10 images
+      const updatedPreviews = [...previews, ...newPreviews].slice(0, 10);
+      
+      setFiles(updatedFiles);
+      setPreviews(updatedPreviews);
+      setFile(updatedFiles[0]);
+      setPreview(updatedPreviews[0]);
+      setMediaType(updatedFiles.length > 1 ? 'carousel' : 'image');
+      setActivePreviewIndex(0);
     }
   };
 
@@ -276,7 +301,8 @@ export default function CreatePostScreen() {
   };
 
   const handlePost = () => {
-    if (!file) return;
+    const postMedia = mediaType === 'carousel' ? files : file;
+    if (!postMedia || (Array.isArray(postMedia) && postMedia.length === 0)) return;
 
     if (!user?.uid) {
       alert('Você precisa estar logado para postar.');
@@ -289,7 +315,7 @@ export default function CreatePostScreen() {
     const soundTitle = selectedTrack ? selectedTrack.title : null;
 
     // Start background upload
-    createPost(file, {
+    createPost(postMedia, {
       userId: user.uid,
       username: profile?.username || 'user',
       displayName: profile?.display_name || 'Usuário',
@@ -591,32 +617,104 @@ export default function CreatePostScreen() {
           {/* Content Preview/Input Area */}
           {preview ? (
             /* Locked Content Preview */
-            <div style={{ ...styles.previewWrap, aspectRatio }}>
-              {mediaType === 'video' ? (
-                <video src={preview} style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} controls playsInline />
-              ) : (
-                <img src={preview} alt="Preview" style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} />
-              )}
-              <button
-                style={styles.removeBtn}
-                onClick={() => {
-                  setFile(null);
-                  setPreview(null);
-                  setMediaType(null);
-                }}
-              >
-                <X size={18} color="#fff" />
-              </button>
-              {selectedTrack && (
-                <div style={styles.audioBadge}>
-                  <Music size={12} color="#39FF14" />
-                  <span style={styles.audioBadgeText}>{selectedTrack.title}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', marginBottom: '20px' }}>
+              <div style={{ ...styles.previewWrap, aspectRatio, marginBottom: 0 }}>
+                {mediaType === 'video' ? (
+                  <video src={preview} style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} controls playsInline />
+                ) : (
+                  <img src={mediaType === 'carousel' ? previews[activePreviewIndex] : preview} alt="Preview" style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} />
+                )}
+                <button
+                  style={styles.removeBtn}
+                  onClick={() => {
+                    setFile(null);
+                    setPreview(null);
+                    setFiles([]);
+                    setPreviews([]);
+                    setMediaType(null);
+                    setActivePreviewIndex(0);
+                  }}
+                >
+                  <X size={18} color="#fff" />
+                </button>
+                {selectedTrack && (
+                  <div style={styles.audioBadge}>
+                    <Music size={12} color="#39FF14" />
+                    <span style={styles.audioBadgeText}>{selectedTrack.title}</span>
+                  </div>
+                )}
+                <div style={styles.mediaTypeBadge}>
+                  {mediaType === 'video' ? <Video size={14} color="#fff" /> : <ImageIcon size={14} color="#fff" />}
+                  <span style={styles.mediaTypeText}>
+                    {mediaType === 'video' ? 'Vídeo' : mediaType === 'carousel' ? `Carrossel (${previews.length})` : 'Foto'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Thumbnails row for Carousel / Multiple Photos */}
+              {mediaType === 'carousel' && (
+                <div style={styles.thumbnailList}>
+                  {previews.map((prevUrl, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        ...styles.thumbnailItem,
+                        border: activePreviewIndex === idx ? '2px solid #00D4FF' : '1px solid rgba(255,255,255,0.1)',
+                      }}
+                      onClick={() => setActivePreviewIndex(idx)}
+                    >
+                      <img src={prevUrl} alt={`Thumbnail ${idx + 1}`} style={styles.thumbnailImg} />
+                      <button
+                        style={styles.thumbnailRemoveBtn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const updatedFiles = files.filter((_, i) => i !== idx);
+                          const updatedPreviews = previews.filter((_, i) => i !== idx);
+                          
+                          setFiles(updatedFiles);
+                          setPreviews(updatedPreviews);
+                          
+                          if (updatedFiles.length <= 1) {
+                            setMediaType('image');
+                            setFile(updatedFiles[0] || null);
+                            setPreview(updatedPreviews[0] || null);
+                          } else {
+                            setFile(updatedFiles[0]);
+                            setPreview(updatedPreviews[0]);
+                          }
+                          
+                          if (activePreviewIndex >= updatedFiles.length) {
+                            setActivePreviewIndex(Math.max(0, updatedFiles.length - 1));
+                          }
+                        }}
+                      >
+                        <X size={10} color="#fff" />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  {previews.length < 10 && (
+                    <button
+                      style={styles.thumbnailAddBtn}
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      <Upload size={16} color="#00D4FF" />
+                      <span style={styles.thumbnailAddText}>Add</span>
+                    </button>
+                  )}
                 </div>
               )}
-              <div style={styles.mediaTypeBadge}>
-                {mediaType === 'video' ? <Video size={14} color="#fff" /> : <ImageIcon size={14} color="#fff" />}
-                <span style={styles.mediaTypeText}>{mediaType === 'video' ? 'Vídeo' : 'Foto'}</span>
-              </div>
+
+              {/* Add to carousel helper button */}
+              {mediaType === 'image' && (
+                <button
+                  style={styles.addToCarouselBtn}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <PlusCircle size={16} color="#00D4FF" />
+                  <span>Adicionar fotos para criar carrossel</span>
+                </button>
+              )}
             </div>
           ) : mode === 'camera' ? (
             /* Active Camera Mode View */
@@ -683,6 +781,7 @@ export default function CreatePostScreen() {
                 ref={fileRef}
                 type="file"
                 accept="image/*,video/*"
+                multiple
                 onChange={handleFileSelect}
                 style={{ display: 'none' }}
               />
@@ -847,6 +946,13 @@ const styles = {
   removeBtn: { position: 'absolute', top: '10px', right: '10px', width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   mediaTypeBadge: { position: 'absolute', top: '10px', left: '10px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '8px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' },
   mediaTypeText: { fontSize: '11px', color: '#fff', fontWeight: 600 },
+  thumbnailList: { display: 'flex', gap: '8px', overflowX: 'auto', padding: '4px 0', width: '100%', marginBottom: '12px' },
+  thumbnailItem: { position: 'relative', width: '60px', height: '60px', borderRadius: '10px', overflow: 'hidden', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s' },
+  thumbnailImg: { width: '100%', height: '100%', objectFit: 'cover' },
+  thumbnailRemoveBtn: { position: 'absolute', top: '2px', right: '2px', width: '16px', height: '16px', borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+  thumbnailAddBtn: { width: '60px', height: '60px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(0,212,255,0.3)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, gap: '2px' },
+  thumbnailAddText: { fontSize: '9px', color: '#00D4FF', fontWeight: 600 },
+  addToCarouselBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '12px', borderRadius: '12px', background: 'rgba(0,212,255,0.05)', border: '1px dashed rgba(0,212,255,0.2)', color: '#00D4FF', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter', sans-serif" },
   audioBadge: { position: 'absolute', bottom: '10px', left: '10px', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '8px', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', maxWidth: '80%' },
   audioBadgeText: { fontSize: '11px', color: '#39FF14', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   field: { marginBottom: '16px' },

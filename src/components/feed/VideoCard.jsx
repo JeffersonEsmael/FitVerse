@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Volume2, VolumeX } from 'lucide-react';
+import { Play, Volume2, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
 import VideoActions from './VideoActions';
 import VideoInfo from './VideoInfo';
 import CommentsSheet from './CommentsSheet';
@@ -13,10 +13,12 @@ import { AnimatePresence } from 'framer-motion';
 
 export default function VideoCard({ video, isActive, index }) {
   const videoRef = useRef(null);
+  const carouselRef = useRef(null);
   const longPressTimer = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [showPlayIcon, setShowPlayIcon] = useState(false);
+  const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
   
   const [progress, setProgress] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
@@ -30,7 +32,8 @@ export default function VideoCard({ video, isActive, index }) {
   const [showComments, setShowComments] = useState(false);
 
   const isSelf = user?.uid === video.userId;
-  const isVideo = video.mediaType !== 'image';
+  const isVideo = video.mediaType === 'video';
+  const isCarousel = video.mediaType === 'carousel';
 
   useEffect(() => {
     if (user?.uid && video.userId) {
@@ -119,6 +122,27 @@ export default function VideoCard({ video, isActive, index }) {
     if (videoRef.current) videoRef.current.muted = !isMuted;
   };
 
+  const handleCarouselScroll = (e) => {
+    const scrollLeft = e.target.scrollLeft;
+    const width = e.target.clientWidth;
+    if (width > 0) {
+      const newIndex = Math.round(scrollLeft / width);
+      if (newIndex !== currentCarouselIndex) {
+        setCurrentCarouselIndex(newIndex);
+      }
+    }
+  };
+
+  const scrollCarousel = (direction) => {
+    const el = carouselRef.current;
+    if (!el) return;
+    const width = el.clientWidth;
+    el.scrollBy({
+      left: direction === 'next' ? width : -width,
+      behavior: 'smooth',
+    });
+  };
+
   const handleStartPress = (e) => {
     setIsLongPressing(false);
     longPressTimer.current = setTimeout(() => {
@@ -160,12 +184,52 @@ export default function VideoCard({ video, isActive, index }) {
           preload={isActive ? 'auto' : 'metadata'}
           onTimeUpdate={handleTimeUpdate}
         />
+      ) : isCarousel ? (
+        <div 
+          ref={carouselRef}
+          style={styles.carouselContainer} 
+          onScroll={handleCarouselScroll}
+        >
+          {(video.carouselUrls || []).map((url, idx) => (
+            <div key={idx} style={styles.carouselSlide}>
+              <img src={url} alt={`${video.caption || ''} - Slide ${idx + 1}`} style={styles.media} />
+            </div>
+          ))}
+        </div>
       ) : (
         <img
           src={video.videoUrl}
           alt={video.caption || ''}
           style={styles.media}
         />
+      )}
+
+      {/* Carousel Dots / Page Indicator */}
+      {isCarousel && video.carouselUrls && video.carouselUrls.length > 1 && (
+        <div style={styles.dotsContainer}>
+          {video.carouselUrls.map((_, idx) => (
+            <div
+              key={idx}
+              style={{
+                ...styles.dot,
+                background: currentCarouselIndex === idx ? '#00D4FF' : 'rgba(255,255,255,0.4)',
+                transform: currentCarouselIndex === idx ? 'scale(1.2)' : 'scale(1)',
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Carousel Arrow Navigation for Desktop */}
+      {isCarousel && currentCarouselIndex > 0 && (
+        <button style={styles.carouselArrowLeft} onClick={(e) => { e.stopPropagation(); scrollCarousel('prev'); }}>
+          <ChevronLeft size={20} color="#fff" />
+        </button>
+      )}
+      {isCarousel && video.carouselUrls && currentCarouselIndex < video.carouselUrls.length - 1 && (
+        <button style={styles.carouselArrowRight} onClick={(e) => { e.stopPropagation(); scrollCarousel('next'); }}>
+          <ChevronRight size={20} color="#fff" />
+        </button>
       )}
 
       {/* Gradient overlays */}
@@ -368,6 +432,73 @@ const styles = {
     height: '100%',
     objectFit: 'contain',
     background: '#000',
+  },
+  carouselContainer: {
+    display: 'flex',
+    width: '100%',
+    height: '100%',
+    overflowX: 'auto',
+    scrollSnapType: 'x mandatory',
+    scrollbarWidth: 'none',
+    msOverflowStyle: 'none',
+    WebkitOverflowScrolling: 'touch',
+  },
+  carouselSlide: {
+    width: '100%',
+    height: '100%',
+    flexShrink: 0,
+    scrollSnapAlign: 'start',
+  },
+  dotsContainer: {
+    position: 'absolute',
+    bottom: '120px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    gap: '6px',
+    zIndex: 10,
+    background: 'rgba(0,0,0,0.3)',
+    padding: '6px 10px',
+    borderRadius: '12px',
+    backdropFilter: 'blur(8px)',
+  },
+  dot: {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    transition: 'all 0.2s ease',
+  },
+  carouselArrowLeft: {
+    position: 'absolute',
+    left: '16px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    width: '36px',
+    height: '36px',
+    borderRadius: '50%',
+    background: 'rgba(0,0,0,0.5)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    zIndex: 10,
+  },
+  carouselArrowRight: {
+    position: 'absolute',
+    right: '16px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    width: '36px',
+    height: '36px',
+    borderRadius: '50%',
+    background: 'rgba(0,0,0,0.5)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    zIndex: 10,
   },
   gradientTop: {
     position: 'absolute',

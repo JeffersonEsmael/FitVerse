@@ -274,6 +274,7 @@ export const useFeedStore = create(
           id: v.id,
           videoUrl: v.video_url,
           mediaType: v.media_type || 'video',
+          carouselUrls: v.carousel_urls || [],
           userId: v.user_id,
           username: userProfile?.username || v.username,
           userAvatar: userProfile?.avatar_url || v.user_avatar || '',
@@ -391,6 +392,7 @@ export const useFeedStore = create(
           id: v.id,
           videoUrl: v.video_url,
           mediaType: v.media_type || 'video',
+          carouselUrls: v.carousel_urls || [],
           userId: v.user_id,
           username: userProfile?.username || v.username,
           userAvatar: userProfile?.avatar_url || v.user_avatar || '',
@@ -526,6 +528,7 @@ export const useFeedStore = create(
           id: v.id,
           videoUrl: v.video_url,
           mediaType: v.media_type || 'video',
+          carouselUrls: v.carousel_urls || [],
           userId: v.user_id,
           username: userProfile?.username || v.username,
           userAvatar: userProfile?.avatar_url || v.user_avatar || '',
@@ -551,9 +554,7 @@ export const useFeedStore = create(
     }
   },
 
-  // ─── Create post — runs in background after navigation ───
-  // Call this AFTER navigating to feed. It shows a progress banner.
-  createPost: async (file, metadata) => {
+  createPost: async (fileOrFiles, metadata) => {
     // Validate inputs upfront
     if (!metadata?.userId) {
       console.error('[Feed] createPost: userId is missing.');
@@ -570,90 +571,153 @@ export const useFeedStore = create(
       return { success: false, error: 'Sessão expirada. Faça login novamente.' };
     }
 
+    const isCarousel = Array.isArray(fileOrFiles);
+    const isVideo = !isCarousel && fileOrFiles.type.startsWith('video');
+    const mediaType = isCarousel ? 'carousel' : (isVideo ? 'video' : 'image');
+
     // Show upload banner
     set({
       uploadingPost: {
         progress: 5,
-        mediaType: file.type.startsWith('video') ? 'video' : 'image',
+        mediaType,
         caption: metadata.caption || '',
-        statusText: file.type.startsWith('video') ? '🎥 Inicializando...' : '📷 Otimizando imagem...'
+        statusText: isCarousel
+          ? `📷 Otimizando imagens (0/${fileOrFiles.length})...`
+          : (isVideo ? '🎥 Inicializando...' : '📷 Otimizando imagem...')
       },
       uploadError: null,
     });
 
     try {
-      const isVideo = file.type.startsWith('video');
-      const mediaType = isVideo ? 'video' : 'image';
-      const bucketName = isVideo ? 'videos' : 'posts';
+      let publicUrls = [];
+      let coverUrl = '';
 
-      let finalFile = file;
-      if (isVideo) {
-        if (file.size > 2 * 1024 * 1024) {
+      if (isCarousel) {
+        const total = fileOrFiles.length;
+        
+        for (let i = 0; i < total; i++) {
+          const currentFile = fileOrFiles[i];
+          set((s) => ({
+            uploadingPost: s.uploadingPost
+              ? {
+                  ...s.uploadingPost,
+                  progress: Math.round(5 + (i / total) * 30),
+                  statusText: `📷 Otimizando imagem ${i + 1}/${total}...`
+                }
+              : null
+          }));
+
+          let finalFile = currentFile;
           try {
-            const { compressVideo } = await import('../utils/compression');
-            finalFile = await compressVideo(file, {
-              onProgress: (pct) => {
-                // Map transcoding progress (0-100%) to banner progress (5-50%)
-                const progress = Math.round(5 + (pct * 45) / 100);
-                set((s) => ({
-                  uploadingPost: s.uploadingPost
-                    ? {
-                        ...s.uploadingPost,
-                        progress,
-                        statusText: `🎥 Otimizando vídeo para publicação (${pct}%)...`
-                      }
-                    : null
-                }));
-              }
-            });
+            const { compressImage } = await import('../utils/compression');
+            finalFile = await compressImage(currentFile, { maxWidth: 900, maxHeight: 900, quality: 0.7 });
           } catch (compErr) {
-            console.warn('[Feed] Video compression failed, using original file:', compErr);
+            console.warn(`[Feed] Image compression failed for item ${i}, using original:`, compErr);
+          }
+
+          const fileExt = finalFile.name ? finalFile.name.split('.').pop().toLowerCase() : 'jpg';
+          const fileName = `${metadata.userId}/${Date.now()}_carousel_${i}.${fileExt}`;
+
+          set((s) => ({
+            uploadingPost: s.uploadingPost
+              ? {
+                  ...s.uploadingPost,
+                  progress: Math.round(35 + (i / total) * 45),
+                  statusText: `📤 Enviando imagem ${i + 1}/${total}...`
+                }
+              : null
+          }));
+
+          const { error: uploadError } = await supabase.storage
+            .from('posts')
+            .upload(fileName, finalFile, {
+              contentType: finalFile.type,
+              cacheControl: '86400',
+              upsert: false,
+            });
+
+          if (uploadError) {
+            console.error(`[Feed] Storage upload error on item ${i}:`, uploadError);
+            throw new Error(uploadError.message);
+          }
+
+          const { data: urlData } = supabase.storage.from('posts').getPublicUrl(fileName);
+          if (!urlData?.publicUrl) throw new Error(`Falha ao obter URL para a imagem ${i + 1}`);
+
+          publicUrls.push(urlData.publicUrl);
+        }
+
+        coverUrl = publicUrls[0];
+      } else {
+        const bucketName = isVideo ? 'videos' : 'posts';
+
+        let finalFile = fileOrFiles;
+        if (isVideo) {
+          if (fileOrFiles.size > 2 * 1024 * 1024) {
+            try {
+              const { compressVideo } = await import('../utils/compression');
+              finalFile = await compressVideo(fileOrFiles, {
+                onProgress: (pct) => {
+                  const progress = Math.round(5 + (pct * 45) / 100);
+                  set((s) => ({
+                    uploadingPost: s.uploadingPost
+                      ? {
+                          ...s.uploadingPost,
+                          progress,
+                          statusText: `🎥 Otimizando vídeo para publicação (${pct}%)...`
+                        }
+                      : null
+                  }));
+                }
+              });
+            } catch (compErr) {
+              console.warn('[Feed] Video compression failed, using original file:', compErr);
+            }
+          }
+        } else {
+          try {
+            const { compressImage } = await import('../utils/compression');
+            finalFile = await compressImage(fileOrFiles, { maxWidth: 900, maxHeight: 900, quality: 0.7 });
+          } catch (compErr) {
+            console.warn('[Feed] Image compression failed, using original file:', compErr);
           }
         }
-      } else {
-        try {
-          const { compressImage } = await import('../utils/compression');
-          finalFile = await compressImage(file, { maxWidth: 900, maxHeight: 900, quality: 0.7 });
-        } catch (compErr) {
-          console.warn('[Feed] Image compression failed, using original file:', compErr);
+
+        const fileExt = finalFile.name ? finalFile.name.split('.').pop().toLowerCase() : (isVideo ? 'webm' : 'jpg');
+        const fileName = `${metadata.userId}/${Date.now()}.${fileExt}`;
+
+        console.log(`[Feed] Uploading ${mediaType} → bucket '${bucketName}': ${fileName}`);
+        set((s) => ({
+          uploadingPost: s.uploadingPost
+            ? { ...s.uploadingPost, progress: 50, statusText: '🎥 Enviando para o servidor...' }
+            : null
+        }));
+
+        const { error: uploadError } = await supabase.storage
+          .from(bucketName)
+          .upload(fileName, finalFile, {
+            contentType: finalFile.type,
+            cacheControl: '86400',
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error('[Feed] Storage upload error:', uploadError);
+          throw new Error(uploadError.message);
         }
+
+        set((s) => ({
+          uploadingPost: s.uploadingPost
+            ? { ...s.uploadingPost, progress: 75, statusText: '🎥 Processando URL pública...' }
+            : null
+        }));
+
+        const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
+        coverUrl = urlData?.publicUrl;
+        if (!coverUrl) throw new Error('Não foi possível obter a URL pública do arquivo.');
       }
 
-      const fileExt = finalFile.name ? finalFile.name.split('.').pop().toLowerCase() : (isVideo ? 'webm' : 'jpg');
-      const fileName = `${metadata.userId}/${Date.now()}.${fileExt}`;
-
-      console.log(`[Feed] Uploading ${mediaType} → bucket '${bucketName}': ${fileName}`);
-      set((s) => ({
-        uploadingPost: s.uploadingPost
-          ? { ...s.uploadingPost, progress: 50, statusText: '🎥 Enviando para o servidor...' }
-          : null
-      }));
-
-      const { error: uploadError } = await supabase.storage
-        .from(bucketName)
-        .upload(fileName, finalFile, {
-          contentType: finalFile.type,
-          cacheControl: '86400',
-          upsert: false,
-        });
-
-      if (uploadError) {
-        console.error('[Feed] Storage upload error:', uploadError);
-        throw new Error(uploadError.message);
-      }
-
-      set((s) => ({
-        uploadingPost: s.uploadingPost
-          ? { ...s.uploadingPost, progress: 75, statusText: '🎥 Processando URL pública...' }
-          : null
-      }));
-
-      // Get public URL (synchronous — no network call needed)
-      const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
-      const publicUrl = urlData?.publicUrl;
-      if (!publicUrl) throw new Error('Não foi possível obter a URL pública do arquivo.');
-
-      console.log('[Feed] File uploaded. URL:', publicUrl);
+      console.log('[Feed] Media uploaded. URL/Cover:', coverUrl);
       set((s) => ({
         uploadingPost: s.uploadingPost
           ? { ...s.uploadingPost, progress: 85, statusText: '🎥 Registrando publicação...' }
@@ -662,8 +726,9 @@ export const useFeedStore = create(
 
       // Insert post record
       const postData = {
-        video_url: publicUrl,
+        video_url: coverUrl,
         media_type: mediaType,
+        carousel_urls: isCarousel ? publicUrls : null,
         user_id: metadata.userId,
         username: metadata.username || 'user',
         user_avatar: metadata.userAvatar || '',
@@ -701,7 +766,6 @@ export const useFeedStore = create(
           .update({ total_videos: videoCount || 0 })
           .eq('id', metadata.userId);
 
-        // Dynamically import useAuthStore to prevent circular dependency
         const { useAuthStore } = await import('./authStore');
         useAuthStore.getState().refreshProfile();
       } catch (profileErr) {
@@ -717,8 +781,9 @@ export const useFeedStore = create(
       // Add to top of feed
       const newVideo = {
         id: insertedPost.id,
-        videoUrl: publicUrl,
+        videoUrl: coverUrl,
         mediaType,
+        carouselUrls: insertedPost.carousel_urls || [],
         userId: metadata.userId,
         username: metadata.username || 'user',
         userAvatar: metadata.userAvatar || '',
@@ -747,8 +812,6 @@ export const useFeedStore = create(
       set({ uploadingPost: null, uploadError: error.message });
       return { success: false, error: error.message };
     }
-    // Note: feed cache is invalidated by the setTimeout above adding the new video
-    // and will be refreshed on next fetchVideos call
   },
 
   fetchComments: async (videoId) => {

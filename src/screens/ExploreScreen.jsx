@@ -387,7 +387,7 @@ export default function ExploreScreen() {
                       whileTap={{ scale: 0.97 }}
                       onClick={() => navigate('post_details', { params: { post, allPosts: searchResults, startIndex: idx } })}
                     >
-                      {post.media_type === 'image' ? (
+                      {post.media_type === 'image' || post.media_type === 'carousel' ? (
                         <img src={post.video_url} alt="" style={styles.thumbMedia} />
                       ) : (
                         <video src={post.video_url} style={styles.thumbMedia} muted preload="metadata" />
