@@ -879,7 +879,7 @@ export default function ProfileScreen() {
               </div>
             </div>
 
-            <div className="profile-avatar-container">
+            <div style={styles.avatarContainerRight}>
               {/* Streak Badge */}
               {p.streak >= 3 && (
                 <div style={styles.streakBadge}>
@@ -3101,6 +3101,7 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     flexShrink: 0,
+    marginRight: '6px',
   },
   streakBadge: {
     position: 'absolute',
@@ -3120,12 +3121,17 @@ const styles = {
     fontFamily: "'Outfit', sans-serif",
   },
   masteryTitle: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    whiteSpace: 'nowrap',
     fontSize: '11px',
     fontWeight: '800',
     color: '#39FF14',
     background: 'rgba(57,255,20,0.1)',
     border: '1px solid rgba(57,255,20,0.2)',
-    padding: '2px 10px',
+    padding: '4px 12px',
     borderRadius: '10px',
     marginTop: '6px',
     textTransform: 'uppercase',
