@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Image as ImageIcon, Video, Hash, X, ChevronLeft, Send, Camera, Play, Square, Music, Volume2, ShieldAlert, Trophy, PlusCircle } from 'lucide-react';
+import { Upload, Image as ImageIcon, Video, Hash, X, ChevronLeft, ChevronRight, Send, Camera, Play, Square, Music, Volume2, ShieldAlert, Trophy, PlusCircle } from 'lucide-react';
 import { useFeedStore } from '../stores/feedStore';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -19,7 +19,7 @@ const MOCK_TRACKS = [
 
 export default function CreatePostScreen() {
   const screenParams = useNavigationStore((s) => s.screenParams);
-  const [creationType, setCreationType] = useState(null); // null | 'post' | 'challenge'
+  const [creationType, setCreationType] = useState(null); // null | 'video' | 'photo' | 'challenge'
 
   // Challenge creation states
   const [challengeTitle, setChallengeTitle] = useState('');
@@ -35,10 +35,9 @@ export default function CreatePostScreen() {
   const { addChallenge } = useRankingStore();
 
   useEffect(() => {
+    resetMediaStates();
     if (screenParams?.type === 'challenge') {
       setCreationType('challenge');
-    } else if (screenParams?.type === 'post') {
-      setCreationType('post');
     } else {
       setCreationType(null); // Show selection screen
     }
@@ -110,6 +109,7 @@ export default function CreatePostScreen() {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
 
   const fileRef = useRef(null);
+  const previewCarouselRef = useRef(null);
   const videoPreviewRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
@@ -251,6 +251,51 @@ export default function CreatePostScreen() {
     }
   };
 
+  const resetMediaStates = () => {
+    setFile(null);
+    setPreview(null);
+    setFiles([]);
+    setPreviews([]);
+    setMediaType(null);
+    setActivePreviewIndex(0);
+    setCaption('');
+    setHashtags([]);
+    setSelectedTrack(null);
+    stopCamera();
+  };
+
+  const scrollToPreviewIndex = (idx) => {
+    setActivePreviewIndex(idx);
+    const el = previewCarouselRef.current;
+    if (!el) return;
+    const width = el.clientWidth;
+    el.scrollTo({
+      left: idx * width,
+      behavior: 'smooth',
+    });
+  };
+
+  const handlePreviewCarouselScroll = (e) => {
+    const scrollLeft = e.target.scrollLeft;
+    const width = e.target.clientWidth;
+    if (width > 0) {
+      const newIndex = Math.round(scrollLeft / width);
+      if (newIndex !== activePreviewIndex) {
+        setActivePreviewIndex(newIndex);
+      }
+    }
+  };
+
+  const scrollPreviewCarousel = (direction) => {
+    const el = previewCarouselRef.current;
+    if (!el) return;
+    const width = el.clientWidth;
+    el.scrollBy({
+      left: direction === 'next' ? width : -width,
+      behavior: 'smooth',
+    });
+  };
+
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files || []);
     if (selectedFiles.length === 0) return;
@@ -387,13 +432,32 @@ export default function CreatePostScreen() {
               style={styles.selectionCard}
               whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.04)' }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setCreationType('post')}
+              onClick={() => {
+                setCreationType('video');
+                setMode('camera');
+              }}
             >
               <div style={{ ...styles.selectionIconBg, background: 'linear-gradient(135deg, #00D4FF, #0056FF)' }}>
                 <Video size={32} color="#fff" />
               </div>
-              <h3 style={styles.selectionCardTitle}>Publicar Vídeo / Post</h3>
-              <p style={styles.selectionCardDesc}>Grave ou carregue fotos e vídeos de treinos com música de fundo e categorias.</p>
+              <h3 style={styles.selectionCardTitle}>Publicar Vídeo</h3>
+              <p style={styles.selectionCardDesc}>Grave com a câmera ou carregue vídeos de treinos da galeria.</p>
+            </motion.button>
+
+            <motion.button
+              style={styles.selectionCard}
+              whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.04)' }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                setCreationType('photo');
+                setMode('gallery');
+              }}
+            >
+              <div style={{ ...styles.selectionIconBg, background: 'linear-gradient(135deg, #A855F7, #6366F1)' }}>
+                <ImageIcon size={32} color="#fff" />
+              </div>
+              <h3 style={styles.selectionCardTitle}>Post / Carrossel</h3>
+              <p style={styles.selectionCardDesc}>Faça upload de fotos para criar posts de imagem única ou carrossel.</p>
             </motion.button>
 
             <motion.button
@@ -563,10 +627,10 @@ export default function CreatePostScreen() {
         <div style={styles.container}>
           {/* Header */}
           <div style={styles.header}>
-            <button style={styles.backBtn} onClick={() => setCreationType(null)}>
+            <button style={styles.backBtn} onClick={() => { resetMediaStates(); setCreationType(null); }}>
               <ChevronLeft size={24} color="#fff" />
             </button>
-            <h2 style={styles.title}>Novo Post</h2>
+            <h2 style={styles.title}>{creationType === 'photo' ? 'Post / Carrossel' : 'Publicar Vídeo'}</h2>
             <motion.button
               style={{ ...styles.postBtn, opacity: file ? 1 : 0.4 }}
               onClick={handlePost}
@@ -597,7 +661,7 @@ export default function CreatePostScreen() {
           )}
 
           {/* Segmented Mode Selector */}
-          {!preview && (
+          {!preview && creationType === 'video' && (
             <div style={styles.modeTabs}>
               <button
                 style={{ ...styles.modeTab, ...(mode === 'camera' ? styles.modeTabActive : {}) }}
@@ -621,19 +685,52 @@ export default function CreatePostScreen() {
               <div style={{ ...styles.previewWrap, aspectRatio, marginBottom: 0 }}>
                 {mediaType === 'video' ? (
                   <video src={preview} style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} controls playsInline />
+                ) : mediaType === 'carousel' ? (
+                  <div
+                    ref={previewCarouselRef}
+                    style={styles.carouselContainer}
+                    onScroll={handlePreviewCarouselScroll}
+                  >
+                    {previews.map((prevUrl, idx) => (
+                      <div key={idx} style={styles.carouselSlide}>
+                        <img src={prevUrl} alt={`Preview Slide ${idx + 1}`} style={styles.previewMedia} />
+                      </div>
+                    ))}
+                  </div>
                 ) : (
-                  <img src={mediaType === 'carousel' ? previews[activePreviewIndex] : preview} alt="Preview" style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} />
+                  <img src={preview} alt="Preview" style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} />
                 )}
+
+                {/* Carousel indicators and arrows */}
+                {mediaType === 'carousel' && previews.length > 1 && (
+                  <div style={styles.dotsContainerPreview}>
+                    {previews.map((_, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          ...styles.dotPreview,
+                          background: activePreviewIndex === idx ? '#00D4FF' : 'rgba(255,255,255,0.4)',
+                          transform: activePreviewIndex === idx ? 'scale(1.2)' : 'scale(1)',
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {mediaType === 'carousel' && activePreviewIndex > 0 && (
+                  <button style={styles.carouselArrowLeftPreview} onClick={(e) => { e.stopPropagation(); scrollPreviewCarousel('prev'); }}>
+                    <ChevronLeft size={16} color="#fff" />
+                  </button>
+                )}
+                {mediaType === 'carousel' && previews && activePreviewIndex < previews.length - 1 && (
+                  <button style={styles.carouselArrowRightPreview} onClick={(e) => { e.stopPropagation(); scrollPreviewCarousel('next'); }}>
+                    <ChevronRight size={16} color="#fff" />
+                  </button>
+                )}
+
                 <button
                   style={styles.removeBtn}
-                  onClick={() => {
-                    setFile(null);
-                    setPreview(null);
-                    setFiles([]);
-                    setPreviews([]);
-                    setMediaType(null);
-                    setActivePreviewIndex(0);
-                  }}
+                  onClick={resetMediaStates}
                 >
                   <X size={18} color="#fff" />
                 </button>
@@ -661,7 +758,7 @@ export default function CreatePostScreen() {
                         ...styles.thumbnailItem,
                         border: activePreviewIndex === idx ? '2px solid #00D4FF' : '1px solid rgba(255,255,255,0.1)',
                       }}
-                      onClick={() => setActivePreviewIndex(idx)}
+                      onClick={() => scrollToPreviewIndex(idx)}
                     >
                       <img src={prevUrl} alt={`Thumbnail ${idx + 1}`} style={styles.thumbnailImg} />
                       <button
@@ -775,16 +872,14 @@ export default function CreatePostScreen() {
               whileTap={{ scale: 0.98 }}
             >
               <Upload size={40} color="#00D4FF" />
-              <span style={styles.uploadTitle}>Selecionar da Galeria</span>
-              <span style={styles.uploadDesc}>Fotos ou Vídeos • JPG, PNG, MP4, MOV</span>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*,video/*"
-                multiple
-                onChange={handleFileSelect}
-                style={{ display: 'none' }}
-              />
+              <span style={styles.uploadTitle}>
+                {creationType === 'photo' ? 'Selecionar Fotos' : 'Selecionar Vídeo'}
+              </span>
+              <span style={styles.uploadDesc}>
+                {creationType === 'photo'
+                  ? 'Imagens • JPG, PNG, WEBP (Máx. 10)'
+                  : 'Vídeo • MP4, MOV, WEBM'}
+              </span>
             </motion.div>
           )}
 
@@ -910,6 +1005,15 @@ export default function CreatePostScreen() {
               </>
             )}
           </AnimatePresence>
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept={creationType === 'video' ? 'video/*' : 'image/*'}
+            multiple={creationType === 'photo'}
+            onChange={handleFileSelect}
+            style={{ display: 'none' }}
+          />
         </div>
       )}
     </ScreenWrapper>
@@ -1004,4 +1108,70 @@ const styles = {
   colorSelectorRow: { display: 'flex', gap: '10px', flexWrap: 'wrap' },
   colorBtn: { width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', transition: 'all 0.2s', border: 'none' },
   submitBtn: { width: '100%', padding: '16px', borderRadius: '14px', border: 'none', fontSize: '16px', fontWeight: 800, cursor: 'pointer', fontFamily: "'Outfit', sans-serif", marginTop: '8px' },
+  carouselContainer: {
+    display: 'flex',
+    width: '100%',
+    height: '100%',
+    overflowX: 'auto',
+    scrollSnapType: 'x mandatory',
+    scrollbarWidth: 'none',
+    msOverflowStyle: 'none',
+    WebkitOverflowScrolling: 'touch',
+  },
+  carouselSlide: {
+    width: '100%',
+    height: '100%',
+    flexShrink: 0,
+    scrollSnapAlign: 'start',
+  },
+  dotsContainerPreview: {
+    position: 'absolute',
+    bottom: '12px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    gap: '6px',
+    zIndex: 10,
+    background: 'rgba(0,0,0,0.3)',
+    padding: '4px 8px',
+    borderRadius: '10px',
+  },
+  dotPreview: {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    transition: 'all 0.2s ease',
+  },
+  carouselArrowLeftPreview: {
+    position: 'absolute',
+    left: '10px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    width: '28px',
+    height: '28px',
+    borderRadius: '50%',
+    background: 'rgba(0,0,0,0.5)',
+    border: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    zIndex: 10,
+  },
+  carouselArrowRightPreview: {
+    position: 'absolute',
+    right: '10px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    width: '28px',
+    height: '28px',
+    borderRadius: '50%',
+    background: 'rgba(0,0,0,0.5)',
+    border: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    zIndex: 10,
+  },
 };
