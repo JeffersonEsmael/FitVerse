@@ -144,6 +144,12 @@ export const useAuthStore = create(
           console.error('[Auth] Failed to create profile:', createError.message);
           return { ...defaultProfile, id: uid, display_name: displayName, username };
         }
+        try {
+          const { cacheSet, CACHE_KEYS } = await import('../utils/localCache');
+          cacheSet(CACHE_KEYS.publicProfile(uid), created, 15);
+        } catch (e) {
+          console.warn('[Auth] Failed to cache profile:', e);
+        }
         return created;
       }
 
@@ -158,6 +164,12 @@ export const useAuthStore = create(
         return { ...defaultProfile, id: uid, display_name: displayName, username };
       }
 
+      try {
+        const { cacheSet, CACHE_KEYS } = await import('../utils/localCache');
+        cacheSet(CACHE_KEYS.publicProfile(uid), data, 15);
+      } catch (e) {
+        console.warn('[Auth] Failed to cache profile:', e);
+      }
       return data;
     } catch (err) {
       console.error('[Auth] _fetchOrCreateProfile exception:', err.message);
@@ -228,6 +240,8 @@ export const useAuthStore = create(
   logout: async () => {
     try {
       await supabase.auth.signOut();
+      const { cacheClearAll } = await import('../utils/localCache');
+      cacheClearAll();
     } catch (error) {
       console.error('[Auth] Logout error:', error.message);
     }
@@ -266,6 +280,15 @@ export const useAuthStore = create(
       }
 
       console.log('[Auth] Profile updated successfully in DB.');
+
+      try {
+        const { cacheSet, CACHE_KEYS } = await import('../utils/localCache');
+        const updatedProfile = { ...get().profile };
+        cacheSet(CACHE_KEYS.publicProfile(user.uid), updatedProfile, 15);
+      } catch (e) {
+        console.warn('[Auth] Failed to cache updated profile:', e);
+      }
+
       return { success: true };
     } catch (error) {
       console.error('[Auth] updateProfile exception:', error.message);

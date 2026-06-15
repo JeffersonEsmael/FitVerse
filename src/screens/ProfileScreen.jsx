@@ -1262,7 +1262,7 @@ export default function ProfileScreen() {
         )}
 
         {/* Content - Série */}
-        {activeProfileTab === 'serie' && (
+        {activeProfileTab === 'serie' && p.profile_type !== 'business' && (
           <div style={workoutStyles.container}>
             {seriesList.length === 0 ? (
               <div style={workoutStyles.emptyState}>

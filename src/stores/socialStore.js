@@ -246,10 +246,12 @@ export const useSocialStore = create((set, get) => ({
   clearSearch: () => set({ searchResults: [] }),
 
   // Fetch Public Profile (cached)
-  fetchPublicProfile: async (userId) => {
+  fetchPublicProfile: async (userId, ignoreCache = false) => {
     // Check cache first
-    const cached = cacheGet(CACHE_KEYS.publicProfile(userId));
-    if (cached) return cached;
+    if (!ignoreCache) {
+      const cached = cacheGet(CACHE_KEYS.publicProfile(userId));
+      if (cached) return cached;
+    }
 
     try {
       const { data, error } = await supabase

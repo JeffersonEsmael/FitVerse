@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, Trophy, Flame, Target, Dumbbell, Zap, Star, Plus, Check, X, Play, Copy, Info, MapPin, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
+import { cacheGet, CACHE_KEYS } from '../utils/localCache';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useFeedStore } from '../stores/feedStore';
 import { useSocialStore } from '../stores/socialStore';
@@ -383,16 +384,81 @@ export default function PublicProfileScreen() {
     }
 
     const loadData = async () => {
-      setIsLoading(true);
-      const [profData, postsData, followingStatus] = await Promise.all([
-        fetchPublicProfile(userId),
-        fetchUserPosts(userId),
-        checkIfFollowing(user?.uid, userId)
-      ]);
-      
-      // Fetch public active workout series
-      let activeWS = null;
+      console.log('[PublicProfile] Loading data for userId:', userId);
+      // 1. Optimistic UI: try loading from cache first
+      const cachedProf = cacheGet(CACHE_KEYS.publicProfile(userId));
+      console.log('[PublicProfile] Cached profile:', cachedProf);
+      if (cachedProf) {
+        setProfile(cachedProf);
+        setIsLoading(false);
+        if (cachedProf.profile_type === 'business') {
+          fetchBusinessFeedbacks(userId);
+        }
+      } else {
+        setIsLoading(true);
+      }
+
+      // 2. Fetch fresh profile data in background/foreground (ignoring cache)
+      let profData = null;
       try {
+        profData = await fetchPublicProfile(userId, true);
+        console.log('[PublicProfile] Fresh profile data fetched:', profData);
+        
+        if (profData) {
+          // Secondary dynamic counts fetch to bypass RLS column update lags
+          let followersCount = profData.followers || 0;
+          let followingCount = profData.following || 0;
+          
+          try {
+            const { count: fCount } = await supabase
+              .from('followers')
+              .select('*', { count: 'exact', head: true })
+              .eq('following_id', userId);
+            if (fCount !== null) followersCount = fCount;
+
+            const { count: fingCount } = await supabase
+              .from('followers')
+              .select('*', { count: 'exact', head: true })
+              .eq('follower_id', userId);
+            if (fingCount !== null) followingCount = fingCount;
+          } catch (err) {
+            console.warn('Error fetching dynamic followers/following counts:', err);
+          }
+
+          setProfile({
+            ...profData,
+            followers: followersCount,
+            following: followingCount
+          });
+          
+          if (profData.profile_type === 'business') {
+            fetchBusinessFeedbacks(userId);
+          }
+        }
+      } catch (profErr) {
+        console.error('[PublicProfile] Error fetching profile:', profErr);
+      }
+
+      // 3. Fetch other data in parallel/independently
+      try {
+        const postsData = await fetchUserPosts(userId);
+        if (postsData) {
+          setUserPosts(postsData);
+        }
+      } catch (postsErr) {
+        console.error('[PublicProfile] Error fetching posts:', postsErr);
+      }
+
+      try {
+        const followingStatus = await checkIfFollowing(user?.uid, userId);
+        setIsFollowing(followingStatus);
+      } catch (followErr) {
+        console.error('[PublicProfile] Error checking following status:', followErr);
+      }
+
+      try {
+        // Fetch public active workout series
+        let activeWS = null;
         const { data: wsData } = await supabase
           .from('workout_series')
           .select('*')
@@ -434,57 +500,26 @@ export default function PublicProfileScreen() {
             };
           }
         }
+        setActiveWorkoutSeries(activeWS);
       } catch (wsErr) {
-        console.warn('Error loading public active workout series:', wsErr);
-      }
-      
-      // Secondary dynamic counts fetch to bypass RLS column update lags
-      let followersCount = profData?.followers || 0;
-      let followingCount = profData?.following || 0;
-      
-      try {
-        const { count: fCount } = await supabase
-          .from('followers')
-          .select('*', { count: 'exact', head: true })
-          .eq('following_id', userId);
-        if (fCount !== null) followersCount = fCount;
-
-        const { count: fingCount } = await supabase
-          .from('followers')
-          .select('*', { count: 'exact', head: true })
-          .eq('follower_id', userId);
-        if (fingCount !== null) followingCount = fingCount;
-      } catch (err) {
-        console.warn('Error fetching dynamic followers/following counts:', err);
+        console.warn('[PublicProfile] Error loading active workout series:', wsErr);
       }
 
       // Fetch public gym bag saves
-      let gymBagData = [];
       try {
         const { data } = await supabase
           .from('video_interactions')
           .select('video_id')
           .eq('user_id', userId)
           .eq('interaction_type', 'gym_bag');
-        if (data) gymBagData = data;
+        if (data) {
+          setGymBagVideos(data);
+        }
       } catch (err) {
-        console.warn('Error fetching gym bag interactions:', err);
+        console.warn('[PublicProfile] Error fetching gym bag interactions:', err);
       }
 
-      setProfile({
-        ...profData,
-        followers: followersCount,
-        following: followingCount
-      });
-      setUserPosts(postsData);
-      setGymBagVideos(gymBagData);
-      setIsFollowing(followingStatus);
-      setActiveWorkoutSeries(activeWS);
       setIsLoading(false);
-
-      if (profData?.profile_type === 'business') {
-        fetchBusinessFeedbacks(userId);
-      }
     };
 
     loadData();
@@ -871,7 +906,7 @@ export default function PublicProfileScreen() {
             <ChevronLeft size={28} color="#fff" />
           </button>
           <h2 style={{ ...styles.title, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {profile.username}
+            {profile.username} ({profile.profile_type || 'none'})
             {(profile.username?.toLowerCase() === 'flowrise' || profile.username?.toLowerCase() === 'flowride') && (
               <img src={verifiedBadgeImg} alt="verificado" style={{ width: '18px', height: '18px', marginLeft: '6px', objectFit: 'contain', flexShrink: 0 }} />
             )}
@@ -1317,7 +1352,7 @@ export default function PublicProfileScreen() {
         )}
 
         {/* Content - Série (Read-only) */}
-        {activeTab === 'serie' && (
+        {activeTab === 'serie' && profile?.profile_type !== 'business' && (
           <div style={workoutStyles.container}>
             {!activeWorkoutSeries ? (
               <div style={workoutStyles.emptyState}>
