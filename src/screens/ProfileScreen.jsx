@@ -408,6 +408,18 @@ export default function ProfileScreen() {
   const [tempExerciseWeight, setTempExerciseWeight] = useState(0);
   const [activePresetGroup, setActivePresetGroup] = useState('Peito');
 
+  const updateExerciseField = (index, field, value) => {
+    const updated = [...seriesModalExercises];
+    if (updated[index]) {
+      updated[index] = {
+        ...updated[index],
+        [field]: value
+      };
+      setSeriesModalExercises(updated);
+    }
+  };
+
+
 
 
   const [showMedalsModal, setShowMedalsModal] = useState(false);
@@ -2062,7 +2074,7 @@ export default function ProfileScreen() {
                   <X size={20} color="#fff" />
                 </button>
               </div>
-              <div style={{ ...modalStyles.modalScrollBody, display: 'flex', flexDirection: 'column', gap: '14px', padding: '16px 0' }}>
+              <div className="hide-scrollbar" style={{ ...modalStyles.modalScrollBody, display: 'flex', flexDirection: 'column', gap: '14px', padding: '16px 0' }}>
                 <div style={modalStyles.checkInField}>
                   <label style={modalStyles.checkInLabel}>Nome da Série</label>
                   <input
@@ -2190,9 +2202,9 @@ export default function ProfileScreen() {
                                   const newEx = {
                                     id: `ex_new_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
                                     name: preset,
-                                    sets: tempExerciseSets || 4,
-                                    reps: tempExerciseReps || '10',
-                                    weight: tempExerciseWeight || 10,
+                                    sets: 4,
+                                    reps: '10',
+                                    weight: 0,
                                     done_today: false
                                   };
                                   setSeriesModalExercises([...seriesModalExercises, newEx]);
@@ -2203,37 +2215,6 @@ export default function ProfileScreen() {
                             </button>
                           );
                         })}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Séries</span>
-                        <input
-                          type="number"
-                          min={1}
-                          value={tempExerciseSets}
-                          onChange={(e) => setTempExerciseSets(Math.max(1, parseInt(e.target.value) || 4))}
-                          style={modalStyles.checkInInput}
-                        />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Reps</span>
-                        <input
-                          type="text"
-                          value={tempExerciseReps}
-                          onChange={(e) => setTempExerciseReps(e.target.value)}
-                          style={modalStyles.checkInInput}
-                        />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Carga (kg)</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={tempExerciseWeight}
-                          onChange={(e) => setTempExerciseWeight(Math.max(0, parseFloat(e.target.value) || 0))}
-                          style={modalStyles.checkInInput}
-                        />
                       </div>
                     </div>
                     <button
@@ -2257,9 +2238,9 @@ export default function ProfileScreen() {
                         const newEx = {
                           id: `ex_new_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
                           name: tempExerciseName,
-                          sets: tempExerciseSets,
-                          reps: tempExerciseReps,
-                          weight: tempExerciseWeight,
+                          sets: 4,
+                          reps: '10',
+                          weight: 0,
                           done_today: false
                         };
                         setSeriesModalExercises([...seriesModalExercises, newEx]);
@@ -2276,27 +2257,172 @@ export default function ProfileScreen() {
                   {seriesModalExercises.length === 0 ? (
                     <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Nenhum exercício adicionado ainda</span>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto' }}>
+                    <div className="hide-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto' }}>
                       {seriesModalExercises.map((ex, idx) => (
-                        <div key={ex.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: '8px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '13px', color: '#fff', fontWeight: 600 }}>{ex.name}</span>
-                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{ex.sets}x{ex.reps} • {ex.weight}kg</span>
+                        <div key={ex.id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '14px', color: '#fff', fontWeight: 700 }}>{ex.name}</span>
+                            <button
+                              type="button"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                              onClick={() => {
+                                setSeriesModalExercises(seriesModalExercises.filter((_, i) => i !== idx));
+                              }}
+                            >
+                              <X size={16} color="#FF2D55" />
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
-                            onClick={() => {
-                              setSeriesModalExercises(seriesModalExercises.filter((_, i) => i !== idx));
-                            }}
-                          >
-                            <X size={16} color="#FF2D55" />
-                          </button>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Séries</span>
+                              <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                                <button
+                                  type="button"
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#fff',
+                                    width: '24px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    userSelect: 'none'
+                                  }}
+                                  onClick={() => {
+                                    const currentVal = parseInt(ex.sets) || 1;
+                                    const newVal = Math.max(1, currentVal - 1);
+                                    updateExerciseField(idx, 'sets', newVal);
+                                  }}
+                                >
+                                  -
+                                </button>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  value={ex.sets === undefined || ex.sets === null ? '' : ex.sets}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '' || /^\d+$/.test(val)) {
+                                      updateExerciseField(idx, 'sets', val);
+                                    }
+                                  }}
+                                  onBlur={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (isNaN(val) || val <= 0) {
+                                      updateExerciseField(idx, 'sets', 1);
+                                    } else {
+                                      updateExerciseField(idx, 'sets', val);
+                                    }
+                                  }}
+                                  style={{
+                                    flex: 1,
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#fff',
+                                    textAlign: 'center',
+                                    fontSize: '13px',
+                                    fontFamily: "'Inter', sans-serif",
+                                    outline: 'none',
+                                    width: '100%',
+                                    padding: 0
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#fff',
+                                    width: '24px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    userSelect: 'none'
+                                  }}
+                                  onClick={() => {
+                                    const currentVal = parseInt(ex.sets) || 1;
+                                    const newVal = currentVal + 1;
+                                    updateExerciseField(idx, 'sets', newVal);
+                                  }}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Reps</span>
+                              <input
+                                type="text"
+                                value={ex.reps === undefined || ex.reps === null ? '' : ex.reps}
+                                onChange={(e) => {
+                                  updateExerciseField(idx, 'reps', e.target.value);
+                                }}
+                                onBlur={(e) => {
+                                  const val = e.target.value.trim();
+                                  if (val === '0' || val === '') {
+                                    updateExerciseField(idx, 'reps', '1');
+                                  }
+                                }}
+                                style={{
+                                  background: 'rgba(255,255,255,0.05)',
+                                  border: '1px solid rgba(255,255,255,0.08)',
+                                  borderRadius: '8px',
+                                  color: '#fff',
+                                  textAlign: 'center',
+                                  fontSize: '13px',
+                                  fontFamily: "'Inter', sans-serif",
+                                  outline: 'none',
+                                  height: '32px',
+                                  width: '100%',
+                                  boxSizing: 'border-box'
+                                }}
+                              />
+                            </div>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Carga (kg)</span>
+                              <input
+                                type="text"
+                                value={ex.weight === undefined || ex.weight === null ? '' : ex.weight}
+                                onChange={(e) => {
+                                  updateExerciseField(idx, 'weight', e.target.value);
+                                }}
+                                onBlur={(e) => {
+                                  const val = e.target.value.trim();
+                                  if (val === '0' || val === '') {
+                                    updateExerciseField(idx, 'weight', '1');
+                                  }
+                                }}
+                                style={{
+                                  background: 'rgba(255,255,255,0.05)',
+                                  border: '1px solid rgba(255,255,255,0.08)',
+                                  borderRadius: '8px',
+                                  color: '#fff',
+                                  textAlign: 'center',
+                                  fontSize: '13px',
+                                  fontFamily: "'Inter', sans-serif",
+                                  outline: 'none',
+                                  height: '32px',
+                                  width: '100%',
+                                  boxSizing: 'border-box'
+                                }}
+                              />
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
+
               </div>
               <motion.button
                 style={{ ...modalStyles.confirmBtn, background: '#39FF14', color: '#000', marginTop: '10px' }}
@@ -2346,7 +2472,7 @@ export default function ProfileScreen() {
                   <X size={20} color="#fff" />
                 </button>
               </div>
-              <div style={{ ...modalStyles.modalScrollBody, display: 'flex', flexDirection: 'column', gap: '14px', padding: '16px 0' }}>
+              <div className="hide-scrollbar" style={{ ...modalStyles.modalScrollBody, display: 'flex', flexDirection: 'column', gap: '14px', padding: '16px 0' }}>
                 <div style={modalStyles.checkInField}>
                   <label style={modalStyles.checkInLabel}>Nome da Série</label>
                   <input
@@ -2474,9 +2600,9 @@ export default function ProfileScreen() {
                                   const newEx = {
                                     id: `ex_new_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
                                     name: preset,
-                                    sets: tempExerciseSets || 4,
-                                    reps: tempExerciseReps || '10',
-                                    weight: tempExerciseWeight || 10,
+                                    sets: 4,
+                                    reps: '10',
+                                    weight: 0,
                                     done_today: false
                                   };
                                   setSeriesModalExercises([...seriesModalExercises, newEx]);
@@ -2487,37 +2613,6 @@ export default function ProfileScreen() {
                             </button>
                           );
                         })}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Séries</span>
-                        <input
-                          type="number"
-                          min={1}
-                          value={tempExerciseSets}
-                          onChange={(e) => setTempExerciseSets(Math.max(1, parseInt(e.target.value) || 4))}
-                          style={modalStyles.checkInInput}
-                        />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Reps</span>
-                        <input
-                          type="text"
-                          value={tempExerciseReps}
-                          onChange={(e) => setTempExerciseReps(e.target.value)}
-                          style={modalStyles.checkInInput}
-                        />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Carga (kg)</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={tempExerciseWeight}
-                          onChange={(e) => setTempExerciseWeight(Math.max(0, parseFloat(e.target.value) || 0))}
-                          style={modalStyles.checkInInput}
-                        />
                       </div>
                     </div>
                     <button
@@ -2541,9 +2636,9 @@ export default function ProfileScreen() {
                         const newEx = {
                           id: `ex_new_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
                           name: tempExerciseName,
-                          sets: tempExerciseSets,
-                          reps: tempExerciseReps,
-                          weight: tempExerciseWeight,
+                          sets: 4,
+                          reps: '10',
+                          weight: 0,
                           done_today: false
                         };
                         setSeriesModalExercises([...seriesModalExercises, newEx]);
@@ -2560,27 +2655,172 @@ export default function ProfileScreen() {
                   {seriesModalExercises.length === 0 ? (
                     <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Nenhum exercício nesta série</span>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto' }}>
+                    <div className="hide-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto' }}>
                       {seriesModalExercises.map((ex, idx) => (
-                        <div key={ex.id || idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: '8px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '13px', color: '#fff', fontWeight: 600 }}>{ex.name}</span>
-                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{ex.sets}x{ex.reps} • {ex.weight}kg</span>
+                        <div key={ex.id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '14px', color: '#fff', fontWeight: 700 }}>{ex.name}</span>
+                            <button
+                              type="button"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                              onClick={() => {
+                                setSeriesModalExercises(seriesModalExercises.filter((_, i) => i !== idx));
+                              }}
+                            >
+                              <X size={16} color="#FF2D55" />
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
-                            onClick={() => {
-                              setSeriesModalExercises(seriesModalExercises.filter((_, i) => i !== idx));
-                            }}
-                          >
-                            <X size={16} color="#FF2D55" />
-                          </button>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Séries</span>
+                              <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                                <button
+                                  type="button"
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#fff',
+                                    width: '24px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    userSelect: 'none'
+                                  }}
+                                  onClick={() => {
+                                    const currentVal = parseInt(ex.sets) || 1;
+                                    const newVal = Math.max(1, currentVal - 1);
+                                    updateExerciseField(idx, 'sets', newVal);
+                                  }}
+                                >
+                                  -
+                                </button>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  value={ex.sets === undefined || ex.sets === null ? '' : ex.sets}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '' || /^\d+$/.test(val)) {
+                                      updateExerciseField(idx, 'sets', val);
+                                    }
+                                  }}
+                                  onBlur={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (isNaN(val) || val <= 0) {
+                                      updateExerciseField(idx, 'sets', 1);
+                                    } else {
+                                      updateExerciseField(idx, 'sets', val);
+                                    }
+                                  }}
+                                  style={{
+                                    flex: 1,
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#fff',
+                                    textAlign: 'center',
+                                    fontSize: '13px',
+                                    fontFamily: "'Inter', sans-serif",
+                                    outline: 'none',
+                                    width: '100%',
+                                    padding: 0
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#fff',
+                                    width: '24px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    userSelect: 'none'
+                                  }}
+                                  onClick={() => {
+                                    const currentVal = parseInt(ex.sets) || 1;
+                                    const newVal = currentVal + 1;
+                                    updateExerciseField(idx, 'sets', newVal);
+                                  }}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Reps</span>
+                              <input
+                                type="text"
+                                value={ex.reps === undefined || ex.reps === null ? '' : ex.reps}
+                                onChange={(e) => {
+                                  updateExerciseField(idx, 'reps', e.target.value);
+                                }}
+                                onBlur={(e) => {
+                                  const val = e.target.value.trim();
+                                  if (val === '0' || val === '') {
+                                    updateExerciseField(idx, 'reps', '1');
+                                  }
+                                }}
+                                style={{
+                                  background: 'rgba(255,255,255,0.05)',
+                                  border: '1px solid rgba(255,255,255,0.08)',
+                                  borderRadius: '8px',
+                                  color: '#fff',
+                                  textAlign: 'center',
+                                  fontSize: '13px',
+                                  fontFamily: "'Inter', sans-serif",
+                                  outline: 'none',
+                                  height: '32px',
+                                  width: '100%',
+                                  boxSizing: 'border-box'
+                                }}
+                              />
+                            </div>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Carga (kg)</span>
+                              <input
+                                type="text"
+                                value={ex.weight === undefined || ex.weight === null ? '' : ex.weight}
+                                onChange={(e) => {
+                                  updateExerciseField(idx, 'weight', e.target.value);
+                                }}
+                                onBlur={(e) => {
+                                  const val = e.target.value.trim();
+                                  if (val === '0' || val === '') {
+                                    updateExerciseField(idx, 'weight', '1');
+                                  }
+                                }}
+                                style={{
+                                  background: 'rgba(255,255,255,0.05)',
+                                  border: '1px solid rgba(255,255,255,0.08)',
+                                  borderRadius: '8px',
+                                  color: '#fff',
+                                  textAlign: 'center',
+                                  fontSize: '13px',
+                                  fontFamily: "'Inter', sans-serif",
+                                  outline: 'none',
+                                  height: '32px',
+                                  width: '100%',
+                                  boxSizing: 'border-box'
+                                }}
+                              />
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
+
               </div>
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                 <button
