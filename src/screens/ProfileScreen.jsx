@@ -2169,124 +2169,149 @@ export default function ProfileScreen() {
                     />
                     {/* Suggested Exercises Grid with Tags */}
                     <div style={{ marginTop: '2px', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>Sugestões rápidas por grupo muscular:</span>
-                      
-                      {/* Tags/Categories Selector */}
-                      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '6px', marginBottom: '8px' }} className="hide-scrollbar">
-                        {Object.keys(PRESET_EXERCISES_BY_GROUP).map((groupName) => {
-                          const isGroupActive = activePresetGroup === groupName;
-                          return (
-                            <button
-                              key={groupName}
-                              type="button"
-                              style={{
-                                flex: '0 0 80px',
-                                flexShrink: 0,
-                                padding: '6px 0',
-                                textAlign: 'center',
-                                background: isGroupActive ? 'rgba(0, 212, 255, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                                border: isGroupActive ? '1px solid #00D4FF' : '1px solid rgba(255, 255, 255, 0.08)',
-                                borderRadius: '12px',
-                                color: isGroupActive ? '#00D4FF' : 'rgba(255, 255, 255, 0.6)',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                fontFamily: "'Outfit', sans-serif",
-                                whiteSpace: 'nowrap',
-                                transition: 'all 0.15s ease'
-                              }}
-                              onClick={() => setActivePresetGroup(groupName)}
-                            >
-                              {groupName}
-                            </button>
-                          );
-                        })}
-                      </div>
+                      {tempExerciseName.trim() !== '' ? (
+                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>Resultados da pesquisa:</span>
+                      ) : (
+                        <>
+                          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>Sugestões rápidas por grupo muscular:</span>
+                          
+                          {/* Tags/Categories Selector */}
+                          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '10px' }} className="hide-scrollbar">
+                            {Object.keys(PRESET_EXERCISES_BY_GROUP).map((groupName) => {
+                              const isGroupActive = activePresetGroup === groupName;
+                              return (
+                                <button
+                                  key={groupName}
+                                  type="button"
+                                  style={{
+                                    flex: '0 0 auto',
+                                    padding: '8px 16px',
+                                    textAlign: 'center',
+                                    background: isGroupActive ? '#00D4FF' : 'rgba(255, 255, 255, 0.05)',
+                                    border: isGroupActive ? '1px solid #00D4FF' : '1px solid rgba(255, 255, 255, 0.15)',
+                                    borderRadius: '10px',
+                                    color: isGroupActive ? '#0A0A0F' : '#fff',
+                                    fontSize: '13px',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                    fontFamily: "'Outfit', sans-serif",
+                                    whiteSpace: 'nowrap',
+                                    transition: 'all 0.15s ease',
+                                    boxShadow: isGroupActive ? '0 0 12px rgba(0, 212, 255, 0.3)' : 'none'
+                                  }}
+                                  onClick={() => setActivePresetGroup(groupName)}
+                                >
+                                  {groupName}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
 
-                      {/* Exercises Grid under active Group */}
+                      {/* Exercises Grid under active Group or Search */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '2px' }}>
-                        {PRESET_EXERCISES_BY_GROUP[activePresetGroup]?.map((preset) => {
-                          const isAlreadyAdded = seriesModalExercises.some(ex => isSimilarName(ex.name, preset));
-                          return (
-                            <button
-                              key={preset}
-                              type="button"
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                padding: '6px 12px',
-                                background: isAlreadyAdded 
-                                  ? 'rgba(57,255,20,0.12)' 
-                                  : 'rgba(255, 255, 255, 0.04)',
-                                border: isAlreadyAdded 
-                                  ? '1.5px solid #39FF14' 
-                                  : '1px solid rgba(255, 255, 255, 0.1)',
-                                borderRadius: '20px',
-                                color: isAlreadyAdded 
-                                  ? '#39FF14' 
-                                  : '#fff',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                fontFamily: "'Inter', sans-serif",
-                                transition: 'all 0.15s ease'
-                              }}
-                              onClick={() => {
-                                if (isAlreadyAdded) {
-                                  const matchedEx = seriesModalExercises.find(ex => isSimilarName(ex.name, preset));
-                                  if (matchedEx) {
-                                    const confirmRemove = window.confirm(`Deseja remover "${matchedEx.name}" da sua lista de exercícios?`);
-                                    if (confirmRemove) {
-                                      setSeriesModalExercises(seriesModalExercises.filter(ex => ex.id !== matchedEx.id));
-                                    }
-                                  }
-                                } else {
-                                  const newEx = {
-                                    id: `ex_new_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-                                    name: preset,
-                                    sets: 4,
-                                    reps: '10',
-                                    weight: 0,
-                                    done_today: false
-                                  };
-                                  setSeriesModalExercises([...seriesModalExercises, newEx]);
-                                }
-                              }}
-                            >
-                              {isAlreadyAdded ? (
-                                <span style={{
-                                  width: '12px',
-                                  height: '12px',
-                                  borderRadius: '50%',
-                                  border: '1.5px solid #39FF14',
+                        {(() => {
+                          let presetsToShow = [];
+                          if (tempExerciseName.trim() !== '') {
+                            const query = tempExerciseName.trim().toLowerCase();
+                            const all = Object.values(PRESET_EXERCISES_BY_GROUP).flat();
+                            presetsToShow = Array.from(new Set(all)).filter(p => p.toLowerCase().includes(query));
+                          } else {
+                            presetsToShow = PRESET_EXERCISES_BY_GROUP[activePresetGroup] || [];
+                          }
+
+                          if (presetsToShow.length === 0) {
+                            return (
+                              <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', padding: '6px 0' }}>
+                                Nenhum exercício encontrado
+                              </span>
+                            );
+                          }
+
+                          return presetsToShow.map((preset) => {
+                            const isAlreadyAdded = seriesModalExercises.some(ex => isSimilarName(ex.name, preset));
+                            return (
+                              <button
+                                key={preset}
+                                type="button"
+                                style={{
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  justifyContent: 'center',
-                                  flexShrink: 0
-                                }}>
+                                  gap: '8px',
+                                  padding: '6px 12px',
+                                  background: isAlreadyAdded 
+                                    ? 'rgba(57,255,20,0.12)' 
+                                    : 'rgba(255, 255, 255, 0.04)',
+                                  border: isAlreadyAdded 
+                                    ? '1.5px solid #39FF14' 
+                                    : '1px solid rgba(255, 255, 255, 0.1)',
+                                  borderRadius: '20px',
+                                  color: isAlreadyAdded 
+                                    ? '#39FF14' 
+                                    : '#fff',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  fontFamily: "'Inter', sans-serif",
+                                  transition: 'all 0.15s ease'
+                                }}
+                                onClick={() => {
+                                  if (isAlreadyAdded) {
+                                    const matchedEx = seriesModalExercises.find(ex => isSimilarName(ex.name, preset));
+                                    if (matchedEx) {
+                                      const confirmRemove = window.confirm(`Deseja remover "${matchedEx.name}" da sua lista de exercícios?`);
+                                      if (confirmRemove) {
+                                        setSeriesModalExercises(seriesModalExercises.filter(ex => ex.id !== matchedEx.id));
+                                      }
+                                    }
+                                  } else {
+                                    const newEx = {
+                                      id: `ex_new_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                                      name: preset,
+                                      sets: 4,
+                                      reps: '10',
+                                      weight: 0,
+                                      done_today: false
+                                    };
+                                    setSeriesModalExercises([...seriesModalExercises, newEx]);
+                                  }
+                                }}
+                              >
+                                {isAlreadyAdded ? (
                                   <span style={{
-                                    width: '6px',
-                                    height: '6px',
+                                    width: '12px',
+                                    height: '12px',
                                     borderRadius: '50%',
-                                    background: '#39FF14',
-                                    display: 'inline-block'
+                                    border: '1.5px solid #39FF14',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                  }}>
+                                    <span style={{
+                                      width: '6px',
+                                      height: '6px',
+                                      borderRadius: '50%',
+                                      background: '#39FF14',
+                                      display: 'inline-block'
+                                    }} />
+                                  </span>
+                                ) : (
+                                  <span style={{
+                                    width: '12px',
+                                    height: '12px',
+                                    borderRadius: '50%',
+                                    border: '1.5px solid rgba(255, 255, 255, 0.6)',
+                                    display: 'inline-block',
+                                    flexShrink: 0
                                   }} />
-                                </span>
-                              ) : (
-                                <span style={{
-                                  width: '12px',
-                                  height: '12px',
-                                  borderRadius: '50%',
-                                  border: '1.5px solid rgba(255, 255, 255, 0.6)',
-                                  display: 'inline-block',
-                                  flexShrink: 0
-                                }} />
-                              )}
-                              {preset}
-                            </button>
-                          );
-                        })}
+                                )}
+                                {preset}
+                              </button>
+                            );
+                          });
+                        })()}
                       </div>
                     </div>
                     <button
@@ -2623,124 +2648,149 @@ export default function ProfileScreen() {
                     />
                     {/* Suggested Exercises Grid with Tags */}
                     <div style={{ marginTop: '2px', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>Sugestões rápidas por grupo muscular:</span>
-                      
-                      {/* Tags/Categories Selector */}
-                      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '6px', marginBottom: '8px' }} className="hide-scrollbar">
-                        {Object.keys(PRESET_EXERCISES_BY_GROUP).map((groupName) => {
-                          const isGroupActive = activePresetGroup === groupName;
-                          return (
-                            <button
-                              key={groupName}
-                              type="button"
-                              style={{
-                                flex: '0 0 80px',
-                                flexShrink: 0,
-                                padding: '6px 0',
-                                textAlign: 'center',
-                                background: isGroupActive ? 'rgba(0, 212, 255, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                                border: isGroupActive ? '1px solid #00D4FF' : '1px solid rgba(255, 255, 255, 0.08)',
-                                borderRadius: '12px',
-                                color: isGroupActive ? '#00D4FF' : 'rgba(255, 255, 255, 0.6)',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                fontFamily: "'Outfit', sans-serif",
-                                whiteSpace: 'nowrap',
-                                transition: 'all 0.15s ease'
-                              }}
-                              onClick={() => setActivePresetGroup(groupName)}
-                            >
-                              {groupName}
-                            </button>
-                          );
-                        })}
-                      </div>
+                      {tempExerciseName.trim() !== '' ? (
+                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>Resultados da pesquisa:</span>
+                      ) : (
+                        <>
+                          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>Sugestões rápidas por grupo muscular:</span>
+                          
+                          {/* Tags/Categories Selector */}
+                          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px', marginBottom: '10px' }} className="hide-scrollbar">
+                            {Object.keys(PRESET_EXERCISES_BY_GROUP).map((groupName) => {
+                              const isGroupActive = activePresetGroup === groupName;
+                              return (
+                                <button
+                                  key={groupName}
+                                  type="button"
+                                  style={{
+                                    flex: '0 0 auto',
+                                    padding: '8px 16px',
+                                    textAlign: 'center',
+                                    background: isGroupActive ? '#00D4FF' : 'rgba(255, 255, 255, 0.05)',
+                                    border: isGroupActive ? '1px solid #00D4FF' : '1px solid rgba(255, 255, 255, 0.15)',
+                                    borderRadius: '10px',
+                                    color: isGroupActive ? '#0A0A0F' : '#fff',
+                                    fontSize: '13px',
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                    fontFamily: "'Outfit', sans-serif",
+                                    whiteSpace: 'nowrap',
+                                    transition: 'all 0.15s ease',
+                                    boxShadow: isGroupActive ? '0 0 12px rgba(0, 212, 255, 0.3)' : 'none'
+                                  }}
+                                  onClick={() => setActivePresetGroup(groupName)}
+                                >
+                                  {groupName}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
 
-                      {/* Exercises Grid under active Group */}
+                      {/* Exercises Grid under active Group or Search */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '2px' }}>
-                        {PRESET_EXERCISES_BY_GROUP[activePresetGroup]?.map((preset) => {
-                          const isAlreadyAdded = seriesModalExercises.some(ex => isSimilarName(ex.name, preset));
-                          return (
-                            <button
-                              key={preset}
-                              type="button"
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                padding: '6px 12px',
-                                background: isAlreadyAdded 
-                                  ? 'rgba(57,255,20,0.12)' 
-                                  : 'rgba(255, 255, 255, 0.04)',
-                                border: isAlreadyAdded 
-                                  ? '1.5px solid #39FF14' 
-                                  : '1px solid rgba(255, 255, 255, 0.1)',
-                                borderRadius: '20px',
-                                color: isAlreadyAdded 
-                                  ? '#39FF14' 
-                                  : '#fff',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                fontFamily: "'Inter', sans-serif",
-                                transition: 'all 0.15s ease'
-                              }}
-                              onClick={() => {
-                                if (isAlreadyAdded) {
-                                  const matchedEx = seriesModalExercises.find(ex => isSimilarName(ex.name, preset));
-                                  if (matchedEx) {
-                                    const confirmRemove = window.confirm(`Deseja remover "${matchedEx.name}" da sua lista de exercícios?`);
-                                    if (confirmRemove) {
-                                      setSeriesModalExercises(seriesModalExercises.filter(ex => ex.id !== matchedEx.id));
-                                    }
-                                  }
-                                } else {
-                                  const newEx = {
-                                    id: `ex_new_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-                                    name: preset,
-                                    sets: 4,
-                                    reps: '10',
-                                    weight: 0,
-                                    done_today: false
-                                  };
-                                  setSeriesModalExercises([...seriesModalExercises, newEx]);
-                                }
-                              }}
-                            >
-                              {isAlreadyAdded ? (
-                                <span style={{
-                                  width: '12px',
-                                  height: '12px',
-                                  borderRadius: '50%',
-                                  border: '1.5px solid #39FF14',
+                        {(() => {
+                          let presetsToShow = [];
+                          if (tempExerciseName.trim() !== '') {
+                            const query = tempExerciseName.trim().toLowerCase();
+                            const all = Object.values(PRESET_EXERCISES_BY_GROUP).flat();
+                            presetsToShow = Array.from(new Set(all)).filter(p => p.toLowerCase().includes(query));
+                          } else {
+                            presetsToShow = PRESET_EXERCISES_BY_GROUP[activePresetGroup] || [];
+                          }
+
+                          if (presetsToShow.length === 0) {
+                            return (
+                              <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', padding: '6px 0' }}>
+                                Nenhum exercício encontrado
+                              </span>
+                            );
+                          }
+
+                          return presetsToShow.map((preset) => {
+                            const isAlreadyAdded = seriesModalExercises.some(ex => isSimilarName(ex.name, preset));
+                            return (
+                              <button
+                                key={preset}
+                                type="button"
+                                style={{
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  justifyContent: 'center',
-                                  flexShrink: 0
-                                }}>
+                                  gap: '8px',
+                                  padding: '6px 12px',
+                                  background: isAlreadyAdded 
+                                    ? 'rgba(57,255,20,0.12)' 
+                                    : 'rgba(255, 255, 255, 0.04)',
+                                  border: isAlreadyAdded 
+                                    ? '1.5px solid #39FF14' 
+                                    : '1px solid rgba(255, 255, 255, 0.1)',
+                                  borderRadius: '20px',
+                                  color: isAlreadyAdded 
+                                    ? '#39FF14' 
+                                    : '#fff',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  fontFamily: "'Inter', sans-serif",
+                                  transition: 'all 0.15s ease'
+                                }}
+                                onClick={() => {
+                                  if (isAlreadyAdded) {
+                                    const matchedEx = seriesModalExercises.find(ex => isSimilarName(ex.name, preset));
+                                    if (matchedEx) {
+                                      const confirmRemove = window.confirm(`Deseja remover "${matchedEx.name}" da sua lista de exercícios?`);
+                                      if (confirmRemove) {
+                                        setSeriesModalExercises(seriesModalExercises.filter(ex => ex.id !== matchedEx.id));
+                                      }
+                                    }
+                                  } else {
+                                    const newEx = {
+                                      id: `ex_new_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                                      name: preset,
+                                      sets: 4,
+                                      reps: '10',
+                                      weight: 0,
+                                      done_today: false
+                                    };
+                                    setSeriesModalExercises([...seriesModalExercises, newEx]);
+                                  }
+                                }}
+                              >
+                                {isAlreadyAdded ? (
                                   <span style={{
-                                    width: '6px',
-                                    height: '6px',
+                                    width: '12px',
+                                    height: '12px',
                                     borderRadius: '50%',
-                                    background: '#39FF14',
-                                    display: 'inline-block'
+                                    border: '1.5px solid #39FF14',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                  }}>
+                                    <span style={{
+                                      width: '6px',
+                                      height: '6px',
+                                      borderRadius: '50%',
+                                      background: '#39FF14',
+                                      display: 'inline-block'
+                                    }} />
+                                  </span>
+                                ) : (
+                                  <span style={{
+                                    width: '12px',
+                                    height: '12px',
+                                    borderRadius: '50%',
+                                    border: '1.5px solid rgba(255, 255, 255, 0.6)',
+                                    display: 'inline-block',
+                                    flexShrink: 0
                                   }} />
-                                </span>
-                              ) : (
-                                <span style={{
-                                  width: '12px',
-                                  height: '12px',
-                                  borderRadius: '50%',
-                                  border: '1.5px solid rgba(255, 255, 255, 0.6)',
-                                  display: 'inline-block',
-                                  flexShrink: 0
-                                }} />
-                              )}
-                              {preset}
-                            </button>
-                          );
-                        })}
+                                )}
+                                {preset}
+                              </button>
+                            );
+                          });
+                        })()}
                       </div>
                     </div>
                     <button

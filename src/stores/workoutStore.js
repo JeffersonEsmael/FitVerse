@@ -2,6 +2,17 @@ import { create } from 'zustand';
 import { supabase } from '../config/supabase';
 import { cacheGet, cacheSet, CACHE_KEYS, CACHE_TTL } from '../utils/localCache';
 
+const generateUUID = () => {
+  if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 // Mock/Default workout series to populate for first-time users or as a starter
 const defaultWorkouts = [
   {
@@ -117,7 +128,7 @@ export const useWorkoutStore = create((set, get) => ({
         console.log('[WorkoutStore] No series found in DB, creating defaults...');
         const initialList = defaultWorkouts.map(ws => ({
           ...ws,
-          id: `ws_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
+          id: generateUUID()
         }));
         initialList[0].is_active = true;
 
@@ -126,6 +137,9 @@ export const useWorkoutStore = create((set, get) => ({
           activeSeriesId: initialList[0].id,
           isLoading: false
         });
+
+        // Cache for future visits
+        cacheSet(CACHE_KEYS.workoutSeries(userId), initialList, CACHE_TTL.WORKOUT_SERIES);
 
         // Write defaults to Supabase in background
         for (const ws of initialList) {
@@ -170,7 +184,7 @@ export const useWorkoutStore = create((set, get) => ({
         // Initialize local defaults
         const initialList = defaultWorkouts.map(ws => ({
           ...ws,
-          id: `ws_local_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          id: generateUUID(),
           is_public: true,
           copies_count: 0
         }));
@@ -201,7 +215,7 @@ export const useWorkoutStore = create((set, get) => ({
   // Create a new series
   createSeries: async (userId, name, frequency, totalWorkouts, initialExercises = [], isPublic = true) => {
     if (!userId) return;
-    const newId = `ws_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    const newId = generateUUID();
     
     // Set all other series as inactive
     const updatedList = get().seriesList.map(s => ({ ...s, is_active: false }));
@@ -227,6 +241,7 @@ export const useWorkoutStore = create((set, get) => ({
 
     // Save locally
     get()._saveToLocalStorage(userId, newList);
+    cacheSet(CACHE_KEYS.workoutSeries(userId), newList, CACHE_TTL.WORKOUT_SERIES);
 
     // Save to Supabase
     try {
@@ -268,6 +283,7 @@ export const useWorkoutStore = create((set, get) => ({
 
     set({ seriesList: newList });
     get()._saveToLocalStorage(userId, newList);
+    cacheSet(CACHE_KEYS.workoutSeries(userId), newList, CACHE_TTL.WORKOUT_SERIES);
 
     try {
       const dbUpdates = {};
@@ -305,6 +321,7 @@ export const useWorkoutStore = create((set, get) => ({
     });
     
     get()._saveToLocalStorage(userId, newList);
+    cacheSet(CACHE_KEYS.workoutSeries(userId), newList, CACHE_TTL.WORKOUT_SERIES);
 
     try {
       // Set all user series to inactive first
@@ -399,6 +416,7 @@ export const useWorkoutStore = create((set, get) => ({
     });
 
     get()._saveToLocalStorage(userId, newList);
+    cacheSet(CACHE_KEYS.workoutSeries(userId), newList, CACHE_TTL.WORKOUT_SERIES);
 
     try {
       await supabase
