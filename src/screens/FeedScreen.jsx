@@ -11,6 +11,7 @@ export default function FeedScreen() {
     videos, currentIndex, setCurrentIndex,
     activeTab, setActiveTab, fetchVideos,
     uploadingPost, uploadError, clearUploadError,
+    hasMore, isLoading,
   } = useFeedStore();
   const navigate = useNavigationStore((s) => s.navigate);
   const containerRef = useRef(null);
@@ -33,12 +34,25 @@ export default function FeedScreen() {
   }, [hasFetched, fetchVideos]);
 
   const goToVideo = useCallback((index) => {
-    if (index < 0 || index >= videos.length || isTransitioning) return;
+    if (index < 0 || isTransitioning) return;
+    // If trying to go past the last video, load more
+    if (index >= videos.length) {
+      if (hasMore && !isLoading) {
+        fetchVideos(true);
+      }
+      return;
+    }
     setDirection(index > currentIndex ? 1 : -1);
     setIsTransitioning(true);
     setCurrentIndex(index);
     setTimeout(() => setIsTransitioning(false), 300);
-  }, [videos.length, isTransitioning, currentIndex, setCurrentIndex]);
+    // Pre-load more when 2 videos away from the end
+    if (index >= videos.length - 2) {
+      if (hasMore && !isLoading) {
+        fetchVideos(true);
+      }
+    }
+  }, [videos.length, isTransitioning, currentIndex, setCurrentIndex, fetchVideos, hasMore, isLoading]);
 
   const handleTouchStart = (e) => {
     setTouchStart(e.touches[0].clientY);
@@ -136,9 +150,9 @@ export default function FeedScreen() {
   }, [currentIndex, goToVideo]);
 
   const slideVariants = {
-    initial: (d) => ({ y: d > 0 ? '100%' : '-100%', opacity: 0.5 }),
-    animate: { y: 0, opacity: 1 },
-    exit: (d) => ({ y: d > 0 ? '-100%' : '100%', opacity: 0 }),
+    initial: (d) => ({ y: d > 0 ? '100%' : '-100%' }),
+    animate: { y: 0 },
+    exit: (d) => ({ y: d > 0 ? '-100%' : '100%' }),
   };
 
   return (
@@ -254,7 +268,7 @@ export default function FeedScreen() {
       </div>
 
       {/* ── Content Area ─────────────────────────────────── */}
-        <AnimatePresence mode="wait" custom={direction}>
+        <AnimatePresence mode="sync" custom={direction}>
           {activeTab === 'challenges' ? (
             <motion.div
               key="challenges"
@@ -300,7 +314,7 @@ export default function FeedScreen() {
                   initial="initial"
                   animate="animate"
                   exit="exit"
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  transition={{ type: 'tween', duration: 0.25, ease: 'easeInOut' }}
                   style={{
                     ...styles.videoSlide,
                     y: dragOffset,
