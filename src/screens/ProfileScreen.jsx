@@ -2076,7 +2076,48 @@ export default function ProfileScreen() {
               </div>
               <div className="hide-scrollbar" style={{ ...modalStyles.modalScrollBody, display: 'flex', flexDirection: 'column', gap: '14px', padding: '16px 0' }}>
                 <div style={modalStyles.checkInField}>
-                  <label style={modalStyles.checkInLabel}>Nome da Série</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                    <label style={modalStyles.checkInLabel}>Nome da Série</label>
+                    <div 
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}
+                      onClick={() => setSeriesModalIsPublic(!seriesModalIsPublic)}
+                    >
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: 'rgba(255, 255, 255, 0.7)', fontFamily: "'Outfit', sans-serif" }}>
+                        {seriesModalIsPublic ? 'Público' : 'Privado'}
+                      </span>
+                      <div style={{
+                        width: '44px',
+                        height: '24px',
+                        borderRadius: '12px',
+                        background: seriesModalIsPublic ? '#39FF14' : 'rgba(255,255,255,0.08)',
+                        position: 'relative',
+                        padding: '2px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: seriesModalIsPublic ? 'flex-end' : 'flex-start',
+                        transition: 'all 0.2s ease',
+                        border: '1px solid rgba(255,255,255,0.05)'
+                      }}>
+                        <div style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          background: seriesModalIsPublic ? '#fff' : '#1A1A2E',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                          transition: 'all 0.2s ease'
+                        }}>
+                          {seriesModalIsPublic ? (
+                            <Check size={12} color="#39FF14" strokeWidth={3} />
+                          ) : (
+                            <Lock size={12} color="#00D4FF" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <input
                     type="text"
                     placeholder="Ex: Hipertrofia A ou Treino de Pernas"
@@ -2085,43 +2126,7 @@ export default function ProfileScreen() {
                     style={modalStyles.checkInInput}
                   />
                 </div>
-                <div style={modalStyles.checkInField}>
-                  <label style={modalStyles.checkInLabel}>Frequência Semanal</label>
-                  <select
-                    value={seriesModalFrequency}
-                    onChange={(e) => setSeriesModalFrequency(e.target.value)}
-                    style={modalStyles.checkInInput}
-                  >
-                    <option value="1x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>1x por semana</option>
-                    <option value="2x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>2x por semana</option>
-                    <option value="3x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>3x por semana</option>
-                    <option value="4x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>4x por semana</option>
-                    <option value="5x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>5x por semana</option>
-                    <option value="6x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>6x por semana</option>
-                    <option value="Diário" style={{ color: '#000', backgroundColor: '#fff' }}>Diário</option>
-                  </select>
-                </div>
-                <div style={modalStyles.checkInField}>
-                  <label style={modalStyles.checkInLabel}>Privacidade</label>
-                  <select
-                    value={seriesModalIsPublic ? 'public' : 'private'}
-                    onChange={(e) => setSeriesModalIsPublic(e.target.value === 'public')}
-                    style={modalStyles.checkInInput}
-                  >
-                    <option value="public" style={{ color: '#000', backgroundColor: '#fff' }}>Pública (Qualquer um pode copiar)</option>
-                    <option value="private" style={{ color: '#000', backgroundColor: '#fff' }}>Privada (Apenas para você)</option>
-                  </select>
-                </div>
-                <div style={modalStyles.checkInField}>
-                  <label style={modalStyles.checkInLabel}>Meta Total de Treinos</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={seriesModalTotal}
-                    onChange={(e) => setSeriesModalTotal(Math.max(1, parseInt(e.target.value) || 30))}
-                    style={modalStyles.checkInInput}
-                  />
-                </div>
+
 
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '14px' }}>
                   <label style={modalStyles.checkInLabel}>Adicionar Exercício</label>
@@ -2146,7 +2151,10 @@ export default function ProfileScreen() {
                               key={groupName}
                               type="button"
                               style={{
-                                padding: '4px 10px',
+                                flex: '0 0 80px',
+                                flexShrink: 0,
+                                padding: '6px 0',
+                                textAlign: 'center',
                                 background: isGroupActive ? 'rgba(0, 212, 255, 0.15)' : 'rgba(255, 255, 255, 0.03)',
                                 border: isGroupActive ? '1px solid #00D4FF' : '1px solid rgba(255, 255, 255, 0.08)',
                                 borderRadius: '12px',
@@ -2257,7 +2265,7 @@ export default function ProfileScreen() {
                   {seriesModalExercises.length === 0 ? (
                     <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Nenhum exercício adicionado ainda</span>
                   ) : (
-                    <div className="hide-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {seriesModalExercises.map((ex, idx) => (
                         <div key={ex.id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2477,7 +2485,48 @@ export default function ProfileScreen() {
               </div>
               <div className="hide-scrollbar" style={{ ...modalStyles.modalScrollBody, display: 'flex', flexDirection: 'column', gap: '14px', padding: '16px 0' }}>
                 <div style={modalStyles.checkInField}>
-                  <label style={modalStyles.checkInLabel}>Nome da Série</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                    <label style={modalStyles.checkInLabel}>Nome da Série</label>
+                    <div 
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}
+                      onClick={() => setSeriesModalIsPublic(!seriesModalIsPublic)}
+                    >
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: 'rgba(255, 255, 255, 0.7)', fontFamily: "'Outfit', sans-serif" }}>
+                        {seriesModalIsPublic ? 'Público' : 'Privado'}
+                      </span>
+                      <div style={{
+                        width: '44px',
+                        height: '24px',
+                        borderRadius: '12px',
+                        background: seriesModalIsPublic ? '#39FF14' : 'rgba(255,255,255,0.08)',
+                        position: 'relative',
+                        padding: '2px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: seriesModalIsPublic ? 'flex-end' : 'flex-start',
+                        transition: 'all 0.2s ease',
+                        border: '1px solid rgba(255,255,255,0.05)'
+                      }}>
+                        <div style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          background: seriesModalIsPublic ? '#fff' : '#1A1A2E',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                          transition: 'all 0.2s ease'
+                        }}>
+                          {seriesModalIsPublic ? (
+                            <Check size={12} color="#39FF14" strokeWidth={3} />
+                          ) : (
+                            <Lock size={12} color="#00D4FF" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <input
                     type="text"
                     placeholder="Ex: Hipertrofia A ou Treino de Pernas"
@@ -2486,43 +2535,7 @@ export default function ProfileScreen() {
                     style={modalStyles.checkInInput}
                   />
                 </div>
-                <div style={modalStyles.checkInField}>
-                  <label style={modalStyles.checkInLabel}>Frequência Semanal</label>
-                  <select
-                    value={seriesModalFrequency}
-                    onChange={(e) => setSeriesModalFrequency(e.target.value)}
-                    style={modalStyles.checkInInput}
-                  >
-                    <option value="1x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>1x por semana</option>
-                    <option value="2x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>2x por semana</option>
-                    <option value="3x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>3x por semana</option>
-                    <option value="4x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>4x por semana</option>
-                    <option value="5x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>5x por semana</option>
-                    <option value="6x por semana" style={{ color: '#000', backgroundColor: '#fff' }}>6x por semana</option>
-                    <option value="Diário" style={{ color: '#000', backgroundColor: '#fff' }}>Diário</option>
-                  </select>
-                </div>
-                <div style={modalStyles.checkInField}>
-                  <label style={modalStyles.checkInLabel}>Privacidade</label>
-                  <select
-                    value={seriesModalIsPublic ? 'public' : 'private'}
-                    onChange={(e) => setSeriesModalIsPublic(e.target.value === 'public')}
-                    style={modalStyles.checkInInput}
-                  >
-                    <option value="public" style={{ color: '#000', backgroundColor: '#fff' }}>Pública (Qualquer um pode copiar)</option>
-                    <option value="private" style={{ color: '#000', backgroundColor: '#fff' }}>Privada (Apenas para você)</option>
-                  </select>
-                </div>
-                <div style={modalStyles.checkInField}>
-                  <label style={modalStyles.checkInLabel}>Meta Total de Treinos</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={seriesModalTotal}
-                    onChange={(e) => setSeriesModalTotal(Math.max(1, parseInt(e.target.value) || 30))}
-                    style={modalStyles.checkInInput}
-                  />
-                </div>
+
 
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '14px' }}>
                   <label style={modalStyles.checkInLabel}>Adicionar Exercício</label>
@@ -2547,7 +2560,10 @@ export default function ProfileScreen() {
                               key={groupName}
                               type="button"
                               style={{
-                                padding: '4px 10px',
+                                flex: '0 0 80px',
+                                flexShrink: 0,
+                                padding: '6px 0',
+                                textAlign: 'center',
                                 background: isGroupActive ? 'rgba(0, 212, 255, 0.15)' : 'rgba(255, 255, 255, 0.03)',
                                 border: isGroupActive ? '1px solid #00D4FF' : '1px solid rgba(255, 255, 255, 0.08)',
                                 borderRadius: '12px',
@@ -2658,7 +2674,7 @@ export default function ProfileScreen() {
                   {seriesModalExercises.length === 0 ? (
                     <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>Nenhum exercício nesta série</span>
                   ) : (
-                    <div className="hide-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {seriesModalExercises.map((ex, idx) => (
                         <div key={ex.id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
