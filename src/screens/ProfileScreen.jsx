@@ -2167,7 +2167,7 @@ export default function ProfileScreen() {
                       </div>
 
                       {/* Exercises Grid under active Group */}
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '110px', overflowY: 'auto', padding: '2px' }} className="hide-scrollbar">
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '2px' }}>
                         {PRESET_EXERCISES_BY_GROUP[activePresetGroup]?.map((preset) => {
                           const isAlreadyAdded = seriesModalExercises.some(ex => ex.name.trim().toLowerCase() === preset.trim().toLowerCase());
                           return (
@@ -2262,11 +2262,14 @@ export default function ProfileScreen() {
                         <div key={ex.id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: '14px', color: '#fff', fontWeight: 700 }}>{ex.name}</span>
-                            <button
+                             <button
                               type="button"
                               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
                               onClick={() => {
-                                setSeriesModalExercises(seriesModalExercises.filter((_, i) => i !== idx));
+                                const confirmDel = window.confirm(`Deseja realmente remover o exercício "${ex.name}"?`);
+                                if (confirmDel) {
+                                  setSeriesModalExercises(seriesModalExercises.filter((_, i) => i !== idx));
+                                }
                               }}
                             >
                               <X size={16} color="#FF2D55" />
@@ -2565,7 +2568,7 @@ export default function ProfileScreen() {
                       </div>
 
                       {/* Exercises Grid under active Group */}
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '110px', overflowY: 'auto', padding: '2px' }} className="hide-scrollbar">
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '2px' }}>
                         {PRESET_EXERCISES_BY_GROUP[activePresetGroup]?.map((preset) => {
                           const isAlreadyAdded = seriesModalExercises.some(ex => ex.name.trim().toLowerCase() === preset.trim().toLowerCase());
                           return (
@@ -2660,11 +2663,14 @@ export default function ProfileScreen() {
                         <div key={ex.id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: '14px', color: '#fff', fontWeight: 700 }}>{ex.name}</span>
-                            <button
+                             <button
                               type="button"
                               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
                               onClick={() => {
-                                setSeriesModalExercises(seriesModalExercises.filter((_, i) => i !== idx));
+                                const confirmDel = window.confirm(`Deseja realmente remover o exercício "${ex.name}"?`);
+                                if (confirmDel) {
+                                  setSeriesModalExercises(seriesModalExercises.filter((_, i) => i !== idx));
+                                }
                               }}
                             >
                               <X size={16} color="#FF2D55" />
