@@ -419,6 +419,25 @@ export default function ProfileScreen() {
     }
   };
 
+  const isSimilarName = (name1, name2) => {
+    if (!name1 || !name2) return false;
+    const getWords = (str) => {
+      return str
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 1 && !['com', 'sem', 'para', 'de', 'da', 'do', 'na', 'no', 'em'].includes(w));
+    };
+    const words1 = getWords(name1);
+    const words2 = getWords(name2);
+    if (words1.length === 0 || words2.length === 0) return false;
+    const matchCount = words1.filter(w => words2.includes(w)).length;
+    const minLen = Math.min(words1.length, words2.length);
+    return matchCount >= minLen;
+  };
+
 
 
 
@@ -2129,7 +2148,17 @@ export default function ProfileScreen() {
 
 
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '14px' }}>
-                  <label style={modalStyles.checkInLabel}>Adicionar Exercício</label>
+                  <span style={{
+                    display: 'block',
+                    textAlign: 'center',
+                    fontSize: '16px',
+                    fontWeight: 850,
+                    color: '#fff',
+                    fontFamily: "'Outfit', sans-serif",
+                    marginBottom: '10px'
+                  }}>
+                    Adicionar Exercício
+                  </span>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '12px' }}>
                     <input
                       type="text"
@@ -2177,12 +2206,15 @@ export default function ProfileScreen() {
                       {/* Exercises Grid under active Group */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '2px' }}>
                         {PRESET_EXERCISES_BY_GROUP[activePresetGroup]?.map((preset) => {
-                          const isAlreadyAdded = seriesModalExercises.some(ex => ex.name.trim().toLowerCase() === preset.trim().toLowerCase());
+                          const isAlreadyAdded = seriesModalExercises.some(ex => isSimilarName(ex.name, preset));
                           return (
                             <button
                               key={preset}
                               type="button"
                               style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
                                 padding: '6px 12px',
                                 background: isAlreadyAdded 
                                   ? 'rgba(57,255,20,0.12)' 
@@ -2202,9 +2234,12 @@ export default function ProfileScreen() {
                               }}
                               onClick={() => {
                                 if (isAlreadyAdded) {
-                                  const confirmRemove = window.confirm(`Deseja remover "${preset}" da sua lista de exercícios?`);
-                                  if (confirmRemove) {
-                                    setSeriesModalExercises(seriesModalExercises.filter(ex => ex.name.trim().toLowerCase() !== preset.trim().toLowerCase()));
+                                  const matchedEx = seriesModalExercises.find(ex => isSimilarName(ex.name, preset));
+                                  if (matchedEx) {
+                                    const confirmRemove = window.confirm(`Deseja remover "${matchedEx.name}" da sua lista de exercícios?`);
+                                    if (confirmRemove) {
+                                      setSeriesModalExercises(seriesModalExercises.filter(ex => ex.id !== matchedEx.id));
+                                    }
                                   }
                                 } else {
                                   const newEx = {
@@ -2219,6 +2254,35 @@ export default function ProfileScreen() {
                                 }
                               }}
                             >
+                              {isAlreadyAdded ? (
+                                <span style={{
+                                  width: '12px',
+                                  height: '12px',
+                                  borderRadius: '50%',
+                                  border: '1.5px solid #39FF14',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0
+                                }}>
+                                  <span style={{
+                                    width: '6px',
+                                    height: '6px',
+                                    borderRadius: '50%',
+                                    background: '#39FF14',
+                                    display: 'inline-block'
+                                  }} />
+                                </span>
+                              ) : (
+                                <span style={{
+                                  width: '12px',
+                                  height: '12px',
+                                  borderRadius: '50%',
+                                  border: '1.5px solid rgba(255, 255, 255, 0.6)',
+                                  display: 'inline-block',
+                                  flexShrink: 0
+                                }} />
+                              )}
                               {preset}
                             </button>
                           );
@@ -2538,7 +2602,17 @@ export default function ProfileScreen() {
 
 
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '14px' }}>
-                  <label style={modalStyles.checkInLabel}>Adicionar Exercício</label>
+                  <span style={{
+                    display: 'block',
+                    textAlign: 'center',
+                    fontSize: '16px',
+                    fontWeight: 850,
+                    color: '#fff',
+                    fontFamily: "'Outfit', sans-serif",
+                    marginBottom: '10px'
+                  }}>
+                    Adicionar Exercício
+                  </span>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '12px' }}>
                     <input
                       type="text"
@@ -2586,12 +2660,15 @@ export default function ProfileScreen() {
                       {/* Exercises Grid under active Group */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '2px' }}>
                         {PRESET_EXERCISES_BY_GROUP[activePresetGroup]?.map((preset) => {
-                          const isAlreadyAdded = seriesModalExercises.some(ex => ex.name.trim().toLowerCase() === preset.trim().toLowerCase());
+                          const isAlreadyAdded = seriesModalExercises.some(ex => isSimilarName(ex.name, preset));
                           return (
                             <button
                               key={preset}
                               type="button"
                               style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
                                 padding: '6px 12px',
                                 background: isAlreadyAdded 
                                   ? 'rgba(57,255,20,0.12)' 
@@ -2611,9 +2688,12 @@ export default function ProfileScreen() {
                               }}
                               onClick={() => {
                                 if (isAlreadyAdded) {
-                                  const confirmRemove = window.confirm(`Deseja remover "${preset}" da sua lista de exercícios?`);
-                                  if (confirmRemove) {
-                                    setSeriesModalExercises(seriesModalExercises.filter(ex => ex.name.trim().toLowerCase() !== preset.trim().toLowerCase()));
+                                  const matchedEx = seriesModalExercises.find(ex => isSimilarName(ex.name, preset));
+                                  if (matchedEx) {
+                                    const confirmRemove = window.confirm(`Deseja remover "${matchedEx.name}" da sua lista de exercícios?`);
+                                    if (confirmRemove) {
+                                      setSeriesModalExercises(seriesModalExercises.filter(ex => ex.id !== matchedEx.id));
+                                    }
                                   }
                                 } else {
                                   const newEx = {
@@ -2628,6 +2708,35 @@ export default function ProfileScreen() {
                                 }
                               }}
                             >
+                              {isAlreadyAdded ? (
+                                <span style={{
+                                  width: '12px',
+                                  height: '12px',
+                                  borderRadius: '50%',
+                                  border: '1.5px solid #39FF14',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0
+                                }}>
+                                  <span style={{
+                                    width: '6px',
+                                    height: '6px',
+                                    borderRadius: '50%',
+                                    background: '#39FF14',
+                                    display: 'inline-block'
+                                  }} />
+                                </span>
+                              ) : (
+                                <span style={{
+                                  width: '12px',
+                                  height: '12px',
+                                  borderRadius: '50%',
+                                  border: '1.5px solid rgba(255, 255, 255, 0.6)',
+                                  display: 'inline-block',
+                                  flexShrink: 0
+                                }} />
+                              )}
                               {preset}
                             </button>
                           );
