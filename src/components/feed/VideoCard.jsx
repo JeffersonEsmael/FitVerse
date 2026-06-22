@@ -75,9 +75,29 @@ export default function VideoCard({ video, isActive, index }) {
       if (isVideo) {
         const el = videoRef.current;
         if (el) {
+          // Use preloaded blob URL if available for instant playback
+          import('../../utils/videoPreloader').then(({ getPreloadedUrl }) => {
+            const blobUrl = getPreloadedUrl(video.videoUrl);
+            if (blobUrl && el.src !== blobUrl) {
+              el.src = blobUrl;
+            }
+          }).catch(() => {});
+
           el.currentTime = 0;
           setProgress(0);
           el.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+        }
+      }
+
+      // Pre-load the next video in the feed for smooth transition
+      const feedState = useFeedStore.getState();
+      const nextIdx = index + 1;
+      if (nextIdx < feedState.videos.length) {
+        const nextVideo = feedState.videos[nextIdx];
+        if (nextVideo && nextVideo.mediaType === 'video' && nextVideo.videoUrl) {
+          import('../../utils/videoPreloader').then(({ preloadVideo }) => {
+            preloadVideo(nextVideo.videoUrl);
+          }).catch(() => {});
         }
       }
     } else {
@@ -89,7 +109,7 @@ export default function VideoCard({ video, isActive, index }) {
         }
       }
     }
-  }, [isActive, isVideo, video.id]);
+  }, [isActive, isVideo, video.id, video.videoUrl, index]);
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
@@ -171,7 +191,7 @@ export default function VideoCard({ video, isActive, index }) {
           loop
           muted={isMuted}
           playsInline
-          preload={isActive ? 'auto' : 'metadata'}
+          preload={isActive ? 'auto' : 'none'}
           onTimeUpdate={handleTimeUpdate}
         />
       ) : isCarousel ? (

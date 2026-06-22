@@ -85,18 +85,22 @@ export const compressImage = (file, { maxWidth = 1080, maxHeight = 1080, quality
 
 /**
  * Client-side video compression using Canvas and Web Audio API transcoding to MediaRecorder.
- * Trims size aggressively by reducing resolution to max dimension of 640px,
- * limiting framerate to 24fps, and setting a low target video bitrate (e.g. 700kbps).
+ * Produces HD-quality output suitable for mobile screens (720p).
+ * 
+ * Resolution: max dimension 1280px (720p portrait/landscape)
+ * Framerate: 30fps for smooth playback
+ * Bitrate: 2.5 Mbps for crisp HD quality
+ * Codec priority: H.264 (best compatibility) > VP9 > VP8
  * 
  * @param {File|Blob} file Original video file
  * @param {Object} options Configuration parameters
- * @param {number} options.maxDimension Maximum width or height (default: 640)
- * @param {number} options.fps Frames per second (default: 24)
- * @param {number} options.bitrate Target video bits per second (default: 700000)
+ * @param {number} options.maxDimension Maximum width or height (default: 1280 for 720p)
+ * @param {number} options.fps Frames per second (default: 30)
+ * @param {number} options.bitrate Target video bits per second (default: 2500000 = 2.5Mbps)
  * @param {function} options.onProgress Progress callback receiving percentages from 0 to 100
  * @returns {Promise<Blob|File>} A promise resolving to the compressed video
  */
-export const compressVideo = (file, { maxDimension = 640, fps = 24, bitrate = 700000, onProgress } = {}) => {
+export const compressVideo = (file, { maxDimension = 1280, fps = 30, bitrate = 2500000, onProgress } = {}) => {
   return new Promise((resolve) => {
     if (!file || !file.type || !file.type.startsWith('video/')) {
       return resolve(file);
@@ -109,10 +113,10 @@ export const compressVideo = (file, { maxDimension = 640, fps = 24, bitrate = 70
     videoEl.preload = 'auto';
 
     videoEl.onloadedmetadata = () => {
-      let width = videoEl.videoWidth || 640;
-      let height = videoEl.videoHeight || 360;
+      let width = videoEl.videoWidth || 1280;
+      let height = videoEl.videoHeight || 720;
 
-      // Downscale to target max dimension
+      // Downscale to target max dimension while maintaining HD quality
       if (width > height) {
         if (width > maxDimension) {
           height = Math.round((height * maxDimension) / width);
@@ -128,6 +132,17 @@ export const compressVideo = (file, { maxDimension = 640, fps = 24, bitrate = 70
       // Ensure dimensions are even (required by some encoders)
       width = width % 2 === 0 ? width : width - 1;
       height = height % 2 === 0 ? height : height - 1;
+
+      // Enforce minimum quality floor: never compress below 480p
+      const minDimension = Math.min(width, height);
+      if (minDimension < 480) {
+        // If the source is already small, don't compress further
+        const scaleFactor = 480 / minDimension;
+        width = Math.round(width * scaleFactor);
+        height = Math.round(height * scaleFactor);
+        width = width % 2 === 0 ? width : width - 1;
+        height = height % 2 === 0 ? height : height - 1;
+      }
 
       const canvas = document.createElement('canvas');
       canvas.width = width;
@@ -165,19 +180,29 @@ export const compressVideo = (file, { maxDimension = 640, fps = 24, bitrate = 70
         mixedStream = canvasStream;
       }
 
-      // Choose supported mimeType
-      let mimeType = 'video/webm;codecs=vp9';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/webm;codecs=vp8';
-        if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = 'video/webm';
-          if (!MediaRecorder.isTypeSupported(mimeType)) {
-            mimeType = '';
-          }
+      // Choose supported mimeType — prefer H.264 for best compatibility & quality,
+      // then fallback to VP9/VP8
+      let mimeType = '';
+      const codecPriority = [
+        'video/mp4;codecs=avc1',        // H.264 (best quality + compatibility)
+        'video/webm;codecs=h264',        // H.264 in WebM container
+        'video/webm;codecs=vp9',         // VP9 (good quality, larger files)
+        'video/webm;codecs=vp8',         // VP8 fallback
+        'video/webm',                    // Generic WebM
+      ];
+
+      for (const codec of codecPriority) {
+        if (MediaRecorder.isTypeSupported(codec)) {
+          mimeType = codec;
+          break;
         }
       }
 
-      const recorderOptions = mimeType ? { mimeType, videoBitsPerSecond: bitrate } : { videoBitsPerSecond: bitrate };
+      console.log(`[compression] Using codec: ${mimeType || 'browser default'}, ${width}x${height} @ ${(bitrate/1000000).toFixed(1)}Mbps ${fps}fps`);
+
+      const recorderOptions = mimeType
+        ? { mimeType, videoBitsPerSecond: bitrate, audioBitsPerSecond: 128000 }
+        : { videoBitsPerSecond: bitrate, audioBitsPerSecond: 128000 };
       let mediaRecorder;
       const chunks = [];
 
@@ -212,16 +237,22 @@ export const compressVideo = (file, { maxDimension = 640, fps = 24, bitrate = 70
         // Revoke Object URL to avoid leaks
         URL.revokeObjectURL(videoEl.src);
 
-        const recordedBlob = new Blob(chunks, { type: mimeType || 'video/webm' });
-        const name = (file.name || `video-${Date.now()}.webm`).replace(/\.[^/.]+$/, "") + ".webm";
+        // Determine file extension based on codec
+        const isMP4 = mimeType.includes('mp4') || mimeType.includes('avc');
+        const extension = isMP4 ? 'mp4' : 'webm';
+        const finalMimeType = isMP4 ? 'video/mp4' : (mimeType || 'video/webm');
+
+        const recordedBlob = new Blob(chunks, { type: finalMimeType });
+        const name = (file.name || `video-${Date.now()}.${extension}`).replace(/\.[^/.]+$/, "") + `.${extension}`;
         try {
           const compressedFile = new File([recordedBlob], name, {
-            type: mimeType || 'video/webm',
+            type: finalMimeType,
             lastModified: Date.now()
           });
           if (typeof onProgress === 'function') {
             onProgress(100);
           }
+          console.log(`[compression] ✅ Done: ${(file.size / 1024 / 1024).toFixed(1)}MB → ${(compressedFile.size / 1024 / 1024).toFixed(1)}MB (${width}x${height})`);
           resolve(compressedFile);
         } catch (e) {
           if (typeof onProgress === 'function') {
@@ -282,6 +313,106 @@ export const compressVideo = (file, { maxDimension = 640, fps = 24, bitrate = 70
       console.error('[compression] Video element load failed:', err);
       URL.revokeObjectURL(videoEl.src);
       resolve(file);
+    };
+  });
+};
+
+/**
+ * Generates a thumbnail image from the first second of a video file.
+ * Uses canvas to capture a frame and export it as a high-quality JPEG.
+ * 
+ * @param {File|Blob} file The video file to generate a thumbnail from
+ * @param {Object} options Configuration parameters
+ * @param {number} options.seekTime Time in seconds to capture the frame (default: 1)
+ * @param {number} options.maxWidth Maximum thumbnail width (default: 720)
+ * @param {number} options.maxHeight Maximum thumbnail height (default: 1280)
+ * @param {number} options.quality JPEG quality 0.0-1.0 (default: 0.85)
+ * @returns {Promise<File|null>} A promise resolving to the thumbnail File, or null on failure
+ */
+export const generateVideoThumbnail = (file, { seekTime = 1, maxWidth = 720, maxHeight = 1280, quality = 0.85 } = {}) => {
+  return new Promise((resolve) => {
+    if (!file || !file.type || !file.type.startsWith('video/')) {
+      return resolve(null);
+    }
+
+    const videoEl = document.createElement('video');
+    const objectUrl = URL.createObjectURL(file);
+    videoEl.src = objectUrl;
+    videoEl.muted = true;
+    videoEl.playsInline = true;
+    videoEl.preload = 'auto';
+
+    // Timeout safety net
+    const timeout = setTimeout(() => {
+      console.warn('[compression] Thumbnail generation timed out');
+      URL.revokeObjectURL(objectUrl);
+      resolve(null);
+    }, 15000);
+
+    videoEl.onloadedmetadata = () => {
+      // Seek to the requested time (or 0 if video is too short)
+      const seekTo = Math.min(seekTime, videoEl.duration * 0.5);
+      videoEl.currentTime = seekTo;
+    };
+
+    videoEl.onseeked = () => {
+      clearTimeout(timeout);
+
+      let width = videoEl.videoWidth;
+      let height = videoEl.videoHeight;
+
+      // Scale down keeping aspect ratio
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        URL.revokeObjectURL(objectUrl);
+        return resolve(null);
+      }
+
+      ctx.drawImage(videoEl, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          URL.revokeObjectURL(objectUrl);
+          if (!blob) return resolve(null);
+
+          try {
+            const thumbnailFile = new File(
+              [blob],
+              `thumb_${Date.now()}.jpg`,
+              { type: 'image/jpeg', lastModified: Date.now() }
+            );
+            console.log(`[compression] 🖼️ Thumbnail generated: ${width}x${height}, ${(blob.size / 1024).toFixed(0)}KB`);
+            resolve(thumbnailFile);
+          } catch (e) {
+            resolve(blob);
+          }
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+
+    videoEl.onerror = () => {
+      clearTimeout(timeout);
+      URL.revokeObjectURL(objectUrl);
+      console.warn('[compression] Failed to load video for thumbnail');
+      resolve(null);
     };
   });
 };

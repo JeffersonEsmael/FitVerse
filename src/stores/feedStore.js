@@ -650,29 +650,58 @@ export const useFeedStore = create(
         coverUrl = publicUrls[0];
       } else {
         const bucketName = isVideo ? 'videos' : 'posts';
+        let thumbnailUrl = '';
 
         let finalFile = fileOrFiles;
         if (isVideo) {
-          if (fileOrFiles.size > 2 * 1024 * 1024) {
-            try {
-              const { compressVideo } = await import('../utils/compression');
-              finalFile = await compressVideo(fileOrFiles, {
-                onProgress: (pct) => {
-                  const progress = Math.round(5 + (pct * 45) / 100);
-                  set((s) => ({
-                    uploadingPost: s.uploadingPost
-                      ? {
-                          ...s.uploadingPost,
-                          progress,
-                          statusText: `🎥 Otimizando vídeo para publicação (${pct}%)...`
-                        }
-                      : null
-                  }));
-                }
-              });
-            } catch (compErr) {
-              console.warn('[Feed] Video compression failed, using original file:', compErr);
+          // Always compress video to HD quality (720p, 2.5Mbps, 30fps)
+          // regardless of original file size for consistent quality
+          try {
+            const { compressVideo } = await import('../utils/compression');
+            finalFile = await compressVideo(fileOrFiles, {
+              onProgress: (pct) => {
+                const progress = Math.round(5 + (pct * 40) / 100);
+                set((s) => ({
+                  uploadingPost: s.uploadingPost
+                    ? {
+                        ...s.uploadingPost,
+                        progress,
+                        statusText: `🎥 Otimizando vídeo em HD (${pct}%)...`
+                      }
+                    : null
+                }));
+              }
+            });
+          } catch (compErr) {
+            console.warn('[Feed] Video compression failed, using original file:', compErr);
+          }
+
+          // Generate thumbnail from first second of the video
+          set((s) => ({
+            uploadingPost: s.uploadingPost
+              ? { ...s.uploadingPost, progress: 46, statusText: '🖼️ Gerando thumbnail...' }
+              : null
+          }));
+          try {
+            const { generateVideoThumbnail } = await import('../utils/compression');
+            const thumbFile = await generateVideoThumbnail(fileOrFiles);
+            if (thumbFile) {
+              const thumbName = `${metadata.userId}/${Date.now()}_thumb.jpg`;
+              const { error: thumbUpErr } = await supabase.storage
+                .from('posts')
+                .upload(thumbName, thumbFile, {
+                  contentType: 'image/jpeg',
+                  cacheControl: '86400',
+                  upsert: false,
+                });
+              if (!thumbUpErr) {
+                const { data: thumbUrlData } = supabase.storage.from('posts').getPublicUrl(thumbName);
+                thumbnailUrl = thumbUrlData?.publicUrl || '';
+                console.log('[Feed] 🖼️ Thumbnail uploaded:', thumbnailUrl);
+              }
             }
+          } catch (thumbErr) {
+            console.warn('[Feed] Thumbnail generation failed (non-blocking):', thumbErr);
           }
         } else {
           try {
@@ -683,13 +712,13 @@ export const useFeedStore = create(
           }
         }
 
-        const fileExt = finalFile.name ? finalFile.name.split('.').pop().toLowerCase() : (isVideo ? 'webm' : 'jpg');
+        const fileExt = finalFile.name ? finalFile.name.split('.').pop().toLowerCase() : (isVideo ? 'mp4' : 'jpg');
         const fileName = `${metadata.userId}/${Date.now()}.${fileExt}`;
 
-        console.log(`[Feed] Uploading ${mediaType} → bucket '${bucketName}': ${fileName}`);
+        console.log(`[Feed] Uploading ${mediaType} → bucket '${bucketName}': ${fileName} (${(finalFile.size / 1024 / 1024).toFixed(1)}MB)`);
         set((s) => ({
           uploadingPost: s.uploadingPost
-            ? { ...s.uploadingPost, progress: 50, statusText: '🎥 Enviando para o servidor...' }
+            ? { ...s.uploadingPost, progress: 50, statusText: '📤 Enviando vídeo HD para o servidor...' }
             : null
         }));
 
@@ -708,13 +737,18 @@ export const useFeedStore = create(
 
         set((s) => ({
           uploadingPost: s.uploadingPost
-            ? { ...s.uploadingPost, progress: 75, statusText: '🎥 Processando URL pública...' }
+            ? { ...s.uploadingPost, progress: 75, statusText: '✅ Processando URL pública...' }
             : null
         }));
 
         const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
         coverUrl = urlData?.publicUrl;
         if (!coverUrl) throw new Error('Não foi possível obter a URL pública do arquivo.');
+
+        // Store thumbnail URL for the post record
+        if (thumbnailUrl) {
+          metadata._thumbnailUrl = thumbnailUrl;
+        }
       }
 
       console.log('[Feed] Media uploaded. URL/Cover:', coverUrl);
@@ -727,6 +761,7 @@ export const useFeedStore = create(
       // Insert post record
       const postData = {
         video_url: coverUrl,
+        thumbnail_url: metadata._thumbnailUrl || '',
         media_type: mediaType,
         carousel_urls: isCarousel ? publicUrls : null,
         user_id: metadata.userId,

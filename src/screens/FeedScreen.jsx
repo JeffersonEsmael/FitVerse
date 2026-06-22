@@ -1,5 +1,6 @@
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { preloadVideo, cleanupPreloads, clearAllPreloads } from '../utils/videoPreloader';
 import { PlusCircle, Video, AlertCircle, X, ArrowLeft, Loader2 } from 'lucide-react';
 import VideoCard from '../components/feed/VideoCard';
 import ChallengesView from '../components/feed/ChallengesView';
@@ -33,6 +34,28 @@ export default function FeedScreen() {
     }
   }, [hasFetched, fetchVideos]);
 
+  // Pre-load the first video when feed data arrives
+  useEffect(() => {
+    if (videos.length > 0) {
+      const firstVideo = videos[0];
+      if (firstVideo?.mediaType === 'video' && firstVideo?.videoUrl) {
+        preloadVideo(firstVideo.videoUrl);
+      }
+      // Also preload the second video for instant first swipe
+      if (videos.length > 1) {
+        const secondVideo = videos[1];
+        if (secondVideo?.mediaType === 'video' && secondVideo?.videoUrl) {
+          preloadVideo(secondVideo.videoUrl);
+        }
+      }
+    }
+  }, [videos.length]); // Only when video count changes (initial load / loadMore)
+
+  // Cleanup all preloads on unmount
+  useEffect(() => {
+    return () => clearAllPreloads();
+  }, []);
+
   const goToVideo = useCallback((index) => {
     if (index < 0 || isTransitioning) return;
     // If trying to go past the last video, load more
@@ -46,13 +69,32 @@ export default function FeedScreen() {
     setIsTransitioning(true);
     setCurrentIndex(index);
     setTimeout(() => setIsTransitioning(false), 300);
-    // Pre-load more when 2 videos away from the end
+
+    // Pre-load the next video in device memory for instant playback
+    const nextIdx = index + 1;
+    if (nextIdx < videos.length) {
+      const nextVideo = videos[nextIdx];
+      if (nextVideo?.mediaType === 'video' && nextVideo?.videoUrl) {
+        preloadVideo(nextVideo.videoUrl);
+      }
+    }
+
+    // Cleanup preloads that are far from current position (keep current ± 1)
+    const keepUrls = [];
+    for (let i = Math.max(0, index - 1); i <= Math.min(videos.length - 1, index + 2); i++) {
+      if (videos[i]?.mediaType === 'video' && videos[i]?.videoUrl) {
+        keepUrls.push(videos[i].videoUrl);
+      }
+    }
+    cleanupPreloads(keepUrls);
+
+    // Pre-load more data from Supabase when 2 videos away from the end
     if (index >= videos.length - 2) {
       if (hasMore && !isLoading) {
         fetchVideos(true);
       }
     }
-  }, [videos.length, isTransitioning, currentIndex, setCurrentIndex, fetchVideos, hasMore, isLoading]);
+  }, [videos, isTransitioning, currentIndex, setCurrentIndex, fetchVideos, hasMore, isLoading]);
 
   const handleTouchStart = (e) => {
     setTouchStart(e.touches[0].clientY);
