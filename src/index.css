@@ -859,3 +859,56 @@ a {
   border-color: #16A34A;
 }
 
+/* ---------- RESPONSIVE PROFILE CARD HEADER & MASTERY BADGE ---------- */
+.profile-mastery-title {
+  max-width: 100% !important;
+  white-space: normal !important;
+  text-align: center !important;
+  word-break: break-word !important;
+  box-sizing: border-box !important;
+}
+
+.profile-username {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.profile-display-name {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 480px) {
+  .profile-card {
+    padding: 16px !important;
+  }
+  .profile-card-header {
+    gap: 8px !important;
+  }
+  .profile-avatar-container {
+    width: 90px !important;
+    max-width: 90px !important;
+  }
+  .profile-mastery-title {
+    font-size: 9px !important;
+    padding: 3px 8px !important;
+    letter-spacing: 0.2px !important;
+  }
+  .profile-stats-row {
+    gap: 8px !important;
+  }
+  .profile-stat-item {
+    min-width: 50px !important;
+  }
+  .profile-stat-value {
+    font-size: 15px !important;
+  }
+  .profile-stat-label {
+    font-size: 11px !important;
+  }
+}
+

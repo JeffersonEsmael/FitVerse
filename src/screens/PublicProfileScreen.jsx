@@ -171,7 +171,9 @@ function ChallengeCarousel({ challenge }) {
       <img
         src={photos[activeIndex].photo_url}
         alt={photos[activeIndex].activity_title || ''}
-        style={tabStyles.carouselImg}
+        style={{ ...tabStyles.carouselImg, userSelect: 'none', WebkitUserDrag: 'none', pointerEvents: 'none' }}
+        draggable="false"
+        onDragStart={(e) => e.preventDefault()}
       />
       <div style={tabStyles.carouselCaption}>
         <span style={tabStyles.carouselCaptionText}>
@@ -914,34 +916,34 @@ export default function PublicProfileScreen() {
         </div>
 
         {/* Profile card */}
-        <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-          <div style={styles.profileCardHeader}>
+        <motion.div style={styles.profileCard} className="profile-card" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+          <div style={styles.profileCardHeader} className="profile-card-header">
             <div style={styles.profileInfoBlock}>
-              <h3 style={{ ...styles.usernameLeft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <h3 style={{ ...styles.usernameLeft, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="profile-username">
                 @{profile.username}
                 {(profile.username?.toLowerCase() === 'flowrise' || profile.username?.toLowerCase() === 'flowride') && (
                   <img src={verifiedBadgeImg} alt="verificado" style={{ width: '22px', height: '22px', marginLeft: '6px', objectFit: 'contain', flexShrink: 0 }} />
                 )}
               </h3>
-              <span style={styles.displayNameLeft}>{profile.display_name}</span>
+              <span style={styles.displayNameLeft} className="profile-display-name">{profile.display_name}</span>
 
-              <div style={styles.statsRowLeft}>
-                <div style={styles.statItemLeft}>
-                  <span style={styles.statValueLeft}>{filteredUserPosts.length}</span>
-                  <span style={styles.statLabelLeft}>posts</span>
+              <div style={styles.statsRowLeft} className="profile-stats-row">
+                <div style={styles.statItemLeft} className="profile-stat-item">
+                  <span style={styles.statValueLeft} className="profile-stat-value">{filteredUserPosts.length}</span>
+                  <span style={styles.statLabelLeft} className="profile-stat-label">posts</span>
                 </div>
-                <div style={styles.statItemLeft}>
-                  <span style={styles.statValueLeft}>{profile.followers || 0}</span>
-                  <span style={styles.statLabelLeft}>seguidores</span>
+                <div style={styles.statItemLeft} className="profile-stat-item">
+                  <span style={styles.statValueLeft} className="profile-stat-value">{profile.followers || 0}</span>
+                  <span style={styles.statLabelLeft} className="profile-stat-label">seguidores</span>
                 </div>
-                <div style={styles.statItemLeft}>
-                  <span style={styles.statValueLeft}>{profile.following || 0}</span>
-                  <span style={styles.statLabelLeft}>seguindo</span>
+                <div style={styles.statItemLeft} className="profile-stat-item">
+                  <span style={styles.statValueLeft} className="profile-stat-value">{profile.following || 0}</span>
+                  <span style={styles.statLabelLeft} className="profile-stat-label">seguindo</span>
                 </div>
               </div>
             </div>
 
-            <div style={styles.avatarContainerRight}>
+            <div style={styles.avatarContainerRight} className="profile-avatar-container">
               {/* Streak Badge */}
               {profile.streak >= 3 && (
                 <div style={styles.streakBadge}>
@@ -984,7 +986,7 @@ export default function PublicProfileScreen() {
               
               {/* Mastery Title */}
               {profile.show_mastery !== false && (
-                <span style={styles.masteryTitle}>
+                <span style={styles.masteryTitle} className="profile-mastery-title">
                   {MASTERY_MAP[profile.mastery] || profile.mastery || '🟢 Iniciante'}
                 </span>
               )}

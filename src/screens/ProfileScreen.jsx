@@ -170,7 +170,9 @@ function ChallengeCarousel({ challenge }) {
       <img
         src={photos[activeIndex].photo_url}
         alt={photos[activeIndex].activity_title || ''}
-        style={tabStyles.carouselImg}
+        style={{ ...tabStyles.carouselImg, userSelect: 'none', WebkitUserDrag: 'none', pointerEvents: 'none' }}
+        draggable="false"
+        onDragStart={(e) => e.preventDefault()}
       />
       <div style={tabStyles.carouselCaption}>
         <span style={tabStyles.carouselCaptionText}>
@@ -883,34 +885,34 @@ export default function ProfileScreen() {
         </div>
 
         {/* Profile card - Glassmorphism */}
-        <motion.div style={styles.profileCard} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-          <div className="profile-card-header">
+        <motion.div style={styles.profileCard} className="profile-card" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+          <div className="profile-card-header" style={styles.profileCardHeader}>
             <div style={styles.profileInfoBlock}>
-              <h3 style={{ ...styles.usernameLeft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <h3 style={{ ...styles.usernameLeft, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="profile-username">
                 @{usernameToShow}
                 {(usernameToShow?.toLowerCase() === 'flowrise' || usernameToShow?.toLowerCase() === 'flowride') && (
                   <img src={verifiedBadgeImg} alt="verificado" style={{ width: '22px', height: '22px', marginLeft: '6px', objectFit: 'contain', flexShrink: 0 }} />
                 )}
               </h3>
-              <span style={styles.displayNameLeft}>{displayNameToShow}</span>
+              <span style={styles.displayNameLeft} className="profile-display-name">{displayNameToShow}</span>
 
               <div className="profile-stats-row">
-                <div style={styles.statItemLeft}>
-                  <span style={styles.statValueLeft}>{filteredUserPosts.length}</span>
-                  <span style={styles.statLabelLeft}>posts</span>
+                <div style={styles.statItemLeft} className="profile-stat-item">
+                  <span style={styles.statValueLeft} className="profile-stat-value">{filteredUserPosts.length}</span>
+                  <span style={styles.statLabelLeft} className="profile-stat-label">posts</span>
                 </div>
-                <div style={styles.statItemLeft}>
-                  <span style={styles.statValueLeft}>{followersCount}</span>
-                  <span style={styles.statLabelLeft}>seguidores</span>
+                <div style={styles.statItemLeft} className="profile-stat-item">
+                  <span style={styles.statValueLeft} className="profile-stat-value">{followersCount}</span>
+                  <span style={styles.statLabelLeft} className="profile-stat-label">seguidores</span>
                 </div>
-                <div style={styles.statItemLeft}>
-                  <span style={styles.statValueLeft}>{followingCount}</span>
-                  <span style={styles.statLabelLeft}>seguindo</span>
+                <div style={styles.statItemLeft} className="profile-stat-item">
+                  <span style={styles.statValueLeft} className="profile-stat-value">{followingCount}</span>
+                  <span style={styles.statLabelLeft} className="profile-stat-label">seguindo</span>
                 </div>
               </div>
             </div>
 
-            <div style={styles.avatarContainerRight}>
+            <div style={styles.avatarContainerRight} className="profile-avatar-container">
               {/* Streak Badge */}
               {p.streak >= 3 && (
                 <div style={styles.streakBadge}>
@@ -926,6 +928,7 @@ export default function ProfileScreen() {
               {p.show_mastery !== false ? (
                 <span
                   style={{ ...styles.masteryTitle, cursor: 'pointer' }}
+                  className="profile-mastery-title"
                   onClick={() => setShowMasteryModal(true)}
                 >
                   {MASTERY_MAP[p.mastery] || 'Iniciante'}
@@ -939,6 +942,7 @@ export default function ProfileScreen() {
                     border: '1px solid rgba(255,255,255,0.1)',
                     cursor: 'pointer',
                   }}
+                  className="profile-mastery-title profile-mastery-none"
                   onClick={() => setShowMasteryModal(true)}
                 >
                   ❌ Sem Maestria

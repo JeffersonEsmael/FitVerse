@@ -10,6 +10,7 @@ import { useNavigationStore } from '../../stores/navigationStore';
 
 import { useFeedStore } from '../../stores/feedStore';
 import { AnimatePresence } from 'framer-motion';
+import { getPreloadedUrl, preloadVideo } from '../../utils/videoPreloader';
 
 export default function VideoCard({ video, isActive, index }) {
   const videoRef = useRef(null);
@@ -76,16 +77,30 @@ export default function VideoCard({ video, isActive, index }) {
         const el = videoRef.current;
         if (el) {
           // Use preloaded blob URL if available for instant playback
-          import('../../utils/videoPreloader').then(({ getPreloadedUrl }) => {
-            const blobUrl = getPreloadedUrl(video.videoUrl);
-            if (blobUrl && el.src !== blobUrl) {
-              el.src = blobUrl;
-            }
-          }).catch(() => {});
+          const blobUrl = getPreloadedUrl(video.videoUrl);
+          if (blobUrl && el.src !== blobUrl) {
+            el.src = blobUrl;
+          } else if (!blobUrl && el.src !== video.videoUrl) {
+            el.src = video.videoUrl;
+          }
 
           el.currentTime = 0;
           setProgress(0);
-          el.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+          
+          // Autoplay fallback system
+          el.play()
+            .then(() => setIsPlaying(true))
+            .catch((err) => {
+              console.log('[VideoCard] Autoplay failed unmuted, trying muted:', err);
+              el.muted = true;
+              setIsMuted(true);
+              el.play()
+                .then(() => setIsPlaying(true))
+                .catch((err2) => {
+                  console.warn('[VideoCard] Autoplay failed even when muted:', err2);
+                  setIsPlaying(false);
+                });
+            });
         }
       }
 
@@ -95,9 +110,7 @@ export default function VideoCard({ video, isActive, index }) {
       if (nextIdx < feedState.videos.length) {
         const nextVideo = feedState.videos[nextIdx];
         if (nextVideo && nextVideo.mediaType === 'video' && nextVideo.videoUrl) {
-          import('../../utils/videoPreloader').then(({ preloadVideo }) => {
-            preloadVideo(nextVideo.videoUrl);
-          }).catch(() => {});
+          preloadVideo(nextVideo.videoUrl);
         }
       }
     } else {
@@ -202,7 +215,13 @@ export default function VideoCard({ video, isActive, index }) {
         >
           {(video.carouselUrls || []).map((url, idx) => (
             <div key={idx} style={styles.carouselSlide}>
-              <img src={url} alt={`${video.caption || ''} - Slide ${idx + 1}`} style={styles.media} />
+              <img 
+                src={url} 
+                alt={`${video.caption || ''} - Slide ${idx + 1}`} 
+                style={{ ...styles.media, userSelect: 'none', WebkitUserDrag: 'none', pointerEvents: 'none' }} 
+                draggable="false"
+                onDragStart={(e) => e.preventDefault()}
+              />
             </div>
           ))}
         </div>
@@ -210,7 +229,9 @@ export default function VideoCard({ video, isActive, index }) {
         <img
           src={video.videoUrl}
           alt={video.caption || ''}
-          style={styles.media}
+          style={{ ...styles.media, userSelect: 'none', WebkitUserDrag: 'none' }}
+          draggable="false"
+          onDragStart={(e) => e.preventDefault()}
         />
       )}
 
@@ -436,6 +457,7 @@ const styles = {
     width: '100%',
     height: '100%',
     overflowX: 'auto',
+    overflowY: 'hidden',
     scrollSnapType: 'x mandatory',
     scrollbarWidth: 'none',
     msOverflowStyle: 'none',
