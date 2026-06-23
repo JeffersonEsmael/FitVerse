@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useAuthStore } from '../stores/authStore';
@@ -27,7 +27,7 @@ export default function SplashScreen() {
       setTimedOut(true);
     }, AUTH_TIMEOUT_MS);
     return () => clearTimeout(safetyTimer);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // Navigate once BOTH conditions are met:
   // 1. Minimum display time has passed
@@ -125,9 +125,10 @@ const styles = {
   logoContainer: { marginBottom: '8px' },
   logoIcon: {
     width: '100px', height: '100px', borderRadius: '28px',
-    background: 'linear-gradient(135deg, #00D4FF, #0088CC)',
+    background: '#000000',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    boxShadow: '0 0 40px rgba(0,212,255,0.4), 0 0 80px rgba(0,212,255,0.15)',
+    border: '1px solid rgba(255, 255, 255, 0.15)',
+    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
   },
 
   appName: {
