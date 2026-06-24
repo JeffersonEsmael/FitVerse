@@ -82,6 +82,7 @@ const MOCK_TRACKS = [
 export default function CreatePostScreen() {
   const screenParams = useNavigationStore((s) => s.screenParams);
   const [creationType, setCreationType] = useState(null); // null | 'video' | 'photo' | 'challenge'
+  const [step, setStep] = useState(1); // 1: Media Selection/Preview, 2: Post Details
 
   // Challenge creation states
   const [challengeTitle, setChallengeTitle] = useState('');
@@ -98,6 +99,7 @@ export default function CreatePostScreen() {
 
   useEffect(() => {
     resetMediaStates();
+    setStep(1);
     if (screenParams?.type === 'challenge') {
       setCreationType('challenge');
     } else {
@@ -128,10 +130,17 @@ export default function CreatePostScreen() {
   const [showCoverSelector, setShowCoverSelector] = useState(false);
   const coverVideoRef = useRef(null);
   const postVideoRef = useRef(null);
+  const step2VideoRef = useRef(null);
 
   useEffect(() => {
     if (postVideoRef.current && coverTime !== null) {
       postVideoRef.current.currentTime = coverTime;
+    }
+  }, [coverTime]);
+
+  useEffect(() => {
+    if (step2VideoRef.current && coverTime !== null) {
+      step2VideoRef.current.currentTime = coverTime;
     }
   }, [coverTime]);
 
@@ -414,6 +423,7 @@ export default function CreatePostScreen() {
     setVideoDuration(0);
     setTimelineThumbnails([]);
     setShowCoverSelector(false);
+    setStep(1);
   };
 
   const scrollToPreviewIndex = (idx) => {
@@ -771,324 +781,449 @@ export default function CreatePostScreen() {
         </div>
       ) : (
         <div style={styles.container}>
-          {/* Header */}
-          <div style={styles.header}>
-            <button style={styles.backBtn} onClick={() => { resetMediaStates(); setCreationType(null); }}>
-              <ChevronLeft size={24} color="#fff" />
-            </button>
-            <h2 style={styles.title}>{creationType === 'photo' ? 'Post / Carrossel' : 'Publicar Vídeo'}</h2>
-            <motion.button
-              style={{ ...styles.postBtn, opacity: file ? 1 : 0.4 }}
-              onClick={handlePost}
-              disabled={!file}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Send size={16} /> Postar
-            </motion.button>
-          </div>
+          {/* Custom style for inline scrubber slider thumb */}
+          <style>{`
+            .step2-cover-slider::-webkit-slider-thumb {
+              -webkit-appearance: none;
+              appearance: none;
+              width: 36px;
+              height: 50px;
+              border: 3px solid #00D4FF;
+              border-radius: 8px;
+              background: transparent;
+              box-shadow: 0 0 10px rgba(0,212,255,0.5);
+            }
+            .step2-cover-slider::-moz-range-thumb {
+              width: 36px;
+              height: 50px;
+              border: 3px solid #00D4FF;
+              border-radius: 8px;
+              background: transparent;
+              box-shadow: 0 0 10px rgba(0,212,255,0.5);
+            }
+          `}</style>
 
-          {/* Audio selector button at the top */}
-          {!preview && (
-            <motion.button
-              style={{
-                ...styles.audioSelectBtn,
-                background: selectedTrack ? 'rgba(57,255,20,0.1)' : 'rgba(255,255,255,0.05)',
-                borderColor: selectedTrack ? '#39FF14' : 'rgba(255,255,255,0.1)',
-              }}
-              onClick={() => setShowMusicSelector(true)}
-              whileTap={{ scale: 0.97 }}
-            >
-              <Music size={16} color={selectedTrack ? '#39FF14' : '#fff'} />
-              <span style={{ ...styles.audioText, color: selectedTrack ? '#39FF14' : '#fff' }}>
-                {selectedTrack ? selectedTrack.title : 'Adicionar Trilha / Som Fitness'}
-              </span>
-              {selectedTrack && <Volume2 size={16} color="#39FF14" />}
-            </motion.button>
-          )}
-
-          {/* Segmented Mode Selector */}
-          {!preview && creationType === 'video' && (
-            <div style={styles.modeTabs}>
-              <button
-                style={{ ...styles.modeTab, ...(mode === 'camera' ? styles.modeTabActive : {}) }}
-                onClick={() => setMode('camera')}
-              >
-                <Camera size={16} /> Gravar Câmera
-              </button>
-              <button
-                style={{ ...styles.modeTab, ...(mode === 'gallery' ? styles.modeTabActive : {}) }}
-                onClick={() => setMode('gallery')}
-              >
-                <Upload size={16} /> Fazer Upload
-              </button>
-            </div>
-          )}
-
-          {/* Content Preview/Input Area */}
-          {preview ? (
-            /* Locked Content Preview */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', marginBottom: '20px' }}>
-              <div style={{ ...styles.previewWrap, aspectRatio, marginBottom: 0 }}>
-                {mediaType === 'video' ? (
-                  <>
-                    <video 
-                      ref={postVideoRef}
-                      src={preview} 
-                      style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} 
-                      controls 
-                      playsInline 
-                    />
-                    <button
-                      type="button"
-                      style={styles.editCoverBtn}
-                      onClick={() => {
-                        setTempCoverTime(coverTime !== null ? coverTime : Math.min(1, videoDuration));
-                        setShowCoverSelector(true);
-                      }}
-                    >
-                      🖼️ Editar Capa
-                    </button>
-                  </>
-                ) : mediaType === 'carousel' ? (
-                  <div
-                    ref={previewCarouselRef}
-                    style={styles.carouselContainer}
-                    onScroll={handlePreviewCarouselScroll}
-                  >
-                    {previews.map((prevUrl, idx) => (
-                      <div key={idx} style={styles.carouselSlide}>
-                        <img src={prevUrl} alt={`Preview Slide ${idx + 1}`} style={styles.previewMedia} />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <img src={preview} alt="Preview" style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} />
-                )}
-
-                {/* Carousel indicators and arrows */}
-                {mediaType === 'carousel' && previews.length > 1 && (
-                  <div style={styles.dotsContainerPreview}>
-                    {previews.map((_, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          ...styles.dotPreview,
-                          background: activePreviewIndex === idx ? '#00D4FF' : 'rgba(255,255,255,0.4)',
-                          transform: activePreviewIndex === idx ? 'scale(1.2)' : 'scale(1)',
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                <button
-                  style={styles.removeBtn}
-                  onClick={resetMediaStates}
-                >
-                  <X size={18} color="#fff" />
+          {step === 1 ? (
+            /* STEP 1: Media Selection & Preview */
+            <>
+              {/* Header */}
+              <div style={styles.header}>
+                <button style={styles.backBtn} onClick={() => { resetMediaStates(); setCreationType(null); }}>
+                  <ChevronLeft size={24} color="#fff" />
                 </button>
-                {selectedTrack && (
-                  <div style={styles.audioBadge}>
-                    <Music size={12} color="#39FF14" />
-                    <span style={styles.audioBadgeText}>{selectedTrack.title}</span>
+                <h2 style={{ ...styles.title, flex: 1, textAlign: 'center', marginRight: '24px' }}>
+                  {creationType === 'photo' ? 'Post / Carrossel' : 'Publicar Vídeo'}
+                </h2>
+              </div>
+
+              {/* Segmented Mode Selector for video */}
+              {creationType === 'video' && (
+                <div style={styles.modeTabs}>
+                  <button
+                    style={{ ...styles.modeTab, ...(mode === 'camera' ? styles.modeTabActive : {}) }}
+                    onClick={() => {
+                      if (preview) resetMediaStates();
+                      setMode('camera');
+                    }}
+                  >
+                    <Camera size={16} /> Gravar Câmera
+                  </button>
+                  <button
+                    style={{ ...styles.modeTab, ...(mode === 'gallery' ? styles.modeTabActive : {}) }}
+                    onClick={() => {
+                      if (preview) resetMediaStates();
+                      setMode('gallery');
+                    }}
+                  >
+                    <Upload size={16} /> Fazer Upload
+                  </button>
+                </div>
+              )}
+
+              {/* Content Preview/Input Area */}
+              {preview ? (
+                /* Locked Content Preview */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', marginBottom: '20px' }}>
+                  <div style={{ ...styles.previewWrap, aspectRatio, marginBottom: 0 }}>
+                    {mediaType === 'video' ? (
+                      <>
+                        <video 
+                          ref={postVideoRef}
+                          src={preview} 
+                          style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} 
+                          controls 
+                          playsInline 
+                        />
+                        <button
+                          type="button"
+                          style={styles.editCoverBtn}
+                          onClick={() => {
+                            setTempCoverTime(coverTime !== null ? coverTime : Math.min(1, videoDuration));
+                            setShowCoverSelector(true);
+                          }}
+                        >
+                          🖼️ Editar Capa
+                        </button>
+                      </>
+                    ) : mediaType === 'carousel' ? (
+                      <div
+                        ref={previewCarouselRef}
+                        style={styles.carouselContainer}
+                        onScroll={handlePreviewCarouselScroll}
+                      >
+                        {previews.map((prevUrl, idx) => (
+                          <div key={idx} style={styles.carouselSlide}>
+                            <img src={prevUrl} alt={`Preview Slide ${idx + 1}`} style={styles.previewMedia} />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <img src={preview} alt="Preview" style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} />
+                    )}
+
+                    {/* Carousel indicators and arrows */}
+                    {mediaType === 'carousel' && previews.length > 1 && (
+                      <div style={styles.dotsContainerPreview}>
+                        {previews.map((_, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              ...styles.dotPreview,
+                              background: activePreviewIndex === idx ? '#00D4FF' : 'rgba(255,255,255,0.4)',
+                              transform: activePreviewIndex === idx ? 'scale(1.2)' : 'scale(1)',
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    <button
+                      style={styles.removeBtn}
+                      onClick={resetMediaStates}
+                    >
+                      <X size={18} color="#fff" />
+                    </button>
+                    {selectedTrack && (
+                      <div style={styles.audioBadge}>
+                        <Music size={12} color="#39FF14" />
+                        <span style={styles.audioBadgeText}>{selectedTrack.title}</span>
+                      </div>
+                    )}
+                    <div style={styles.mediaTypeBadge}>
+                      {mediaType === 'video' ? <Video size={14} color="#fff" /> : <ImageIcon size={14} color="#fff" />}
+                      <span style={styles.mediaTypeText}>
+                        {mediaType === 'video' ? 'Vídeo' : mediaType === 'carousel' ? `Carrossel (${previews.length})` : 'Foto'}
+                      </span>
+                    </div>
                   </div>
-                )}
-                <div style={styles.mediaTypeBadge}>
-                  {mediaType === 'video' ? <Video size={14} color="#fff" /> : <ImageIcon size={14} color="#fff" />}
-                  <span style={styles.mediaTypeText}>
-                    {mediaType === 'video' ? 'Vídeo' : mediaType === 'carousel' ? `Carrossel (${previews.length})` : 'Foto'}
+
+                  {/* Thumbnails row for Carousel / Multiple Photos */}
+                  {mediaType === 'carousel' && (
+                    <div style={styles.thumbnailList}>
+                      {previews.map((prevUrl, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            ...styles.thumbnailItem,
+                            border: activePreviewIndex === idx ? '2px solid #00D4FF' : '1px solid rgba(255,255,255,0.1)',
+                          }}
+                          onClick={() => scrollToPreviewIndex(idx)}
+                        >
+                          <img src={prevUrl} alt={`Thumbnail ${idx + 1}`} style={styles.thumbnailImg} />
+                          <button
+                            style={styles.thumbnailRemoveBtn}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const updatedFiles = files.filter((_, i) => i !== idx);
+                              const updatedPreviews = previews.filter((_, i) => i !== idx);
+                              
+                              setFiles(updatedFiles);
+                              setPreviews(updatedPreviews);
+                              
+                              if (updatedFiles.length <= 1) {
+                                setMediaType('image');
+                                setFile(updatedFiles[0] || null);
+                                setPreview(updatedPreviews[0] || null);
+                              } else {
+                                setFile(updatedFiles[0]);
+                                setPreview(updatedPreviews[0]);
+                              }
+                              
+                              if (activePreviewIndex >= updatedFiles.length) {
+                                setActivePreviewIndex(Math.max(0, updatedFiles.length - 1));
+                              }
+                            }}
+                          >
+                            <X size={10} color="#fff" />
+                          </button>
+                        </div>
+                      ))}
+                      
+                      {previews.length < 10 && (
+                        <button
+                          style={styles.thumbnailAddBtn}
+                          onClick={() => fileRef.current?.click()}
+                        >
+                          <Upload size={16} color="#00D4FF" />
+                          <span style={styles.thumbnailAddText}>Add</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Add to carousel helper button */}
+                  {mediaType === 'image' && creationType === 'photo' && (
+                    <button
+                      style={styles.addToCarouselBtn}
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      <PlusCircle size={16} color="#00D4FF" />
+                      <span>Adicionar fotos para criar carrossel</span>
+                    </button>
+                  )}
+                </div>
+              ) : mode === 'camera' && creationType === 'video' ? (
+                /* Active Camera Mode View */
+                <div style={styles.cameraFrame}>
+                  {cameraError ? (
+                    <div style={styles.cameraErrorWrap}>
+                      <ShieldAlert size={40} color="#FF9500" />
+                      <span style={styles.cameraErrorText}>{cameraError}</span>
+                      <motion.button
+                        style={styles.fallbackToGalleryBtn}
+                        onClick={() => setMode('gallery')}
+                        whileTap={{ scale: 0.97 }}
+                      >
+                        Ir para Fazer Upload
+                      </motion.button>
+                    </div>
+                  ) : (
+                    <>
+                      <video ref={videoPreviewRef} style={styles.cameraVideo} autoPlay playsInline muted />
+
+                      {/* Overlays */}
+                      {isRecording && (
+                        <div style={styles.recIndicator}>
+                          <div style={styles.recDot} />
+                          <span>REC {formatTime(recordingSeconds)}</span>
+                        </div>
+                      )}
+
+                      {/* Floating control buttons */}
+                      <div style={styles.cameraControls}>
+                        {!isRecording ? (
+                          <motion.button
+                            style={styles.recordBtnStart}
+                            onClick={startRecording}
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            <div style={styles.recordBtnInner} />
+                          </motion.button>
+                        ) : (
+                          <motion.button
+                            style={styles.recordBtnStop}
+                            onClick={stopRecording}
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            <Square size={20} color="#fff" fill="#fff" />
+                          </motion.button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                /* Gallery Mode Picker Area */
+                <motion.div
+                  style={styles.uploadArea}
+                  onClick={() => fileRef.current?.click()}
+                  whileHover={{ borderColor: 'rgba(0,212,255,0.4)', background: 'rgba(0,212,255,0.06)' }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <Upload size={40} color="#00D4FF" />
+                  <span style={styles.uploadTitle}>
+                    {creationType === 'photo' ? 'Selecionar Fotos' : 'Selecionar Vídeo'}
                   </span>
+                  <span style={styles.uploadDesc}>
+                    {creationType === 'photo'
+                      ? 'Imagens • JPG, PNG, WEBP (Máx. 10)'
+                      : 'Vídeo • MP4, MOV, WEBM'}
+                  </span>
+                </motion.div>
+              )}
+
+              {/* Audio Selector Button */}
+              <motion.button
+                style={{
+                  ...styles.audioSelectBtn,
+                  background: selectedTrack ? 'rgba(57,255,20,0.1)' : 'rgba(255,255,255,0.05)',
+                  borderColor: selectedTrack ? '#39FF14' : 'rgba(255,255,255,0.1)',
+                  marginTop: '16px',
+                }}
+                onClick={() => setShowMusicSelector(true)}
+                whileTap={{ scale: 0.97 }}
+              >
+                <Music size={16} color={selectedTrack ? '#39FF14' : '#fff'} />
+                <span style={{ ...styles.audioText, color: selectedTrack ? '#39FF14' : '#fff' }}>
+                  {selectedTrack ? selectedTrack.title : 'Adicionar Trilha / Som Fitness'}
+                </span>
+                {selectedTrack && <Volume2 size={16} color="#39FF14" />}
+              </motion.button>
+
+              {/* Centered AVANÇAR Button */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '28px', marginBottom: '16px' }}>
+                <motion.button
+                  style={{
+                    ...styles.avancarBtn,
+                    ...(preview ? styles.avancarBtnActive : styles.avancarBtnDisabled),
+                  }}
+                  disabled={!preview}
+                  onClick={() => setStep(2)}
+                  whileTap={preview ? { scale: 0.95 } : {}}
+                >
+                  Avançar
+                </motion.button>
+              </div>
+            </>
+          ) : (
+            /* STEP 2: Post Details & Publish */
+            <>
+              {/* Header */}
+              <div style={styles.header}>
+                <button style={styles.backBtn} onClick={() => setStep(1)}>
+                  <ChevronLeft size={24} color="#fff" />
+                </button>
+                <h2 style={styles.title}>{creationType === 'photo' ? 'Post / Carrossel' : 'Publicar Vídeo'}</h2>
+                <motion.button
+                  style={{ ...styles.postBtn, opacity: 1 }}
+                  onClick={handlePost}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Send size={16} /> Postar
+                </motion.button>
+              </div>
+
+              {/* Top Row: Caption area & Right side Preview Thumbnail */}
+              <div style={styles.step2TopRow}>
+                <textarea
+                  style={styles.step2Textarea}
+                  placeholder="Escreva sua legenda aqui..."
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  maxLength={300}
+                />
+                <div 
+                  style={styles.step2ThumbnailWrap}
+                  onClick={() => {
+                    if (mediaType === 'video') {
+                      setTempCoverTime(coverTime !== null ? coverTime : Math.min(1, videoDuration));
+                      setShowCoverSelector(true);
+                    }
+                  }}
+                >
+                  {mediaType === 'video' ? (
+                    <>
+                      <video
+                        ref={step2VideoRef}
+                        src={preview}
+                        style={styles.step2ThumbnailMedia}
+                        muted
+                        playsInline
+                      />
+                      <span style={styles.step2CoverBadge}>Capa</span>
+                    </>
+                  ) : (
+                    <img src={preview} alt="Preview" style={styles.step2ThumbnailMedia} />
+                  )}
                 </div>
               </div>
 
-              {/* Thumbnails row for Carousel / Multiple Photos */}
-              {mediaType === 'carousel' && (
-                <div style={styles.thumbnailList}>
-                  {previews.map((prevUrl, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        ...styles.thumbnailItem,
-                        border: activePreviewIndex === idx ? '2px solid #00D4FF' : '1px solid rgba(255,255,255,0.1)',
-                      }}
-                      onClick={() => scrollToPreviewIndex(idx)}
-                    >
-                      <img src={prevUrl} alt={`Thumbnail ${idx + 1}`} style={styles.thumbnailImg} />
-                      <button
-                        style={styles.thumbnailRemoveBtn}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const updatedFiles = files.filter((_, i) => i !== idx);
-                          const updatedPreviews = previews.filter((_, i) => i !== idx);
-                          
-                          setFiles(updatedFiles);
-                          setPreviews(updatedPreviews);
-                          
-                          if (updatedFiles.length <= 1) {
-                            setMediaType('image');
-                            setFile(updatedFiles[0] || null);
-                            setPreview(updatedPreviews[0] || null);
-                          } else {
-                            setFile(updatedFiles[0]);
-                            setPreview(updatedPreviews[0]);
-                          }
-                          
-                          if (activePreviewIndex >= updatedFiles.length) {
-                            setActivePreviewIndex(Math.max(0, updatedFiles.length - 1));
-                          }
-                        }}
-                      >
-                        <X size={10} color="#fff" />
-                      </button>
-                    </div>
-                  ))}
-                  
-                  {previews.length < 10 && (
-                    <button
-                      style={styles.thumbnailAddBtn}
-                      onClick={() => fileRef.current?.click()}
-                    >
-                      <Upload size={16} color="#00D4FF" />
-                      <span style={styles.thumbnailAddText}>Add</span>
-                    </button>
-                  )}
+              {selectedTrack && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#39FF14', fontWeight: 500, marginBottom: '16px' }}>
+                  <Music size={12} color="#39FF14" />
+                  <span>Trilha selecionada: {selectedTrack.title}</span>
                 </div>
               )}
 
-              {/* Add to carousel helper button */}
-              {mediaType === 'image' && (
-                <button
-                  style={styles.addToCarouselBtn}
-                  onClick={() => fileRef.current?.click()}
-                >
-                  <PlusCircle size={16} color="#00D4FF" />
-                  <span>Adicionar fotos para criar carrossel</span>
-                </button>
-              )}
-            </div>
-          ) : mode === 'camera' ? (
-            /* Active Camera Mode View */
-            <div style={styles.cameraFrame}>
-              {cameraError ? (
-                <div style={styles.cameraErrorWrap}>
-                  <ShieldAlert size={40} color="#FF9500" />
-                  <span style={styles.cameraErrorText}>{cameraError}</span>
-                  <motion.button
-                    style={styles.fallbackToGalleryBtn}
-                    onClick={() => setMode('gallery')}
-                    whileTap={{ scale: 0.97 }}
-                  >
-                    Ir para Fazer Upload
-                  </motion.button>
-                </div>
-              ) : (
+              {/* Scrubber section for video */}
+              {mediaType === 'video' && (
                 <>
-                  <video ref={videoPreviewRef} style={styles.cameraVideo} autoPlay playsInline muted />
+                  <div style={styles.step2Divider} />
+                  <p style={styles.step2CoverInstruction}>
+                    Escolha como seu reels aparecerá para as outras pessoas. Selecione um quadro do seu vídeo como imagem de capa.
+                  </p>
 
-                  {/* Overlays */}
-                  {isRecording && (
-                    <div style={styles.recIndicator}>
-                      <div style={styles.recDot} />
-                      <span>REC {formatTime(recordingSeconds)}</span>
+                  <div style={styles.step2TimelineContainer}>
+                    <div style={styles.step2TimelineThumbnails}>
+                      {timelineThumbnails.map((thumb, idx) => (
+                        <img
+                          key={idx}
+                          src={thumb.dataUrl}
+                          alt=""
+                          style={styles.step2TimelineThumb}
+                        />
+                      ))}
                     </div>
-                  )}
-
-                  {/* Floating control buttons */}
-                  <div style={styles.cameraControls}>
-                    {!isRecording ? (
-                      <motion.button
-                        style={styles.recordBtnStart}
-                        onClick={startRecording}
-                        whileTap={{ scale: 0.9 }}
-                      >
-                        <div style={styles.recordBtnInner} />
-                      </motion.button>
-                    ) : (
-                      <motion.button
-                        style={styles.recordBtnStop}
-                        onClick={stopRecording}
-                        whileTap={{ scale: 0.9 }}
-                      >
-                        <Square size={20} color="#fff" fill="#fff" />
-                      </motion.button>
-                    )}
+                    
+                    <input
+                      type="range"
+                      min={0}
+                      max={videoDuration || 10}
+                      step={0.05}
+                      value={coverTime !== null ? coverTime : tempCoverTime}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setCoverTime(val);
+                        setTempCoverTime(val);
+                      }}
+                      className="step2-cover-slider"
+                      style={styles.step2TimelineSlider}
+                    />
                   </div>
                 </>
               )}
-            </div>
-          ) : (
-            /* Gallery Mode Picker Area */
-            <motion.div
-              style={styles.uploadArea}
-              onClick={() => fileRef.current?.click()}
-              whileHover={{ borderColor: 'rgba(0,212,255,0.4)', background: 'rgba(0,212,255,0.06)' }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <Upload size={40} color="#00D4FF" />
-              <span style={styles.uploadTitle}>
-                {creationType === 'photo' ? 'Selecionar Fotos' : 'Selecionar Vídeo'}
-              </span>
-              <span style={styles.uploadDesc}>
-                {creationType === 'photo'
-                  ? 'Imagens • JPG, PNG, WEBP (Máx. 10)'
-                  : 'Vídeo • MP4, MOV, WEBM'}
-              </span>
-            </motion.div>
+
+              <div style={styles.step2Divider} />
+
+              {/* Hashtags */}
+              <div style={styles.field}>
+                <label style={styles.label}>Hashtags</label>
+                <div style={styles.hashtagInput}>
+                  <Hash size={16} color="#6C6C88" />
+                  <input
+                    style={styles.input}
+                    placeholder="Adicionar hashtag (pressione Enter)"
+                    value={hashtagInput}
+                    onChange={(e) => setHashtagInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addHashtag())}
+                  />
+                </div>
+                <div style={styles.chipRow}>
+                  {hashtags.map((t) => (
+                    <span key={t} style={styles.chip}>
+                      #{t} <X size={12} onClick={() => removeHashtag(t)} style={{ cursor: 'pointer', marginLeft: 4 }} />
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Category */}
+              <div style={styles.field}>
+                <label style={styles.label}>Categoria</label>
+                <div style={styles.catRow}>
+                  {categories.map((c) => (
+                    <button
+                      key={c}
+                      style={{ ...styles.catChip, ...(category === c ? styles.catChipActive : {}) }}
+                      onClick={() => setCategory(c)}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
-
-          {/* Caption */}
-          <div style={styles.field}>
-            <label style={styles.label}>Legenda</label>
-            <textarea
-              style={styles.textarea}
-              placeholder="Descreva seu post e treinos..."
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              maxLength={300}
-            />
-            <div style={styles.fieldBottomRow}>
-              {selectedTrack && <span style={styles.attachedMusicInfo}>🎵 Trilha: {selectedTrack.title}</span>}
-              <span style={styles.charCount}>{caption.length}/300</span>
-            </div>
-          </div>
-
-          {/* Hashtags */}
-          <div style={styles.field}>
-            <label style={styles.label}>Hashtags</label>
-            <div style={styles.hashtagInput}>
-              <Hash size={16} color="#6C6C88" />
-              <input
-                style={styles.input}
-                placeholder="Adicionar hashtag (pressione Enter)"
-                value={hashtagInput}
-                onChange={(e) => setHashtagInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addHashtag())}
-              />
-            </div>
-            <div style={styles.chipRow}>
-              {hashtags.map((t) => (
-                <span key={t} style={styles.chip}>
-                  #{t} <X size={12} onClick={() => removeHashtag(t)} style={{ cursor: 'pointer', marginLeft: 4 }} />
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Category */}
-          <div style={styles.field}>
-            <label style={styles.label}>Categoria</label>
-            <div style={styles.catRow}>
-              {categories.map((c) => (
-                <button
-                  key={c}
-                  style={{ ...styles.catChip, ...(category === c ? styles.catChipActive : {}) }}
-                  onClick={() => setCategory(c)}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* Music selector slider sheet */}
           <AnimatePresence>
@@ -1158,6 +1293,7 @@ export default function CreatePostScreen() {
               </>
             )}
           </AnimatePresence>
+
           <input
             ref={fileRef}
             type="file"
@@ -1167,6 +1303,7 @@ export default function CreatePostScreen() {
             style={{ display: 'none' }}
           />
         </div>
+
       )}
       {/* Cover Frame Selector Modal */}
       <AnimatePresence>
@@ -1355,7 +1492,7 @@ const styles = {
     transition: 'all 0.2s',
   },
   coverModalOverlay: {
-    position: 'fixed',
+    position: 'absolute',
     inset: 0,
     background: '#0A0A0F',
     zIndex: 100000,
@@ -1500,5 +1637,121 @@ const styles = {
     height: '6px',
     borderRadius: '50%',
     transition: 'all 0.2s ease',
+  },
+  avancarBtn: {
+    padding: '14px 44px',
+    borderRadius: '24px',
+    border: 'none',
+    fontSize: '14px',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '1px',
+    fontFamily: "'Outfit', sans-serif",
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+  },
+  avancarBtnActive: {
+    background: '#3975F6',
+    color: '#fff',
+  },
+  avancarBtnDisabled: {
+    background: '#132247',
+    color: '#2e4373',
+    cursor: 'not-allowed',
+    boxShadow: 'none',
+  },
+  step2TopRow: {
+    display: 'flex',
+    gap: '16px',
+    alignItems: 'flex-start',
+    marginBottom: '16px',
+    width: '100%',
+  },
+  step2Textarea: {
+    flex: 1,
+    height: '140px',
+    background: 'transparent',
+    border: 'none',
+    outline: 'none',
+    color: '#fff',
+    fontSize: '15px',
+    fontFamily: "'Inter', sans-serif",
+    resize: 'none',
+    padding: '4px 0',
+  },
+  step2ThumbnailWrap: {
+    width: '90px',
+    height: '140px',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    background: '#000',
+    border: '1px solid rgba(255,255,255,0.12)',
+    position: 'relative',
+    cursor: 'pointer',
+    flexShrink: 0,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+  },
+  step2ThumbnailMedia: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  step2CoverBadge: {
+    position: 'absolute',
+    bottom: '6px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: 'rgba(0,0,0,0.7)',
+    color: '#fff',
+    fontSize: '10px',
+    fontWeight: 'bold',
+    padding: '2px 8px',
+    borderRadius: '4px',
+    pointerEvents: 'none',
+    border: '1px solid rgba(255,255,255,0.1)',
+  },
+  step2Divider: {
+    borderBottom: '1px solid rgba(255,255,255,0.08)',
+    margin: '16px 0',
+    width: '100%',
+  },
+  step2CoverInstruction: {
+    fontSize: '13px',
+    color: 'rgba(255,255,255,0.5)',
+    textAlign: 'center',
+    lineHeight: '1.5',
+    margin: '0 0 16px 0',
+    fontFamily: "'Inter', sans-serif",
+  },
+  step2TimelineContainer: {
+    position: 'relative',
+    width: '100%',
+    height: '50px',
+    borderRadius: '10px',
+    overflow: 'hidden',
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    marginBottom: '8px',
+  },
+  step2TimelineThumbnails: {
+    display: 'flex',
+    width: '100%',
+    height: '100%',
+  },
+  step2TimelineThumb: {
+    flex: 1,
+    height: '100%',
+    objectFit: 'cover',
+    opacity: 0.6,
+  },
+  step2TimelineSlider: {
+    position: 'absolute',
+    inset: 0,
+    margin: 0,
+    WebkitAppearance: 'none',
+    background: 'transparent',
+    cursor: 'pointer',
+    zIndex: 10,
   },
 };
