@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play, MoreVertical, Check, MapPin, QrCode, Calendar, Shield, Copy, Info, MessageSquare, Lock } from 'lucide-react';
+import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play, MoreVertical, Check, MapPin, QrCode, Calendar, Shield, Copy, Info, MessageSquare, Lock, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -234,6 +234,75 @@ export default function ProfileScreen() {
     linkUserToGym,
     performGymCheckin
   } = useGymStore();
+
+  // Pull-to-refresh states
+  const containerRef = useRef(null);
+  const [touchStart, setTouchStart] = useState(null);
+  const [pullProgress, setPullProgress] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+
+  const handleTouchStart = useCallback((e) => {
+    const scrollEl = containerRef.current?.parentElement;
+    if (scrollEl && scrollEl.scrollTop === 0) {
+      setTouchStart(e.touches[0].clientY);
+    } else {
+      setTouchStart(null);
+    }
+    setDragOffset(0);
+  }, []);
+
+  const handleTouchMove = useCallback((e) => {
+    if (touchStart === null || isRefreshing) return;
+    const currentY = e.touches[0].clientY;
+    const diff = touchStart - currentY;
+    
+    if (diff < 0) {
+      const pullDist = -diff;
+      setDragOffset(Math.min(pullDist * 0.5, 80));
+      setPullProgress(Math.min(pullDist / 100, 1));
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    } else {
+      setDragOffset(0);
+      setPullProgress(0);
+    }
+  }, [touchStart, isRefreshing]);
+
+  const handleTouchEnd = useCallback(async (e) => {
+    if (touchStart === null || isRefreshing) return;
+    const currentY = e.changedTouches[0].clientY;
+    const diff = touchStart - currentY;
+    setTouchStart(null);
+
+    if (diff < 0 && pullProgress >= 1) {
+      setIsRefreshing(true);
+      setDragOffset(60);
+      try {
+        await refreshProfile();
+        if (user?.uid) {
+          const posts = await fetchUserPosts(user.uid);
+          setUserPosts(posts);
+          setPostsLoaded(true);
+          await fetchSeries(user.uid);
+          await fetchChallenges();
+          if (profile?.profile_type === 'business') {
+            await fetchBusinessFeedbacks(user.uid);
+          }
+        }
+      } catch (err) {
+        console.error('[Profile] Pull-to-refresh error:', err);
+      } finally {
+        setIsRefreshing(false);
+        setPullProgress(0);
+        setDragOffset(0);
+      }
+    } else {
+      setDragOffset(0);
+      setPullProgress(0);
+    }
+  }, [touchStart, pullProgress, isRefreshing, refreshProfile, user?.uid, fetchUserPosts, fetchSeries, fetchChallenges, profile?.profile_type, fetchBusinessFeedbacks]);
 
   const [showQrScanModal, setShowQrScanModal] = useState(false);
   const [manualTokenInput, setManualTokenInput] = useState('');
@@ -872,7 +941,31 @@ export default function ProfileScreen() {
         transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
       />
 
-      <div style={{ ...styles.container, background: getThemeBackground(p.profile_theme_color) }}>
+      {/* ── Pull-to-refresh indicator ────────────────────── */}
+      {(pullProgress > 0 || isRefreshing) && (
+        <div style={{
+          ...styles.refreshIndicator,
+          transform: `translate(-50%, ${isRefreshing ? 60 : Math.min(pullProgress * 60, 60)}px) scale(${isRefreshing ? 1 : pullProgress})`,
+          opacity: isRefreshing ? 1 : pullProgress,
+        }}>
+          <Loader2 
+            size={20} 
+            color="#00D4FF" 
+            style={{ 
+              animation: isRefreshing ? 'spin 1s linear infinite' : 'none',
+              transform: isRefreshing ? 'none' : `rotate(${pullProgress * 360}deg)`
+            }} 
+          />
+        </div>
+      )}
+
+      <motion.div
+        ref={containerRef}
+        style={{ ...styles.container, background: getThemeBackground(p.profile_theme_color), y: dragOffset }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* Header */}
         <div style={styles.header}>
           <button style={styles.headerBtnLeft} onClick={() => navigate('create')}>
@@ -1588,7 +1681,7 @@ export default function ProfileScreen() {
             )}
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* MODAL: Selecionar Maestria */}
       <AnimatePresence>
@@ -3464,6 +3557,24 @@ const styles = {
     background: 'linear-gradient(135deg, #00D4FF, #A855F7)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     color: '#fff', fontSize: '14px', fontWeight: 800,
+  },
+  refreshIndicator: {
+    position: 'absolute',
+    top: '80px',
+    left: '50%',
+    zIndex: 90,
+    background: 'rgba(10, 10, 15, 0.85)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '50%',
+    width: '40px',
+    height: '40px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+    backdropFilter: 'blur(8px)',
+    pointerEvents: 'none',
+    transition: 'transform 0.1s ease-out, opacity 0.1s ease-out',
   },
   container: {
     padding: '0 16px',

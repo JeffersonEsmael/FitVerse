@@ -1556,7 +1556,7 @@ export default function PublicProfileScreen() {
               {/* Body */}
               <div style={{ ...modalStyles.body, overflowY: 'auto' }}>
                 <div style={badgeStyles.grid}>
-                  {allBadgesAndMedals.map((badge, i) => (
+                  {allBadgesAndMedals.filter(badge => badge.unlocked).map((badge, i) => (
                     <BadgeCard key={badge.id} badge={badge} unlocked={badge.unlocked} index={i} />
                   ))}
                 </div>
