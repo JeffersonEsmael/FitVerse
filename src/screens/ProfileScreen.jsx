@@ -242,67 +242,7 @@ export default function ProfileScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
 
-  const handleTouchStart = useCallback((e) => {
-    const scrollEl = containerRef.current?.parentElement;
-    if (scrollEl && scrollEl.scrollTop === 0) {
-      setTouchStart(e.touches[0].clientY);
-    } else {
-      setTouchStart(null);
-    }
-    setDragOffset(0);
-  }, []);
 
-  const handleTouchMove = useCallback((e) => {
-    if (touchStart === null || isRefreshing) return;
-    const currentY = e.touches[0].clientY;
-    const diff = touchStart - currentY;
-    
-    if (diff < 0) {
-      const pullDist = -diff;
-      setDragOffset(Math.min(pullDist * 0.5, 80));
-      setPullProgress(Math.min(pullDist / 100, 1));
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-    } else {
-      setDragOffset(0);
-      setPullProgress(0);
-    }
-  }, [touchStart, isRefreshing]);
-
-  const handleTouchEnd = useCallback(async (e) => {
-    if (touchStart === null || isRefreshing) return;
-    const currentY = e.changedTouches[0].clientY;
-    const diff = touchStart - currentY;
-    setTouchStart(null);
-
-    if (diff < 0 && pullProgress >= 1) {
-      setIsRefreshing(true);
-      setDragOffset(60);
-      try {
-        await refreshProfile();
-        if (user?.uid) {
-          const posts = await fetchUserPosts(user.uid);
-          setUserPosts(posts);
-          setPostsLoaded(true);
-          await fetchSeries(user.uid);
-          await fetchChallenges();
-          if (profile?.profile_type === 'business') {
-            await fetchBusinessFeedbacks(user.uid);
-          }
-        }
-      } catch (err) {
-        console.error('[Profile] Pull-to-refresh error:', err);
-      } finally {
-        setIsRefreshing(false);
-        setPullProgress(0);
-        setDragOffset(0);
-      }
-    } else {
-      setDragOffset(0);
-      setPullProgress(0);
-    }
-  }, [touchStart, pullProgress, isRefreshing, refreshProfile, user?.uid, fetchUserPosts, fetchSeries, fetchChallenges, profile?.profile_type, fetchBusinessFeedbacks]);
 
   const [showQrScanModal, setShowQrScanModal] = useState(false);
   const [manualTokenInput, setManualTokenInput] = useState('');
@@ -698,6 +638,68 @@ export default function ProfileScreen() {
       setLoadingFeedbacks(false);
     }
   }, []);
+
+  const handleTouchStart = useCallback((e) => {
+    const scrollEl = containerRef.current?.parentElement;
+    if (scrollEl && scrollEl.scrollTop === 0) {
+      setTouchStart(e.touches[0].clientY);
+    } else {
+      setTouchStart(null);
+    }
+    setDragOffset(0);
+  }, []);
+
+  const handleTouchMove = useCallback((e) => {
+    if (touchStart === null || isRefreshing) return;
+    const currentY = e.touches[0].clientY;
+    const diff = touchStart - currentY;
+    
+    if (diff < 0) {
+      const pullDist = -diff;
+      setDragOffset(Math.min(pullDist * 0.5, 80));
+      setPullProgress(Math.min(pullDist / 100, 1));
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    } else {
+      setDragOffset(0);
+      setPullProgress(0);
+    }
+  }, [touchStart, isRefreshing]);
+
+  const handleTouchEnd = useCallback(async (e) => {
+    if (touchStart === null || isRefreshing) return;
+    const currentY = e.changedTouches[0].clientY;
+    const diff = touchStart - currentY;
+    setTouchStart(null);
+
+    if (diff < 0 && pullProgress >= 1) {
+      setIsRefreshing(true);
+      setDragOffset(60);
+      try {
+        await refreshProfile();
+        if (user?.uid) {
+          const posts = await fetchUserPosts(user.uid);
+          setUserPosts(posts);
+          setPostsLoaded(true);
+          await fetchSeries(user.uid);
+          await fetchChallenges();
+          if (profile?.profile_type === 'business') {
+            await fetchBusinessFeedbacks(user.uid);
+          }
+        }
+      } catch (err) {
+        console.error('[Profile] Pull-to-refresh error:', err);
+      } finally {
+        setIsRefreshing(false);
+        setPullProgress(0);
+        setDragOffset(0);
+      }
+    } else {
+      setDragOffset(0);
+      setPullProgress(0);
+    }
+  }, [touchStart, pullProgress, isRefreshing, refreshProfile, user?.uid, fetchUserPosts, fetchSeries, fetchChallenges, profile?.profile_type, fetchBusinessFeedbacks]);
 
   // Refresh profile when screen becomes active to ensure real-time data
   useEffect(() => {
