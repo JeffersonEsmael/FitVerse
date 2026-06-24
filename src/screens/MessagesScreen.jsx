@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useChatStore } from '../stores/chatStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
+import { getPreloadedImageUrl } from '../utils/imagePreloader';
 
 const FITNESS_EMOJIS = ['💪', '🏋️', '🥗', '🏆', '💧', '🧠', '🥇', '🥑', '🔥', '👟'];
 
@@ -182,7 +183,7 @@ export default function MessagesScreen() {
                   }}
                 >
                   {msg.imageUrl && (
-                    <img src={msg.imageUrl} alt="" style={styles.chatImage} />
+                    <img src={getPreloadedImageUrl(msg.imageUrl)} alt="" style={styles.chatImage} />
                   )}
                   {msg.content && <p style={styles.messageText}>{msg.content}</p>}
                   <span style={styles.messageTime}>

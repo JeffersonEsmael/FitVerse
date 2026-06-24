@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../config/supabase';
 import { cacheGet, cacheSet, cacheInvalidate, CACHE_KEYS, CACHE_TTL } from '../utils/localCache';
+import { preloadImage, preloadImages } from '../utils/imagePreloader';
 
 let messageSubscription = null;
 
@@ -110,7 +111,31 @@ export const useChatStore = create((set, get) => ({
 
   // ─── Fetch messages for a conversation ───────────────────
   fetchMessages: async (conversationId) => {
-    set({ isLoading: true, activeConversation: conversationId });
+    // Check cache first
+    const cached = cacheGet(CACHE_KEYS.messages(conversationId));
+    if (cached) {
+      // Map back dates which were serialized as strings
+      const mapped = cached.map((m) => ({
+        ...m,
+        createdAt: new Date(m.createdAt),
+      }));
+      set({ messages: mapped, isLoading: false, activeConversation: conversationId });
+      
+      // Preload cached images in background
+      const imageUrls = mapped.map((m) => m.imageUrl).filter(Boolean);
+      if (imageUrls.length > 0) {
+        preloadImages(imageUrls);
+      }
+
+      // Background refresh only if cache is older than 1 minute
+      const { cacheAge } = await import('../utils/localCache');
+      if (cacheAge(CACHE_KEYS.messages(conversationId)) < 1) {
+        return mapped;
+      }
+    } else {
+      set({ isLoading: true, activeConversation: conversationId });
+    }
+
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -120,20 +145,34 @@ export const useChatStore = create((set, get) => ({
 
       if (error) throw error;
 
+      const newMessages = (data || []).map((m) => ({
+        id: m.id,
+        conversationId: m.conversation_id,
+        senderId: m.sender_id,
+        content: m.content || '',
+        imageUrl: m.image_url || '',
+        createdAt: new Date(m.created_at),
+      }));
+
       set({
-        messages: (data || []).map((m) => ({
-          id: m.id,
-          conversationId: m.conversation_id,
-          senderId: m.sender_id,
-          content: m.content || '',
-          imageUrl: m.image_url || '',
-          createdAt: new Date(m.created_at),
-        })),
+        messages: newMessages,
         isLoading: false,
       });
+
+      // Cache the loaded messages
+      cacheSet(CACHE_KEYS.messages(conversationId), newMessages, CACHE_TTL.MESSAGES);
+
+      // Preload images
+      const imageUrls = newMessages.map((m) => m.imageUrl).filter(Boolean);
+      if (imageUrls.length > 0) {
+        preloadImages(imageUrls);
+      }
+
+      return newMessages;
     } catch (error) {
       console.error('Error fetching messages:', error.message);
       set({ isLoading: false });
+      return null;
     }
   },
 
@@ -202,7 +241,8 @@ export const useChatStore = create((set, get) => ({
       let finalFile = file;
       try {
         const { compressImage } = await import('../utils/compression');
-        finalFile = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.7 });
+        // Match the 900x900 resolution and 0.7 quality of posts for optimal size/quality ratio
+        finalFile = await compressImage(file, { maxWidth: 900, maxHeight: 900, quality: 0.7 });
       } catch (compErr) {
         console.warn('[ChatStore] Image compression failed, using original file:', compErr);
       }
@@ -219,6 +259,9 @@ export const useChatStore = create((set, get) => ({
       const { data: { publicUrl } } = supabase.storage
         .from('chat-media')
         .getPublicUrl(fileName);
+
+      // Preload the uploaded image in memory instantly
+      preloadImage(publicUrl);
 
       return publicUrl;
     } catch (error) {
@@ -253,12 +296,20 @@ export const useChatStore = create((set, get) => ({
             createdAt: new Date(m.created_at),
           };
 
+          // Preload incoming image instantly
+          if (newMessage.imageUrl) {
+            preloadImage(newMessage.imageUrl);
+          }
+
           set((state) => {
             // Avoid duplicates
             if (state.messages.some((msg) => msg.id === newMessage.id)) {
               return state;
             }
-            return { messages: [...state.messages, newMessage] };
+            const updated = [...state.messages, newMessage];
+            // Cache the updated messages
+            cacheSet(CACHE_KEYS.messages(conversationId), updated, CACHE_TTL.MESSAGES);
+            return { messages: updated };
           });
         }
       )

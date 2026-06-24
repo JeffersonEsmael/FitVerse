@@ -196,6 +196,7 @@ export const CACHE_KEYS = {
   workoutSeries: (userId) => `workout_series_${userId}`,
   gymCheckins: (userId) => `gym_checkins_${userId}`,
   interactions: (userId) => `interactions_${userId}`,
+  messages: (conversationId) => `messages_${conversationId}`,
 };
 
 // ─── TTL Constants (minutes) ─────────────────────────────
@@ -213,4 +214,5 @@ export const CACHE_TTL = {
   WORKOUT_SERIES: 30,
   GYM_CHECKINS: 60,
   INTERACTIONS: 5,
+  MESSAGES: 15,
 };

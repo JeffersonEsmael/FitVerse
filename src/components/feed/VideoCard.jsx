@@ -11,6 +11,7 @@ import { useNavigationStore } from '../../stores/navigationStore';
 import { useFeedStore } from '../../stores/feedStore';
 import { AnimatePresence } from 'framer-motion';
 import { getPreloadedUrl, preloadVideo } from '../../utils/videoPreloader';
+import { getPreloadedImageUrl, preloadImage, preloadImages } from '../../utils/imagePreloader';
 
 export default function VideoCard({ video, isActive, index }) {
   const videoRef = useRef(null);
@@ -104,13 +105,19 @@ export default function VideoCard({ video, isActive, index }) {
         }
       }
 
-      // Pre-load the next video in the feed for smooth transition
+      // Pre-load the next item in the feed for smooth transition
       const feedState = useFeedStore.getState();
       const nextIdx = index + 1;
       if (nextIdx < feedState.videos.length) {
         const nextVideo = feedState.videos[nextIdx];
-        if (nextVideo && nextVideo.mediaType === 'video' && nextVideo.videoUrl) {
-          preloadVideo(nextVideo.videoUrl);
+        if (nextVideo) {
+          if (nextVideo.mediaType === 'video' && nextVideo.videoUrl) {
+            preloadVideo(nextVideo.videoUrl);
+          } else if (nextVideo.mediaType === 'carousel' && nextVideo.carouselUrls) {
+            preloadImages(nextVideo.carouselUrls);
+          } else if (nextVideo.mediaType === 'image' && nextVideo.videoUrl) {
+            preloadImage(nextVideo.videoUrl);
+          }
         }
       }
     } else {
@@ -216,7 +223,7 @@ export default function VideoCard({ video, isActive, index }) {
           {(video.carouselUrls || []).map((url, idx) => (
             <div key={idx} style={styles.carouselSlide}>
               <img 
-                src={url} 
+                src={getPreloadedImageUrl(url)} 
                 alt={`${video.caption || ''} - Slide ${idx + 1}`} 
                 style={{ ...styles.media, userSelect: 'none', WebkitUserDrag: 'none', pointerEvents: 'none' }} 
                 draggable="false"
@@ -227,7 +234,7 @@ export default function VideoCard({ video, isActive, index }) {
         </div>
       ) : (
         <img
-          src={video.videoUrl}
+          src={getPreloadedImageUrl(video.videoUrl)}
           alt={video.caption || ''}
           style={{ ...styles.media, userSelect: 'none', WebkitUserDrag: 'none' }}
           draggable="false"
