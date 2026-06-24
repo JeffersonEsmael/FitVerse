@@ -191,24 +191,32 @@ export const useGymStore = create((set, get) => ({
       console.log('[GymStore] 🔥 Novo streak calculado:', newStreak);
 
       // 4. Save checkin row
-      const newCheckinId = `checkin_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-      const newCheckin = {
-        id: newCheckinId,
+      const dbCheckin = {
         user_id: userId,
         gym_id: gym.id,
         created_at: new Date().toISOString()
       };
 
       let dbSaved = false;
+      let savedCheckin = null;
       try {
-        const { error: insertError } = await supabase
+        const { data, error: insertError } = await supabase
           .from('gym_checkins')
-          .insert(newCheckin);
+          .insert(dbCheckin)
+          .select()
+          .single();
         if (insertError) throw insertError;
+        savedCheckin = data;
         dbSaved = true;
       } catch (insertErr) {
         console.warn('[GymStore] Could not insert checkin into DB, saving locally:', insertErr.message);
       }
+
+      // Prepare local checkin object (using DB returned object with generated UUID or creating fallback)
+      const newCheckin = dbSaved ? savedCheckin : {
+        id: `checkin_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        ...dbCheckin
+      };
 
       // Save locally (always do it for fallback consistency)
       const localList = [newCheckin, ...get()._getLocalCheckins(userId)];
@@ -238,50 +246,10 @@ export const useGymStore = create((set, get) => ({
 
   // Internal: streak calculator
   _calculateStreak: (lastCheckInDateStr, currentStreak, todayDate = new Date()) => {
-    if (!lastCheckInDateStr) {
-      console.log('[GymStore] _calculateStreak: primeiro check-in, retornando 1');
-      return 1;
-    }
-
-    const lastDate = new Date(lastCheckInDateStr);
-    
-    // Normalize to local midnight
-    const last = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate());
-    const today = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
-    
-    const diffTime = today - last;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    console.log('[GymStore] _calculateStreak:', {
-      lastDateLocal: last.toLocaleDateString('pt-BR'),
-      todayLocal: today.toLocaleDateString('pt-BR'),
-      diffDays,
-      currentStreak,
-    });
-
-    if (diffDays <= 0) {
-      console.log('[GymStore] _calculateStreak: mesmo dia, mantendo streak:', currentStreak);
-      return currentStreak;
-    }
-    
-    // Check if skipped any non-Sunday days between last checkin and today (exclusive)
-    let hasSkippedWeekday = false;
-    for (let i = 1; i < diffDays; i++) {
-      const checkDay = new Date(last.getTime() + i * 24 * 60 * 60 * 1000);
-      if (checkDay.getDay() !== 0) { // 0 is Sunday
-        hasSkippedWeekday = true;
-        console.log('[GymStore] _calculateStreak: dia pulado (não-domingo):', checkDay.toLocaleDateString('pt-BR'), 'dia da semana:', checkDay.getDay());
-        break;
-      }
-    }
-    
-    if (hasSkippedWeekday) {
-      console.log('[GymStore] _calculateStreak: streak resetado para 1 (dia pulado)');
-      return 1;
-    } else {
-      console.log('[GymStore] _calculateStreak: streak incrementado:', currentStreak, '->', currentStreak + 1);
-      return currentStreak + 1;
-    }
+    // Simply increment the current streak/count by 1.
+    // The daily check-in restriction is already validated in performGymCheckin.
+    console.log('[GymStore] _calculateStreak: incrementing active days count from:', currentStreak || 0, '->', (currentStreak || 0) + 1);
+    return (currentStreak || 0) + 1;
   },
 
   // Local storage helpers
