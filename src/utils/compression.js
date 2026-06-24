@@ -329,7 +329,7 @@ export const compressVideo = (file, { maxDimension = 1280, fps = 30, bitrate = 2
  * @param {number} options.quality JPEG quality 0.0-1.0 (default: 0.85)
  * @returns {Promise<File|null>} A promise resolving to the thumbnail File, or null on failure
  */
-export const generateVideoThumbnail = (file, { seekTime = 1, maxWidth = 720, maxHeight = 1280, quality = 0.85 } = {}) => {
+export const generateVideoThumbnail = (file, { seekTime = 1, isAuto = false, maxWidth = 720, maxHeight = 1280, quality = 0.85 } = {}) => {
   return new Promise((resolve) => {
     if (!file || !file.type || !file.type.startsWith('video/')) {
       return resolve(null);
@@ -347,19 +347,16 @@ export const generateVideoThumbnail = (file, { seekTime = 1, maxWidth = 720, max
       console.warn('[compression] Thumbnail generation timed out');
       URL.revokeObjectURL(objectUrl);
       resolve(null);
-    }, 15000);
+    }, 20000);
 
-    videoEl.onloadedmetadata = () => {
-      // Seek to the requested time (or 0 if video is too short)
-      const seekTo = Math.min(seekTime, videoEl.duration * 0.5);
-      videoEl.currentTime = seekTo;
-    };
+    const scanPoints = [0.1, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0];
+    let scanIdx = 0;
 
-    videoEl.onseeked = () => {
+    const performExport = () => {
       clearTimeout(timeout);
 
-      let width = videoEl.videoWidth;
-      let height = videoEl.videoHeight;
+      let width = videoEl.videoWidth || 640;
+      let height = videoEl.videoHeight || 360;
 
       // Scale down keeping aspect ratio
       if (width > height) {
@@ -397,7 +394,7 @@ export const generateVideoThumbnail = (file, { seekTime = 1, maxWidth = 720, max
               `thumb_${Date.now()}.jpg`,
               { type: 'image/jpeg', lastModified: Date.now() }
             );
-            console.log(`[compression] 🖼️ Thumbnail generated: ${width}x${height}, ${(blob.size / 1024).toFixed(0)}KB`);
+            console.log(`[compression] 🖼️ Thumbnail generated: ${width}x${height}, ${(blob.size / 1024).toFixed(0)}KB (at ${videoEl.currentTime.toFixed(2)}s)`);
             resolve(thumbnailFile);
           } catch (e) {
             resolve(blob);
@@ -406,6 +403,64 @@ export const generateVideoThumbnail = (file, { seekTime = 1, maxWidth = 720, max
         'image/jpeg',
         quality
       );
+    };
+
+    videoEl.onloadedmetadata = () => {
+      if (isAuto) {
+        // Start auto-seeking to find first non-black frame
+        seekToNextScanPoint();
+      } else {
+        videoEl.currentTime = Math.min(seekTime, videoEl.duration);
+      }
+    };
+
+    const seekToNextScanPoint = () => {
+      if (scanIdx >= scanPoints.length) {
+        // Fallback to 1.0s if all frames are dark
+        videoEl.currentTime = Math.min(1.0, videoEl.duration);
+        return;
+      }
+      const targetTime = Math.min(scanPoints[scanIdx], videoEl.duration);
+      videoEl.currentTime = targetTime;
+    };
+
+    videoEl.onseeked = () => {
+      if (isAuto && scanIdx < scanPoints.length) {
+        try {
+          const testCanvas = document.createElement('canvas');
+          testCanvas.width = 80;
+          testCanvas.height = 45;
+          const testCtx = testCanvas.getContext('2d');
+          if (testCtx) {
+            testCtx.drawImage(videoEl, 0, 0, testCanvas.width, testCanvas.height);
+            const imgData = testCtx.getImageData(0, 0, testCanvas.width, testCanvas.height);
+            const data = imgData.data;
+            
+            let colorSum = 0;
+            for (let i = 0; i < data.length; i += 4) {
+              const r = data[i];
+              const g = data[i+1];
+              const b = data[i+2];
+              colorSum += (r + g + b) / 3;
+            }
+            const avgBrightness = colorSum / (testCanvas.width * testCanvas.height);
+            
+            // If the frame is bright enough (meaning it is not pure black or extremely dark), export it!
+            if (avgBrightness > 15) {
+              performExport();
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn('[compression] Auto-scan error:', e);
+        }
+        
+        // Seek to next point
+        scanIdx++;
+        seekToNextScanPoint();
+      } else {
+        performExport();
+      }
     };
 
     videoEl.onerror = () => {

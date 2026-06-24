@@ -21,12 +21,69 @@ export const useFeedStore = create(
       setActiveTab: (tab) => set({ activeTab: tab }),
       clearUploadError: () => set({ uploadError: null }),
 
+  // ─── Cache updating helper ──────────────────────────────
+  // Loops through cached feeds and user posts in localStorage and updates the changed video's fields in-place
+  _updateVideoInCaches: (videoId, updateFn) => {
+    try {
+      const prefix = 'fv_cache_';
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith(prefix + 'user_posts_') || key.startsWith(prefix + 'feed_'))) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const entry = JSON.parse(raw);
+            if (entry && Array.isArray(entry.data)) {
+              let updated = false;
+              const newData = entry.data.map(v => {
+                if (v.id === videoId) {
+                  updated = true;
+                  return updateFn(v);
+                }
+                return v;
+              });
+              if (updated) {
+                entry.data = newData;
+                localStorage.setItem(key, JSON.stringify(entry));
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Cache] Error updating video in cache:', e);
+    }
+  },
+
   // ─── Toggle interactions ─────────────────────────────────
   toggleShape: async (videoId) => {
     const video = get().videos.find((v) => v.id === videoId);
     const wasShaped = video ? video.hasShaped : false;
 
-    // Optimistic update
+    // 1. Synchronize socialStore searchResults if matching video exists
+    try {
+      const { useSocialStore } = await import('./socialStore');
+      const socialStore = useSocialStore.getState();
+      if (socialStore.searchResults && socialStore.searchResults.some(v => v.id === videoId)) {
+        useSocialStore.setState({
+          searchResults: socialStore.searchResults.map((v) =>
+            v.id === videoId
+              ? { ...v, hasShaped: !v.hasShaped, shapes: v.hasShaped ? Math.max(v.shapes - 1, 0) : v.shapes + 1 }
+              : v
+          )
+        });
+      }
+    } catch (e) {
+      console.warn('[Feed] Error updating socialStore searchResults:', e);
+    }
+
+    // 2. Synchronize local caches (user posts, feed) in localStorage
+    get()._updateVideoInCaches(videoId, (v) => ({
+      ...v,
+      hasShaped: !v.hasShaped,
+      shapes: v.hasShaped ? Math.max(v.shapes - 1, 0) : v.shapes + 1
+    }));
+
+    // 3. Optimistic update in feed store
     set((state) => ({
       videos: state.videos.map((v) =>
         v.id === videoId
@@ -39,7 +96,12 @@ export const useFeedStore = create(
       const { error } = await supabase.rpc('toggle_video_shape', { p_video_id: videoId });
       if (error) {
         console.error('[Feed] toggleShape RPC error:', error.message, error.details);
-        // Revert local state on error
+        // Revert local state and caches on error
+        get()._updateVideoInCaches(videoId, (v) => ({
+          ...v,
+          hasShaped: !v.hasShaped,
+          shapes: v.hasShaped ? v.shapes + 1 : Math.max(v.shapes - 1, 0)
+        }));
         set((state) => ({
           videos: state.videos.map((v) =>
             v.id === videoId
@@ -67,7 +129,31 @@ export const useFeedStore = create(
     const video = get().videos.find((v) => v.id === videoId);
     const wasBoosted = video ? video.hasBoosted : false;
 
-    // Optimistic update
+    // 1. Synchronize socialStore searchResults if matching video exists
+    try {
+      const { useSocialStore } = await import('./socialStore');
+      const socialStore = useSocialStore.getState();
+      if (socialStore.searchResults && socialStore.searchResults.some(v => v.id === videoId)) {
+        useSocialStore.setState({
+          searchResults: socialStore.searchResults.map((v) =>
+            v.id === videoId
+              ? { ...v, hasBoosted: !v.hasBoosted, boosts: v.hasBoosted ? Math.max(v.boosts - 1, 0) : v.boosts + 1 }
+              : v
+          )
+        });
+      }
+    } catch (e) {
+      console.warn('[Feed] Error updating socialStore searchResults:', e);
+    }
+
+    // 2. Synchronize local caches in localStorage
+    get()._updateVideoInCaches(videoId, (v) => ({
+      ...v,
+      hasBoosted: !v.hasBoosted,
+      boosts: v.hasBoosted ? Math.max(v.boosts - 1, 0) : v.boosts + 1
+    }));
+
+    // 3. Optimistic update in feed store
     set((state) => ({
       videos: state.videos.map((v) =>
         v.id === videoId
@@ -80,7 +166,12 @@ export const useFeedStore = create(
       const { error } = await supabase.rpc('toggle_video_boost', { p_video_id: videoId });
       if (error) {
         console.error('[Feed] toggleBoost RPC error:', error.message, error.details);
-        // Revert local state on error
+        // Revert local state and caches on error
+        get()._updateVideoInCaches(videoId, (v) => ({
+          ...v,
+          hasBoosted: !v.hasBoosted,
+          boosts: v.hasBoosted ? v.boosts + 1 : Math.max(v.boosts - 1, 0)
+        }));
         set((state) => ({
           videos: state.videos.map((v) =>
             v.id === videoId
@@ -102,7 +193,31 @@ export const useFeedStore = create(
   },
 
   toggleGymBag: async (videoId) => {
-    // Optimistic update
+    // 1. Synchronize socialStore searchResults if matching video exists
+    try {
+      const { useSocialStore } = await import('./socialStore');
+      const socialStore = useSocialStore.getState();
+      if (socialStore.searchResults && socialStore.searchResults.some(v => v.id === videoId)) {
+        useSocialStore.setState({
+          searchResults: socialStore.searchResults.map((v) =>
+            v.id === videoId
+              ? { ...v, inGymBag: !v.inGymBag, gym_bag_saves: v.inGymBag ? Math.max(v.gym_bag_saves - 1, 0) : v.gym_bag_saves + 1 }
+              : v
+          )
+        });
+      }
+    } catch (e) {
+      console.warn('[Feed] Error updating socialStore searchResults:', e);
+    }
+
+    // 2. Synchronize local caches in localStorage
+    get()._updateVideoInCaches(videoId, (v) => ({
+      ...v,
+      inGymBag: !v.inGymBag,
+      gym_bag_saves: v.inGymBag ? Math.max(v.gym_bag_saves - 1, 0) : v.gym_bag_saves + 1
+    }));
+
+    // 3. Optimistic update in feed store
     set((state) => ({
       videos: state.videos.map((v) =>
         v.id === videoId
@@ -115,7 +230,12 @@ export const useFeedStore = create(
       const { error } = await supabase.rpc('toggle_video_gym_bag', { p_video_id: videoId });
       if (error) {
         console.error('[Feed] toggleGymBag RPC error:', error.message, error.details);
-        // Revert local state on error
+        // Revert local state and caches on error
+        get()._updateVideoInCaches(videoId, (v) => ({
+          ...v,
+          inGymBag: !v.inGymBag,
+          gym_bag_saves: v.inGymBag ? v.gym_bag_saves + 1 : Math.max(v.gym_bag_saves - 1, 0)
+        }));
         set((state) => ({
           videos: state.videos.map((v) =>
             v.id === videoId
@@ -684,7 +804,10 @@ export const useFeedStore = create(
           }));
           try {
             const { generateVideoThumbnail } = await import('../utils/compression');
-            const thumbFile = await generateVideoThumbnail(fileOrFiles);
+            const thumbFile = await generateVideoThumbnail(fileOrFiles, {
+              seekTime: metadata.coverTime ?? 1,
+              isAuto: metadata.coverTime === undefined
+            });
             if (thumbFile) {
               const thumbName = `${metadata.userId}/${Date.now()}_thumb.jpg`;
               const { error: thumbUpErr } = await supabase.storage

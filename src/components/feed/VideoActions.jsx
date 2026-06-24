@@ -59,20 +59,33 @@ const InteractionBtn = ({ icon, label, onClick, isActive, activeColor, type }) =
   );
 };
 
-export default function VideoActions({ video, isFollowing, isSelf, onFollowToggle, onCommentClick, onMoreClick }) {
+export default function VideoActions({ 
+  video, 
+  isFollowing, 
+  isSelf, 
+  onFollowToggle, 
+  onCommentClick, 
+  onMoreClick,
+  onShapeToggle,
+  onBoostToggle,
+  onGymBagToggle
+}) {
   const { toggleShape, toggleBoost, toggleGymBag } = useFeedStore();
   const navigate = useNavigationStore((s) => s.navigate);
 
   const handleShape = (e) => {
-    toggleShape(video.id);
+    if (onShapeToggle) onShapeToggle();
+    else toggleShape(video.id);
   };
 
   const handleBoost = (e) => {
-    toggleBoost(video.id);
+    if (onBoostToggle) onBoostToggle();
+    else toggleBoost(video.id);
   };
 
   const handleGymBag = (e) => {
-    toggleGymBag(video.id);
+    if (onGymBagToggle) onGymBagToggle();
+    else toggleGymBag(video.id);
   };
 
   const handleShare = (e) => {

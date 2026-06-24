@@ -9,6 +9,68 @@ import ScreenWrapper from '../components/layout/ScreenWrapper';
 
 const categories = ['treino', 'dieta', 'evolução', 'rotina', 'desafio', 'humor', 'motivação', 'dicas'];
 
+const CarouselIconStacked = () => (
+  <div style={{ position: 'relative', width: '60px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    {/* Left card */}
+    <div style={{
+      position: 'absolute',
+      width: '26px',
+      height: '32px',
+      left: '0px',
+      background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05))',
+      border: '1.5px solid rgba(255,255,255,0.3)',
+      borderRadius: '6px',
+      transform: 'rotate(-12deg) translateY(2px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+      zIndex: 1,
+      opacity: 0.7
+    }}>
+      <ImageIcon size={12} color="rgba(255,255,255,0.6)" />
+    </div>
+
+    {/* Right card */}
+    <div style={{
+      position: 'absolute',
+      width: '26px',
+      height: '32px',
+      right: '0px',
+      background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05))',
+      border: '1.5px solid rgba(255,255,255,0.3)',
+      borderRadius: '6px',
+      transform: 'rotate(12deg) translateY(2px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+      zIndex: 1,
+      opacity: 0.7
+    }}>
+      <ImageIcon size={12} color="rgba(255,255,255,0.6)" />
+    </div>
+
+    {/* Center main card */}
+    <div style={{
+      position: 'relative',
+      width: '30px',
+      height: '36px',
+      background: 'linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0.1))',
+      border: '1.8px solid #fff',
+      borderRadius: '6px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxShadow: '0 6px 15px rgba(0,0,0,0.4)',
+      zIndex: 2,
+      transform: 'scale(1.05)'
+    }}>
+      <ImageIcon size={16} color="#fff" />
+    </div>
+  </div>
+);
+
 const MOCK_TRACKS = [
   { id: 'track-1', title: 'Phonk Beast (Hardcore Training Mix)', duration: '2:45', artist: 'FitVerse Originals' },
   { id: 'track-2', title: 'Cyberpunk Shred (Synthwave Gym)', duration: '3:12', artist: 'Neon Beats' },
@@ -57,6 +119,86 @@ export default function CreatePostScreen() {
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [showMusicSelector, setShowMusicSelector] = useState(false);
   const [aspectRatio, setAspectRatio] = useState('9/16');
+
+  // Cover selector states
+  const [coverTime, setCoverTime] = useState(null);
+  const [tempCoverTime, setTempCoverTime] = useState(1);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [timelineThumbnails, setTimelineThumbnails] = useState([]);
+  const [showCoverSelector, setShowCoverSelector] = useState(false);
+  const coverVideoRef = useRef(null);
+  const postVideoRef = useRef(null);
+
+  useEffect(() => {
+    if (postVideoRef.current && coverTime !== null) {
+      postVideoRef.current.currentTime = coverTime;
+    }
+  }, [coverTime]);
+
+  const generateTimelineThumbnails = (videoFile) => {
+    const video = document.createElement('video');
+    const objectUrl = URL.createObjectURL(videoFile);
+    video.src = objectUrl;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+    
+    video.onloadedmetadata = () => {
+      setVideoDuration(video.duration);
+      setTempCoverTime(Math.min(1, video.duration));
+      
+      const count = 8;
+      const step = video.duration / (count - 1 || 1);
+      const points = Array.from({ length: count }, (_, i) => i * step);
+      const thumbs = [];
+      let pointIdx = 0;
+      
+      const captureNext = () => {
+        if (pointIdx >= points.length) {
+          setTimelineThumbnails(thumbs);
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+        
+        video.currentTime = points[pointIdx];
+        video.onseeked = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 120;
+            canvas.height = 160;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              thumbs.push({ time: points[pointIdx], dataUrl: canvas.toDataURL('image/jpeg', 0.5) });
+            }
+          } catch (e) {
+            console.warn('[CreatePost] Error capturing timeline frame:', e);
+          }
+          pointIdx++;
+          captureNext();
+        };
+      };
+      
+      captureNext();
+    };
+    
+    video.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  };
+
+  const handleCoverTimeChange = (e) => {
+    const time = parseFloat(e.target.value);
+    setTempCoverTime(time);
+    if (coverVideoRef.current) {
+      coverVideoRef.current.currentTime = time;
+    }
+  };
+
+  const handleDoneCoverSelection = () => {
+    setCoverTime(tempCoverTime);
+    setShowCoverSelector(false);
+  };
 
   const getClosestAspectRatio = (width, height) => {
     const ratio = width / height;
@@ -234,6 +376,11 @@ export default function CreatePostScreen() {
         setPreview(URL.createObjectURL(recordedFile));
         setMediaType('video');
         stopCamera();
+        setCoverTime(null);
+        setTempCoverTime(1);
+        setVideoDuration(0);
+        setTimelineThumbnails([]);
+        generateTimelineThumbnails(recordedFile);
       };
 
       mediaRecorderRef.current = recorder;
@@ -262,6 +409,11 @@ export default function CreatePostScreen() {
     setHashtags([]);
     setSelectedTrack(null);
     stopCamera();
+    setCoverTime(null);
+    setTempCoverTime(1);
+    setVideoDuration(0);
+    setTimelineThumbnails([]);
+    setShowCoverSelector(false);
   };
 
   const scrollToPreviewIndex = (idx) => {
@@ -302,6 +454,11 @@ export default function CreatePostScreen() {
       setPreviews([URL.createObjectURL(videoFile)]);
       setMediaType('video');
       setActivePreviewIndex(0);
+      setCoverTime(null);
+      setTempCoverTime(1);
+      setVideoDuration(0);
+      setTimelineThumbnails([]);
+      generateTimelineThumbnails(videoFile);
     } else {
       // All are images
       const newPreviews = selectedFiles.map(f => URL.createObjectURL(f));
@@ -334,20 +491,18 @@ export default function CreatePostScreen() {
   const removeHashtag = (tag) => {
     setHashtags(hashtags.filter((t) => t !== tag));
   };
-
-  const handlePost = () => {
-    const postMedia = mediaType === 'carousel' ? files : file;
-    if (!postMedia || (Array.isArray(postMedia) && postMedia.length === 0)) return;
-
-    if (!user?.uid) {
-      alert('Você precisa estar logado para postar.');
+  const handlePost = async () => {
+    if (!file && files.length === 0) {
+      alert('Selecione uma foto ou vídeo para publicar.');
       return;
     }
 
-    // Navigate to feed immediately (background upload sync)
-    setActiveTab('feed');
+    const postMedia = mediaType === 'carousel' ? files : file;
+    const soundTitle = selectedTrack ? selectedTrack.title : '';
 
-    const soundTitle = selectedTrack ? selectedTrack.title : null;
+    resetMediaStates();
+    setCreationType(null);
+    navigate('feed');
 
     // Start background upload
     createPost(postMedia, {
@@ -358,6 +513,7 @@ export default function CreatePostScreen() {
       caption: caption + (soundTitle ? ` 🎵 Áudio: ${soundTitle}` : ''),
       hashtags,
       category,
+      coverTime: coverTime !== null ? coverTime : undefined,
     }).then((result) => {
       if (!result.success) {
         console.error('[CreatePost] Upload failed:', result.error);
@@ -420,7 +576,7 @@ export default function CreatePostScreen() {
           <div style={styles.selectionGrid}>
             <motion.button
               style={styles.selectionCard}
-              whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.04)' }}
+              whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)' }}
               whileTap={{ scale: 0.98 }}
               onClick={() => {
                 setCreationType('video');
@@ -428,7 +584,7 @@ export default function CreatePostScreen() {
               }}
             >
               <div style={{ ...styles.selectionIconBg, background: 'linear-gradient(135deg, #00D4FF, #0056FF)' }}>
-                <Video size={32} color="#fff" />
+                <Video size={28} color="#fff" />
               </div>
               <h3 style={styles.selectionCardTitle}>Publicar Vídeo</h3>
               <p style={styles.selectionCardDesc}>Grave com a câmera ou carregue vídeos de treinos da galeria.</p>
@@ -436,7 +592,7 @@ export default function CreatePostScreen() {
 
             <motion.button
               style={styles.selectionCard}
-              whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.04)' }}
+              whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)' }}
               whileTap={{ scale: 0.98 }}
               onClick={() => {
                 setCreationType('photo');
@@ -444,7 +600,7 @@ export default function CreatePostScreen() {
               }}
             >
               <div style={{ ...styles.selectionIconBg, background: 'linear-gradient(135deg, #A855F7, #6366F1)' }}>
-                <ImageIcon size={32} color="#fff" />
+                <CarouselIconStacked />
               </div>
               <h3 style={styles.selectionCardTitle}>Post / Carrossel</h3>
               <p style={styles.selectionCardDesc}>Faça upload de fotos para criar posts de imagem única ou carrossel.</p>
@@ -452,12 +608,12 @@ export default function CreatePostScreen() {
 
             <motion.button
               style={styles.selectionCard}
-              whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.04)' }}
+              whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)' }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setCreationType('challenge')}
             >
               <div style={{ ...styles.selectionIconBg, background: 'linear-gradient(135deg, #FF6B35, #FF2D55)' }}>
-                <Trophy size={32} color="#fff" />
+                <Trophy size={28} color="#fff" />
               </div>
               <h3 style={styles.selectionCardTitle}>Criar Desafio</h3>
               <p style={styles.selectionCardDesc}>Crie um grupo de competição personalizada com duração, recompensas de XP e métricas.</p>
@@ -674,7 +830,25 @@ export default function CreatePostScreen() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', marginBottom: '20px' }}>
               <div style={{ ...styles.previewWrap, aspectRatio, marginBottom: 0 }}>
                 {mediaType === 'video' ? (
-                  <video src={preview} style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} controls playsInline />
+                  <>
+                    <video 
+                      ref={postVideoRef}
+                      src={preview} 
+                      style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} 
+                      controls 
+                      playsInline 
+                    />
+                    <button
+                      type="button"
+                      style={styles.editCoverBtn}
+                      onClick={() => {
+                        setTempCoverTime(coverTime !== null ? coverTime : Math.min(1, videoDuration));
+                        setShowCoverSelector(true);
+                      }}
+                    >
+                      🖼️ Editar Capa
+                    </button>
+                  </>
                 ) : mediaType === 'carousel' ? (
                   <div
                     ref={previewCarouselRef}
@@ -984,7 +1158,6 @@ export default function CreatePostScreen() {
               </>
             )}
           </AnimatePresence>
-
           <input
             ref={fileRef}
             type="file"
@@ -995,6 +1168,90 @@ export default function CreatePostScreen() {
           />
         </div>
       )}
+      {/* Cover Frame Selector Modal */}
+      <AnimatePresence>
+        {showCoverSelector && (
+          <motion.div
+            style={styles.coverModalOverlay}
+            initial={{ opacity: 0, y: '100%' }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+          >
+            {/* Scrubber CSS Thumb Customization */}
+            <style>{`
+              .cover-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 44px;
+                height: 60px;
+                border: 3px solid #00D4FF;
+                border-radius: 8px;
+                background: transparent;
+                box-shadow: 0 0 10px rgba(0,212,255,0.5);
+              }
+              .cover-slider::-moz-range-thumb {
+                width: 44px;
+                height: 60px;
+                border: 3px solid #00D4FF;
+                border-radius: 8px;
+                background: transparent;
+                box-shadow: 0 0 10px rgba(0,212,255,0.5);
+              }
+            `}</style>
+
+            <div style={styles.coverModalHeader}>
+              <button style={styles.coverModalBack} onClick={() => setShowCoverSelector(false)}>
+                <ChevronLeft size={24} color="#fff" />
+              </button>
+              <span style={styles.coverModalTitle}>Editar capa</span>
+              <button style={styles.coverModalDone} onClick={handleDoneCoverSelection}>
+                Concluir
+              </button>
+            </div>
+
+            <div style={styles.coverModalContent}>
+              <div style={styles.coverFramePreviewContainer}>
+                <video
+                  ref={coverVideoRef}
+                  src={preview}
+                  style={styles.coverFrameVideo}
+                  muted
+                  playsInline
+                />
+              </div>
+
+              <p style={styles.coverModalInstruction}>
+                Escolha como seu reels aparecerá para as outras pessoas. Selecione um quadro do seu vídeo como imagem de capa.
+              </p>
+
+              <div style={styles.coverTimelineContainer}>
+                <div style={styles.coverTimelineThumbnails}>
+                  {timelineThumbnails.map((thumb, idx) => (
+                    <img
+                      key={idx}
+                      src={thumb.dataUrl}
+                      alt=""
+                      style={styles.coverTimelineThumb}
+                    />
+                  ))}
+                </div>
+                
+                <input
+                  type="range"
+                  min={0}
+                  max={videoDuration || 10}
+                  step={0.05}
+                  value={tempCoverTime}
+                  onChange={handleCoverTimeChange}
+                  className="cover-slider"
+                  style={styles.coverTimelineSlider}
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </ScreenWrapper>
   );
 }
@@ -1068,12 +1325,135 @@ const styles = {
   trackTime: { fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontFamily: "'Inter', sans-serif" },
 
   // Selection Screen
-  selectionContainer: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)', display: 'flex', flexDirection: 'column', height: '100%' },
+  selectionContainer: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)', display: 'flex', flexDirection: 'column', height: '100%', background: '#0A0A0F' },
   selectionGrid: { display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '32px' },
-  selectionCard: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '30px 20px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', cursor: 'pointer', textAlign: 'center', fontFamily: "'Inter', sans-serif", width: '100%', boxSizing: 'border-box' },
-  selectionIconBg: { width: '64px', height: '64px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  selectionCard: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '32px 20px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.08)', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)', backdropFilter: 'blur(20px)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', cursor: 'pointer', textAlign: 'center', fontFamily: "'Inter', sans-serif", width: '100%', boxSizing: 'border-box', transition: 'all 0.2s ease' },
+  selectionIconBg: { width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' },
   selectionCardTitle: { fontSize: '18px', fontWeight: 700, color: '#fff', fontFamily: "'Outfit', sans-serif", margin: 0 },
-  selectionCardDesc: { fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.5', margin: 0 },
+  selectionCardDesc: { fontSize: '13px', color: 'rgba(255,255,255,0.45)', lineHeight: '1.5', margin: 0 },
+
+  // Cover Selector Modal
+  editCoverBtn: {
+    position: 'absolute',
+    bottom: '20px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: 'rgba(0, 0, 0, 0.75)',
+    border: '1px solid rgba(255, 255, 255, 0.25)',
+    borderRadius: '20px',
+    padding: '8px 16px',
+    color: '#fff',
+    fontSize: '13px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    backdropFilter: 'blur(10px)',
+    boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
+    zIndex: 10,
+    transition: 'all 0.2s',
+  },
+  coverModalOverlay: {
+    position: 'fixed',
+    inset: 0,
+    background: '#0A0A0F',
+    zIndex: 100000,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  coverModalHeader: {
+    height: '56px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '0 16px',
+    borderBottom: '1px solid rgba(255,255,255,0.08)',
+  },
+  coverModalBack: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  coverModalTitle: {
+    fontSize: '17px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+  },
+  coverModalDone: {
+    background: 'none',
+    border: 'none',
+    color: '#00D4FF',
+    fontSize: '15px',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  coverModalContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '24px',
+    gap: '24px',
+  },
+  coverFramePreviewContainer: {
+    width: '200px',
+    aspectRatio: '9/16',
+    borderRadius: '24px',
+    overflow: 'hidden',
+    border: '2px solid rgba(255,255,255,0.1)',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+    background: '#000',
+  },
+  coverFrameVideo: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  coverModalInstruction: {
+    fontSize: '13px',
+    color: 'rgba(255,255,255,0.5)',
+    textAlign: 'center',
+    maxWidth: '280px',
+    lineHeight: '1.5',
+    margin: 0,
+    fontFamily: "'Inter', sans-serif",
+  },
+  coverTimelineContainer: {
+    position: 'relative',
+    width: '100%',
+    maxWidth: '320px',
+    height: '60px',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.1)',
+  },
+  coverTimelineThumbnails: {
+    display: 'flex',
+    width: '100%',
+    height: '100%',
+  },
+  coverTimelineThumb: {
+    flex: 1,
+    height: '100%',
+    objectFit: 'cover',
+    opacity: 0.6,
+  },
+  coverTimelineSlider: {
+    position: 'absolute',
+    inset: 0,
+    margin: 0,
+    WebkitAppearance: 'none',
+    background: 'transparent',
+    cursor: 'pointer',
+    zIndex: 10,
+  },
 
   // Challenge Form
   challengeContainer: { padding: '0 16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)', paddingBottom: '60px' },

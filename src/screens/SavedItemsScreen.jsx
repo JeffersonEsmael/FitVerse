@@ -24,12 +24,13 @@ function formatViews(views) {
 export default function SavedItemsScreen() {
   const { user } = useAuthStore();
   const navigate = useNavigationStore((s) => s.navigate);
+  const currentScreen = useNavigationStore((s) => s.currentScreen);
   const { fetchGymBagVideos } = useFeedStore();
   const [savedVideos, setSavedVideos] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.uid) {
+    if (user?.uid && currentScreen === 'saved_items') {
       setIsLoading(true);
       fetchGymBagVideos(user.uid)
         .then((videos) => {
@@ -42,12 +43,11 @@ export default function SavedItemsScreen() {
           setIsLoading(false);
         });
     }
-  }, [user?.uid, fetchGymBagVideos]);
+  }, [user?.uid, fetchGymBagVideos, currentScreen]);
 
   return (
     <ScreenWrapper screenKey="saved_items">
       <div style={styles.container}>
-        {/* Header */}
         <div style={styles.header}>
           <button style={styles.backBtn} onClick={() => navigate('settings')}>
             <ChevronLeft size={24} color="#fff" />

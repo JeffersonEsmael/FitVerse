@@ -33,6 +33,22 @@ export default function VideoCard({ video, isActive, index }) {
   const [isFollowing, setIsFollowing] = useState(false);
   const [showComments, setShowComments] = useState(false);
 
+  const [hasShaped, setHasShaped] = useState(video.hasShaped);
+  const [shapes, setShapes] = useState(video.shapes || 0);
+  const [hasBoosted, setHasBoosted] = useState(video.hasBoosted);
+  const [boosts, setBoosts] = useState(video.boosts || 0);
+  const [inGymBag, setInGymBag] = useState(video.inGymBag);
+  const [gymBagSaves, setGymBagSaves] = useState(video.gym_bag_saves || 0);
+
+  useEffect(() => {
+    setHasShaped(video.hasShaped);
+    setShapes(video.shapes || 0);
+    setHasBoosted(video.hasBoosted);
+    setBoosts(video.boosts || 0);
+    setInGymBag(video.inGymBag);
+    setGymBagSaves(video.gym_bag_saves || 0);
+  }, [video.id, video.hasShaped, video.shapes, video.hasBoosted, video.boosts, video.inGymBag, video.gym_bag_saves]);
+
   const isSelf = user?.uid === video.userId;
   const isVideo = video.mediaType === 'video';
   const isCarousel = video.mediaType === 'carousel';
@@ -298,12 +314,44 @@ export default function VideoCard({ video, isActive, index }) {
 
       {/* Action buttons (right side) */}
       <VideoActions 
-        video={video} 
+        video={{
+          ...video,
+          hasShaped,
+          shapes,
+          hasBoosted,
+          boosts,
+          inGymBag,
+          gym_bag_saves: gymBagSaves
+        }} 
         isFollowing={isFollowing} 
         isSelf={isSelf} 
         onFollowToggle={handleFollowToggle} 
         onCommentClick={() => setShowComments(true)}
         onMoreClick={() => setShowOptions(true)}
+        onShapeToggle={() => {
+          const newHasShaped = !hasShaped;
+          video.hasShaped = newHasShaped;
+          video.shapes = newHasShaped ? (video.shapes || 0) + 1 : Math.max((video.shapes || 0) - 1, 0);
+          setHasShaped(newHasShaped);
+          setShapes(video.shapes);
+          useFeedStore.getState().toggleShape(video.id);
+        }}
+        onBoostToggle={() => {
+          const newHasBoosted = !hasBoosted;
+          video.hasBoosted = newHasBoosted;
+          video.boosts = newHasBoosted ? (video.boosts || 0) + 1 : Math.max((video.boosts || 0) - 1, 0);
+          setHasBoosted(newHasBoosted);
+          setBoosts(video.boosts);
+          useFeedStore.getState().toggleBoost(video.id);
+        }}
+        onGymBagToggle={() => {
+          const newInGymBag = !inGymBag;
+          video.inGymBag = newInGymBag;
+          video.gym_bag_saves = newInGymBag ? (video.gym_bag_saves || 0) + 1 : Math.max((video.gym_bag_saves || 0) - 1, 0);
+          setInGymBag(newInGymBag);
+          setGymBagSaves(video.gym_bag_saves);
+          useFeedStore.getState().toggleGymBag(video.id);
+        }}
       />
 
       {/* Comments Drawer */}
