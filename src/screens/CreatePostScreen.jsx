@@ -844,27 +844,15 @@ export default function CreatePostScreen() {
               {preview ? (
                 /* Locked Content Preview */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', marginBottom: '20px' }}>
-                  <div style={{ ...styles.previewWrap, aspectRatio, marginBottom: 0 }}>
+                  <div style={{ ...styles.previewWrap, marginBottom: 0 }}>
                     {mediaType === 'video' ? (
-                      <>
-                        <video 
-                          ref={postVideoRef}
-                          src={preview} 
-                          style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} 
-                          controls 
-                          playsInline 
-                        />
-                        <button
-                          type="button"
-                          style={styles.editCoverBtn}
-                          onClick={() => {
-                            setTempCoverTime(coverTime !== null ? coverTime : Math.min(1, videoDuration));
-                            setShowCoverSelector(true);
-                          }}
-                        >
-                          🖼️ Editar Capa
-                        </button>
-                      </>
+                      <video 
+                        ref={postVideoRef}
+                        src={preview} 
+                        style={{ ...styles.previewMedia, objectFit: 'contain', background: '#000' }} 
+                        controls 
+                        playsInline 
+                      />
                     ) : mediaType === 'carousel' ? (
                       <div
                         ref={previewCarouselRef}
@@ -1404,7 +1392,7 @@ const styles = {
   modeTabs: { display: 'flex', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '14px', padding: '4px', gap: '4px', marginBottom: '16px' },
   modeTab: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', border: 'none', background: 'none', color: 'rgba(255,255,255,0.5)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter', sans-serif", borderRadius: '10px', transition: 'all 0.2s' },
   modeTabActive: { background: 'rgba(255,255,255,0.08)', color: '#fff', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1)' },
-  cameraFrame: { width: '100%', aspectRatio: '9/16', borderRadius: '24px', overflow: 'hidden', background: '#000', border: '1px solid rgba(255,255,255,0.08)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' },
+  cameraFrame: { width: '100%', height: '280px', borderRadius: '24px', overflow: 'hidden', background: '#000', border: '1px solid rgba(255,255,255,0.08)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' },
   cameraVideo: { width: '100%', height: '100%', objectFit: 'cover' },
   cameraErrorWrap: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '24px', textAlign: 'center' },
   cameraErrorText: { fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.5' },
@@ -1415,10 +1403,10 @@ const styles = {
   recordBtnStart: { width: '64px', height: '64px', borderRadius: '50%', border: '4px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', cursor: 'pointer' },
   recordBtnInner: { width: '48px', height: '48px', borderRadius: '50%', background: '#FF2D55' },
   recordBtnStop: { width: '64px', height: '64px', borderRadius: '50%', border: '4px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FF2D55', cursor: 'pointer' },
-  uploadArea: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '56px 24px', border: '2px dashed rgba(0,212,255,0.2)', borderRadius: '20px', background: 'rgba(0,212,255,0.04)', cursor: 'pointer', marginBottom: '20px', transition: 'all 0.2s ease' },
+  uploadArea: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '32px 24px', height: '220px', boxSizing: 'border-box', border: '2px dashed rgba(0,212,255,0.2)', borderRadius: '20px', background: 'rgba(0,212,255,0.04)', cursor: 'pointer', marginBottom: '16px', transition: 'all 0.2s ease' },
   uploadTitle: { fontSize: '16px', fontWeight: 600, color: '#fff', fontFamily: "'Inter', sans-serif" },
   uploadDesc: { fontSize: '13px', color: '#6C6C88' },
-  previewWrap: { position: 'relative', borderRadius: '24px', overflow: 'hidden', marginBottom: '20px', width: '100%', aspectRatio: '9/16', border: '1px solid rgba(255,255,255,0.08)' },
+  previewWrap: { position: 'relative', borderRadius: '24px', overflow: 'hidden', marginBottom: '16px', width: '100%', height: '280px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.08)' },
   previewMedia: { width: '100%', height: '100%', objectFit: 'cover', borderRadius: '24px', display: 'block' },
   removeBtn: { position: 'absolute', top: '10px', right: '10px', width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   mediaTypeBadge: { position: 'absolute', top: '10px', left: '10px', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '8px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' },
@@ -1665,12 +1653,12 @@ const styles = {
     display: 'flex',
     gap: '16px',
     alignItems: 'flex-start',
-    marginBottom: '16px',
+    marginBottom: '24px',
     width: '100%',
   },
   step2Textarea: {
     flex: 1,
-    height: '140px',
+    height: '160px',
     background: 'transparent',
     border: 'none',
     outline: 'none',
@@ -1681,8 +1669,8 @@ const styles = {
     padding: '4px 0',
   },
   step2ThumbnailWrap: {
-    width: '90px',
-    height: '140px',
+    width: '105px',
+    height: '160px',
     borderRadius: '12px',
     overflow: 'hidden',
     background: '#000',
@@ -1713,7 +1701,7 @@ const styles = {
   },
   step2Divider: {
     borderBottom: '1px solid rgba(255,255,255,0.08)',
-    margin: '16px 0',
+    margin: '24px 0',
     width: '100%',
   },
   step2CoverInstruction: {
@@ -1721,7 +1709,7 @@ const styles = {
     color: 'rgba(255,255,255,0.5)',
     textAlign: 'center',
     lineHeight: '1.5',
-    margin: '0 0 16px 0',
+    margin: '0 0 20px 0',
     fontFamily: "'Inter', sans-serif",
   },
   step2TimelineContainer: {
@@ -1732,7 +1720,7 @@ const styles = {
     overflow: 'hidden',
     background: 'rgba(255,255,255,0.03)',
     border: '1px solid rgba(255,255,255,0.1)',
-    marginBottom: '8px',
+    marginBottom: '16px',
   },
   step2TimelineThumbnails: {
     display: 'flex',
