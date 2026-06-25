@@ -314,6 +314,8 @@ export const useFeedStore = create(
           return; // Cache is fresh enough, skip network
         }
         // Otherwise fall through to fetch fresh data in background (without showing loading)
+      } else {
+        set({ videos: [] });
       }
     }
 
@@ -322,11 +324,40 @@ export const useFeedStore = create(
     try {
       const offset = loadMore ? get().videos.length : 0;
       const limit = 10;
+      let followedUserIds = [];
+      if (get().activeTab === 'following') {
+        const { useAuthStore } = await import('./authStore');
+        const currentUser = useAuthStore.getState().user;
+        if (!currentUser?.uid) {
+          set({ videos: [], hasMore: false, isLoading: false });
+          return;
+        }
 
-      const { data, error } = await supabase
+        const { data: followingData, error: followingError } = await supabase
+          .from('followers')
+          .select('following_id')
+          .eq('follower_id', currentUser.uid);
+
+        if (followingError) throw followingError;
+
+        if (!followingData || followingData.length === 0) {
+          set({ videos: [], hasMore: false, isLoading: false });
+          return;
+        }
+
+        followedUserIds = followingData.map((f) => f.following_id);
+      }
+
+      let query = supabase
         .from('videos')
         .select('*')
-        .neq('category', 'desafio')
+        .neq('category', 'desafio');
+
+      if (get().activeTab === 'following') {
+        query = query.in('user_id', followedUserIds);
+      }
+
+      const { data, error } = await query
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 

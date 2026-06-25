@@ -26,13 +26,14 @@ export default function FeedScreen() {
   const [pullProgress, setPullProgress] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch posts on mount
+  // Fetch posts on mount and when activeTab changes (for you vs following)
   useEffect(() => {
-    if (!hasFetched) {
-      fetchVideos();
-      setHasFetched(true);
+    if (activeTab !== 'challenges') {
+      setCurrentIndex(0);
+      clearAllPreloads();
+      fetchVideos(false);
     }
-  }, [hasFetched, fetchVideos]);
+  }, [activeTab, fetchVideos, setCurrentIndex]);
 
   // Pre-load the first video when feed data arrives
   useEffect(() => {
@@ -107,16 +108,18 @@ export default function FeedScreen() {
     const diff = touchStart - currentY;
     
     // Apply rubber band / pull-to-refresh effect at borders
-    if (currentIndex === 0 && diff < 0) {
+    if ((currentIndex === 0 || videos.length === 0) && diff < 0) {
       const pullDist = -diff;
       // Visually slide the feed container down up to 80px max
       setDragOffset(Math.min(pullDist * 0.5, 80));
       // 100px of drag represents 100% progress
       setPullProgress(Math.min(pullDist / 100, 1));
-    } else if (currentIndex === videos.length - 1 && diff > 0) {
-      setDragOffset(-diff * 0.3); // Dragging up on last video
-    } else {
-      setDragOffset(-diff);
+    } else if (videos.length > 0) {
+      if (currentIndex === videos.length - 1 && diff > 0) {
+        setDragOffset(-diff * 0.3); // Dragging up on last video
+      } else {
+        setDragOffset(-diff);
+      }
     }
   };
 
@@ -125,8 +128,8 @@ export default function FeedScreen() {
     const diff = touchStart - e.changedTouches[0].clientY;
     setTouchStart(null);
 
-    // If we were pulling down on first video
-    if (currentIndex === 0 && diff < 0) {
+    // If we were pulling down on first video or when empty
+    if ((currentIndex === 0 || videos.length === 0) && diff < 0) {
       if (pullProgress >= 1) {
         setIsRefreshing(true);
         setDragOffset(60); // Hold container down while loading
@@ -144,6 +147,11 @@ export default function FeedScreen() {
         setDragOffset(0);
         setPullProgress(0);
       }
+      return;
+    }
+
+    if (videos.length === 0) {
+      setDragOffset(0);
       return;
     }
 
@@ -327,23 +335,42 @@ export default function FeedScreen() {
               key="empty"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              style={styles.emptyFeed}
+              style={{ ...styles.emptyFeed, y: dragOffset }}
             >
-              <Video size={48} color="#6C6C88" />
-              <span style={styles.emptyTitle}>
-                {uploadingPost ? 'Publicando seu post...' : 'Nenhum post ainda'}
-              </span>
-              <span style={styles.emptySubtitle}>
-                {uploadingPost ? 'Aguarde um momento' : 'Seja o primeiro a postar!'}
-              </span>
-              {!uploadingPost && (
-                <motion.button
-                  style={styles.emptyBtn}
-                  onClick={() => navigate('create')}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <PlusCircle size={18} /> Criar Post
-                </motion.button>
+              {activeTab === 'following' ? (
+                <>
+                  <span style={{ fontSize: '48px', marginBottom: '8px' }}>👥</span>
+                  <span style={styles.emptyTitle}>Feed de Seguindo Vazio</span>
+                  <span style={{ ...styles.emptySubtitle, maxWidth: '280px', textAlign: 'center', lineHeight: '1.4' }}>
+                    Você ainda não segue ninguém ou os perfis que você segue ainda não postaram vídeos. Comece a seguir outros atletas para acompanhar seus treinos!
+                  </span>
+                  <motion.button
+                    style={{ ...styles.emptyBtn, background: 'linear-gradient(135deg, #00D4FF, #0088CC)' }}
+                    onClick={() => navigate('explore')}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Explorar Pessoas
+                  </motion.button>
+                </>
+              ) : (
+                <>
+                  <Video size={48} color="#6C6C88" />
+                  <span style={styles.emptyTitle}>
+                    {uploadingPost ? 'Publicando seu post...' : 'Nenhum post ainda'}
+                  </span>
+                  <span style={styles.emptySubtitle}>
+                    {uploadingPost ? 'Aguarde um momento' : 'Seja o primeiro a postar!'}
+                  </span>
+                  {!uploadingPost && (
+                    <motion.button
+                      style={styles.emptyBtn}
+                      onClick={() => navigate('create')}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <PlusCircle size={18} /> Criar Post
+                    </motion.button>
+                  )}
+                </>
               )}
             </motion.div>
           ) : (
