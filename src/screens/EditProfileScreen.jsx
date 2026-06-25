@@ -25,6 +25,21 @@ const DAYS_OF_WEEK = [
   'Domingo'
 ];
 
+const AMENITIES_OPTIONS = [
+  { key: 'estacionamento', label: 'Estacionamento' },
+  { key: 'ar_condicionado', label: 'Ar-condicionado' },
+  { key: 'wifi', label: 'Wi-Fi' },
+  { key: 'chuveiro', label: 'Chuveiro' },
+  { key: 'vestuario', label: 'Vestiário' },
+  { key: 'banheiro', label: 'Banheiro' },
+  { key: 'sauna', label: 'Sauna' },
+  { key: 'avaliacao_fisica', label: 'Avaliação física' },
+  { key: 'nutricionista', label: 'Nutricionista' },
+  { key: 'acessibilidade', label: 'Acessibilidade' },
+  { key: 'bebedouro', label: 'Bebedouro' },
+  { key: 'personal_trainer', label: 'Personal Trainer' },
+];
+
 const DEFAULT_HOURS = {
   'Segunda-feira': { closed: false, open: '06:00', close: '22:00' },
   'Terça-feira': { closed: false, open: '06:00', close: '22:00' },
@@ -76,6 +91,27 @@ export default function EditProfileScreen() {
   const [operatingHoursObj, setOperatingHoursObj] = useState(DEFAULT_HOURS);
   const [businessPhotos, setBusinessPhotos] = useState([]);
 
+  const [amenities, setAmenities] = useState({
+    estacionamento: false,
+    ar_condicionado: false,
+    wifi: false,
+    chuveiro: false,
+    vestuario: false,
+    banheiro: false,
+    sauna: false,
+    avaliacao_fisica: false,
+    nutricionista: false,
+    acessibilidade: false,
+    bebedouro: false,
+    personal_trainer: false
+  });
+  const [socialLinks, setSocialLinks] = useState({
+    facebook: '',
+    instagram: '',
+    tiktok: '',
+    youtube: ''
+  });
+
   const fileInputRef = useRef(null);
   const businessPhotoInputRef = useRef(null);
 
@@ -104,6 +140,27 @@ export default function EditProfileScreen() {
       setOperatingHoursObj(parsedHours);
       const pPhotos = Array.isArray(profile.business_photos) ? profile.business_photos : [];
       setBusinessPhotos(pPhotos.map((url, i) => ({ id: `existing_${i}_${url}`, url, file: null })));
+
+      if (profile.amenities) {
+        try {
+          const parsedAmenities = typeof profile.amenities === 'string' 
+            ? JSON.parse(profile.amenities) 
+            : profile.amenities;
+          setAmenities((prev) => ({ ...prev, ...parsedAmenities }));
+        } catch (e) {
+          console.warn('Error parsing amenities:', e);
+        }
+      }
+      if (profile.social_links) {
+        try {
+          const parsedSocial = typeof profile.social_links === 'string'
+            ? JSON.parse(profile.social_links)
+            : profile.social_links;
+          setSocialLinks((prev) => ({ ...prev, ...parsedSocial }));
+        } catch (e) {
+          console.warn('Error parsing social_links:', e);
+        }
+      }
     }
   }, [profile]);
 
@@ -313,6 +370,8 @@ export default function EditProfileScreen() {
         has_garage: profileType === 'business' ? hasGarage : 'não',
         operating_hours: profileType === 'business' ? JSON.stringify(operatingHoursObj) : null,
         business_photos: profileType === 'business' ? uploadedPhotoUrls : null,
+        amenities: profileType === 'business' ? amenities : null,
+        social_links: profileType === 'business' ? socialLinks : null,
         profile_theme_color: profileThemeColor,
         updated_at: new Date().toISOString(),
       };
@@ -650,6 +709,92 @@ export default function EditProfileScreen() {
                     onChange={handleBusinessPhotoSelect}
                     style={{ display: 'none' }}
                   />
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Nosso Ambiente (Comodidades)</label>
+                  <span style={{ fontSize: '11px', color: '#6C6C88', marginBottom: '4px' }}>
+                    Selecione as opções disponíveis na sua empresa. Apenas as marcadas aparecerão no perfil.
+                  </span>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(145px, 1fr))',
+                    gap: '12px',
+                    marginTop: '8px',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '16px',
+                    padding: '16px'
+                  }}>
+                    {AMENITIES_OPTIONS.map((opt) => (
+                      <label key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: '#fff', fontSize: '13px', fontFamily: "'Inter', sans-serif" }}>
+                        <input
+                          type="checkbox"
+                          checked={!!amenities[opt.key]}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setAmenities(prev => ({ ...prev, [opt.key]: val }));
+                          }}
+                          style={{
+                            accentColor: '#39FF14',
+                            cursor: 'pointer',
+                            width: '16px',
+                            height: '16px',
+                          }}
+                        />
+                        {opt.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Outras Redes Sociais (Opcional)</label>
+                  <span style={{ fontSize: '11px', color: '#6C6C88', marginBottom: '4px' }}>
+                    Insira os links completos das redes sociais da empresa. As que ficarem em branco serão ocultadas.
+                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#B0B0C8' }}>Link do Facebook</span>
+                      <input
+                        type="text"
+                        value={socialLinks.facebook || ''}
+                        onChange={(e) => setSocialLinks(prev => ({ ...prev, facebook: e.target.value }))}
+                        style={styles.input}
+                        placeholder="Ex: https://facebook.com/minhaacademia"
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#B0B0C8' }}>Link do Instagram</span>
+                      <input
+                        type="text"
+                        value={socialLinks.instagram || ''}
+                        onChange={(e) => setSocialLinks(prev => ({ ...prev, instagram: e.target.value }))}
+                        style={styles.input}
+                        placeholder="Ex: https://instagram.com/minhaacademia"
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#B0B0C8' }}>Link do TikTok</span>
+                      <input
+                        type="text"
+                        value={socialLinks.tiktok || ''}
+                        onChange={(e) => setSocialLinks(prev => ({ ...prev, tiktok: e.target.value }))}
+                        style={styles.input}
+                        placeholder="Ex: https://tiktok.com/@minhaacademia"
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#B0B0C8' }}>Link do YouTube</span>
+                      <input
+                        type="text"
+                        value={socialLinks.youtube || ''}
+                        onChange={(e) => setSocialLinks(prev => ({ ...prev, youtube: e.target.value }))}
+                        style={styles.input}
+                        placeholder="Ex: https://youtube.com/c/minhaacademia"
+                      />
+                    </div>
+                  </div>
                 </div>
               </>
             )}

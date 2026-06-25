@@ -242,6 +242,8 @@ export default function ProfileScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
 
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+
 
 
   const [showQrScanModal, setShowQrScanModal] = useState(false);
@@ -1215,57 +1217,55 @@ export default function ProfileScreen() {
             }}>
               <h4 style={styles.sobreTitle}>Sobre a {p.display_name || 'Empresa'}</h4>
               
-              {/* Gallery Row inside card */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginBottom: '4px' }}>
-                <div 
-                  style={{ 
-                    display: 'flex', 
-                    gap: '12px', 
-                    overflowX: 'auto', 
-                    paddingBottom: '8px',
-                    width: '100%',
-                  }} 
-                  className="hide-scrollbar"
-                >
-                  {(() => {
-                    const photos = Array.isArray(p.business_photos) && p.business_photos.length > 0 
-                      ? p.business_photos 
-                      : [
-                          'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=400',
-                          'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=400',
-                          'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=400'
-                        ];
-                    
-                    return photos.map((url, i) => (
-                      <div 
-                        key={i} 
-                        style={{ 
-                          position: 'relative', 
-                          width: 'calc((100% - 24px) / 2.5)', 
-                          minWidth: '135px',
-                          height: '95px', 
-                          borderRadius: '12px', 
-                          overflow: 'hidden', 
-                          flexShrink: 0,
-                          border: '1px solid rgba(255,255,255,0.08)'
-                        }}
-                      >
-                        <img src={url} alt={`Galeria ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        {i === 2 && photos.length > 3 && (
-                          <div style={{
-                            position: 'absolute', inset: 0, 
-                            background: 'rgba(0,0,0,0.5)', 
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: '#fff', fontSize: '13px', fontWeight: 700, fontFamily: "'Outfit', sans-serif"
-                          }}>
-                            +{photos.length - 2}
-                          </div>
-                        )}
-                      </div>
-                    ));
-                  })()}
-                </div>
-              </div>
+              {/* Gallery Block */}
+              {(() => {
+                const photos = Array.isArray(p.business_photos) && p.business_photos.length > 0 
+                  ? p.business_photos 
+                  : [
+                      'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=400',
+                      'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=400',
+                      'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=400'
+                    ];
+
+                // Safety check for selectedPhotoIndex out of bounds
+                const safeIndex = selectedPhotoIndex < photos.length ? selectedPhotoIndex : 0;
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginBottom: '4px' }}>
+                    {/* Main display photo (16:9) */}
+                    <div style={{ width: '100%', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', aspectRatio: '16/9', background: '#12121A' }}>
+                      <img 
+                        src={photos[safeIndex]} 
+                        alt="Principal" 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                      />
+                    </div>
+                    {/* Thumbnails row */}
+                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', width: '100%', paddingBottom: '4px' }} className="hide-scrollbar">
+                      {photos.map((url, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setSelectedPhotoIndex(i)}
+                          style={{
+                            padding: 0,
+                            background: 'none',
+                            border: safeIndex === i ? '2px solid #39FF14' : '2px solid transparent',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            width: '60px',
+                            height: '45px',
+                            flexShrink: 0,
+                            cursor: 'pointer',
+                            transition: 'border-color 0.2s ease'
+                          }}
+                        >
+                          <img src={url} alt={`Galeria ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                 <span style={styles.sobreLabel}>📍 Endereço</span>
@@ -1297,20 +1297,66 @@ export default function ProfileScreen() {
                     return <span style={styles.sobreValue}>Não informado</span>;
                   }
                   try {
+                    let hoursObj = null;
                     if (p.operating_hours.trim().startsWith('{')) {
-                      const hoursObj = JSON.parse(p.operating_hours);
+                      hoursObj = JSON.parse(p.operating_hours);
+                    }
+                    if (hoursObj) {
+                      const weekdays = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'];
+                      
+                      const firstDay = hoursObj[weekdays[0]];
+                      const allWeekdaysSame = weekdays.every(day => {
+                        const d = hoursObj[day];
+                        if (!d || !firstDay) return false;
+                        return d.closed === firstDay.closed && d.open === firstDay.open && d.close === firstDay.close;
+                      });
+
+                      let weekdayText = '';
+                      let weekdayClosed = false;
+                      if (allWeekdaysSame && firstDay) {
+                        weekdayClosed = firstDay.closed;
+                        weekdayText = firstDay.closed ? 'Fechado' : `${firstDay.open} às ${firstDay.close}`;
+                      } else {
+                        const firstOpen = weekdays.find(d => hoursObj[d] && !hoursObj[d].closed);
+                        if (firstOpen) {
+                          weekdayClosed = false;
+                          const info = hoursObj[firstOpen];
+                          weekdayText = `${info.open} às ${info.close}`;
+                        } else {
+                          weekdayClosed = true;
+                          weekdayText = 'Fechado';
+                        }
+                      }
+
+                      const sat = hoursObj['Sábado'] || { closed: true };
+                      const sun = hoursObj['Domingo'] || { closed: true };
+
                       return (
-                        <div style={styles.hoursList}>
-                          {Object.entries(hoursObj).map(([day, data]) => (
-                            <div key={day} style={styles.hoursRow}>
-                              <span style={styles.hoursDay}>{day}</span>
-                              {data.closed ? (
-                                <span style={styles.hoursClosed}>Fechado</span>
-                              ) : (
-                                <span style={styles.hoursTime}>{data.open} às {data.close}</span>
-                              )}
-                            </div>
-                          ))}
+                        <div style={styles.hoursListCompact}>
+                          <div style={styles.hoursRowCompact}>
+                            <span style={styles.hoursDayBadgeCompact}>SEG. À SEX</span>
+                            {weekdayClosed ? (
+                              <span style={styles.hoursClosedCompact}>Fechado</span>
+                            ) : (
+                              <span style={styles.hoursTimeCompact}>{weekdayText}</span>
+                            )}
+                          </div>
+                          <div style={styles.hoursRowCompact}>
+                            <span style={styles.hoursDayBadgeCompact}>SÁBADO</span>
+                            {sat.closed ? (
+                              <span style={styles.hoursClosedCompact}>Fechado</span>
+                            ) : (
+                              <span style={styles.hoursTimeCompact}>{sat.open} às {sat.close}</span>
+                            )}
+                          </div>
+                          <div style={styles.hoursRowCompact}>
+                            <span style={styles.hoursDayBadgeCompact}>DOMINGO</span>
+                            {sun.closed ? (
+                              <span style={styles.hoursClosedCompact}>Fechado</span>
+                            ) : (
+                              <span style={styles.hoursTimeCompact}>{sun.open} às {sun.close}</span>
+                            )}
+                          </div>
                         </div>
                       );
                     }
@@ -1321,7 +1367,58 @@ export default function ProfileScreen() {
                 })()}
               </div>
 
+              {/* Nosso Ambiente (Comodidades) */}
+              {(() => {
+                try {
+                  let amenitiesObj = null;
+                  if (p.amenities) {
+                    amenitiesObj = typeof p.amenities === 'string' 
+                      ? JSON.parse(p.amenities) 
+                      : p.amenities;
+                  }
+                  
+                  if (amenitiesObj) {
+                    const activeAmenities = AMENITIES_OPTIONS.filter(opt => !!amenitiesObj[opt.key]);
+                    
+                    if (activeAmenities.length > 0) {
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', marginTop: '12px' }}>
+                          <span style={styles.sobreLabel}>NOSSO AMBIENTE:</span>
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: '10px 20px',
+                            width: '100%',
+                            maxWidth: '320px',
+                            textAlign: 'left',
+                            padding: '0 10px',
+                            marginTop: '4px'
+                          }}>
+                            {activeAmenities.map((opt) => (
+                              <div key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  width: '16px', height: '16px', borderRadius: '4px',
+                                  background: '#39FF14', border: '1px solid #39FF14'
+                                }}>
+                                  <span style={{ color: '#000', fontSize: '11px', fontWeight: 900 }}>✓</span>
+                                </div>
+                                <span style={{ fontSize: '13px', color: '#B0B0C8', fontWeight: 500, fontFamily: "'Inter', sans-serif" }}>{opt.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                  }
+                } catch (e) {
+                  console.warn('Error formatting amenities:', e);
+                }
+                return null;
+              })()}
+
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', marginTop: '8px' }}>
+                <span style={styles.sobreLabel}>FALE CONOSCO</span>
                 {p.whatsapp ? (
                   <motion.a
                     whileTap={{ scale: 0.97 }}
@@ -1339,6 +1436,59 @@ export default function ProfileScreen() {
                   </span>
                 )}
               </div>
+
+              {/* Outras Redes Sociais */}
+              {(() => {
+                try {
+                  let socialObj = null;
+                  if (p.social_links) {
+                    socialObj = typeof p.social_links === 'string'
+                      ? JSON.parse(p.social_links)
+                      : p.social_links;
+                  }
+                  
+                  if (socialObj) {
+                    const links = [
+                      { key: 'facebook', icon: FacebookIcon },
+                      { key: 'instagram', icon: InstagramIcon },
+                      { key: 'tiktok', icon: TikTokIcon },
+                      { key: 'youtube', icon: YouTubeIcon }
+                    ].filter(item => socialObj[item.key] && socialObj[item.key].trim().startsWith('http'));
+
+                    if (links.length > 0) {
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', width: '100%', marginTop: '16px' }}>
+                          <span style={styles.sobreLabel}>OUTRAS REDES</span>
+                          <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginTop: '4px' }}>
+                            {links.map((link) => (
+                              <motion.a
+                                key={link.key}
+                                whileTap={{ scale: 0.9 }}
+                                href={socialObj[link.key]}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  width: '44px', height: '44px', borderRadius: '50%',
+                                  background: 'rgba(255,255,255,0.04)',
+                                  border: '1px solid rgba(255,255,255,0.08)',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <link.icon size={22} color="#fff" />
+                              </motion.a>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                  }
+                } catch (e) {
+                  console.warn('Error formatting social links:', e);
+                }
+                return null;
+              })()}
+
             </div>
 
             {/* Feedbacks Header */}
@@ -3449,6 +3599,48 @@ export default function ProfileScreen() {
   );
 }
 
+const AMENITIES_OPTIONS = [
+  { key: 'estacionamento', label: 'Estacionamento' },
+  { key: 'ar_condicionado', label: 'Ar-condicionado' },
+  { key: 'wifi', label: 'Wi-Fi' },
+  { key: 'chuveiro', label: 'Chuveiro' },
+  { key: 'vestuario', label: 'Vestiário' },
+  { key: 'banheiro', label: 'Banheiro' },
+  { key: 'sauna', label: 'Sauna' },
+  { key: 'avaliacao_fisica', label: 'Avaliação física' },
+  { key: 'nutricionista', label: 'Nutricionista' },
+  { key: 'acessibilidade', label: 'Acessibilidade' },
+  { key: 'bebedouro', label: 'Bebedouro' },
+  { key: 'personal_trainer', label: 'Personal Trainer' },
+];
+
+const FacebookIcon = ({ size = 20, color = '#fff' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+  </svg>
+);
+
+const InstagramIcon = ({ size = 20, color = '#fff' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+  </svg>
+);
+
+const TikTokIcon = ({ size = 20, color = '#fff' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
+  </svg>
+);
+
+const YouTubeIcon = ({ size = 20, color = '#fff' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17z" />
+    <polygon points="10 15 15 12 10 9" fill={color} />
+  </svg>
+);
+
 const styles = {
   sobreCard: {
     background: 'rgba(255,255,255,0.03)',
@@ -3459,6 +3651,50 @@ const styles = {
     flexDirection: 'column',
     gap: '16px',
     marginBottom: '24px',
+  },
+  sobreTitleCompact: { fontSize: '13px', color: '#6C6C88', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' },
+  hoursListCompact: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    width: '100%',
+    maxWidth: '320px',
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    borderRadius: '16px',
+    padding: '14px 18px',
+    marginTop: '6px',
+  },
+  hoursRowCompact: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '16px',
+  },
+  hoursDayBadgeCompact: {
+    background: 'rgba(255,255,255,0.08)',
+    borderRadius: '8px',
+    padding: '6px 12px',
+    fontSize: '11px',
+    fontWeight: 800,
+    color: '#fff',
+    fontFamily: "'Outfit', sans-serif",
+    letterSpacing: '0.5px',
+  },
+  hoursTimeCompact: {
+    fontSize: '13px',
+    fontWeight: 700,
+    color: '#fff',
+    fontFamily: "'Inter', sans-serif",
+  },
+  hoursClosedCompact: {
+    fontSize: '12px',
+    fontWeight: 800,
+    color: '#FF2D55',
+    background: 'rgba(255,45,85,0.1)',
+    borderRadius: '6px',
+    padding: '3px 8px',
+    fontFamily: "'Outfit', sans-serif",
   },
   sobreTitle: { fontSize: '16px', fontWeight: 700, color: '#fff', margin: 0, fontFamily: "'Outfit', sans-serif" },
   sobreItem: { display: 'flex', flexDirection: 'column', gap: '6px' },
