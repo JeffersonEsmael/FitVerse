@@ -1039,26 +1039,41 @@ export default function PublicProfileScreen() {
             </div>
           )}
 
-          <div style={{ ...styles.profileCardHeader, position: 'relative', zIndex: 2 }} className="profile-card-header">
-            <div style={styles.profileInfoBlock}>
-              <h3 style={{ ...styles.usernameLeft, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="profile-username">
+          <div style={{ ...styles.profileCardHeader, position: 'relative', zIndex: 2, alignItems: 'flex-start' }} className="profile-card-header">
+            <div style={{ ...styles.profileInfoBlock, alignItems: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'flex-start' : 'center' }}>
+              <h3 style={{ 
+                ...styles.usernameLeft, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'flex-start' : 'center',
+                textAlign: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'left' : 'center'
+              }} className="profile-username">
                 @{profile.username}
-                {(profile.username?.toLowerCase() === 'flowrise' || profile.username?.toLowerCase() === 'flowride') && (
+                {(profile.username?.toLowerCase() === 'flowrise' || profile.username?.toLowerCase() === 'flowride' || profile?.profile_type === 'trainer' || profile?.profile_type === 'business') && (
                   <img src={verifiedBadgeImg} alt="verificado" style={{ width: '22px', height: '22px', marginLeft: '6px', objectFit: 'contain', flexShrink: 0 }} />
                 )}
               </h3>
-              <span style={styles.displayNameLeft} className="profile-display-name">{profile.display_name}</span>
+              <span style={{ 
+                ...styles.displayNameLeft, 
+                textAlign: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'left' : 'center',
+                paddingLeft: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? '4px' : '0'
+              }} className="profile-display-name">{profile.display_name}</span>
 
-              <div style={styles.statsRowLeft} className="profile-stats-row">
-                <div style={styles.statItemLeft} className="profile-stat-item">
+              <div style={{ 
+                ...styles.statsRowLeft, 
+                justifyContent: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'flex-start' : 'center',
+                gap: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? '20px' : '16px',
+                paddingLeft: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? '4px' : '0'
+              }} className="profile-stats-row">
+                <div style={{ ...styles.statItemLeft, alignItems: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'flex-start' : 'center' }} className="profile-stat-item">
                   <span style={styles.statValueLeft} className="profile-stat-value">{filteredUserPosts.length}</span>
                   <span style={styles.statLabelLeft} className="profile-stat-label">posts</span>
                 </div>
-                <div style={styles.statItemLeft} className="profile-stat-item">
+                <div style={{ ...styles.statItemLeft, alignItems: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'flex-start' : 'center' }} className="profile-stat-item">
                   <span style={styles.statValueLeft} className="profile-stat-value">{profile.followers || 0}</span>
                   <span style={styles.statLabelLeft} className="profile-stat-label">seguidores</span>
                 </div>
-                <div style={styles.statItemLeft} className="profile-stat-item">
+                <div style={{ ...styles.statItemLeft, alignItems: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'flex-start' : 'center' }} className="profile-stat-item">
                   <span style={styles.statValueLeft} className="profile-stat-value">{profile.following || 0}</span>
                   <span style={styles.statLabelLeft} className="profile-stat-label">seguindo</span>
                 </div>
@@ -1080,6 +1095,12 @@ export default function PublicProfileScreen() {
                     <div style={styles.avatarPlaceholder}>{profile.display_name?.charAt(0) || '?'}</div>
                   )}
                 </div>
+                {/* Verified Badge for trainer/business */}
+                {(profile?.profile_type === 'trainer' || profile?.profile_type === 'business') && (
+                  <div style={styles.verifiedAvatarBadge}>
+                    <Check size={10} color="#fff" strokeWidth={4} />
+                  </div>
+                )}
                 {user?.uid !== profile.id && (
                   <motion.button
                     style={{
@@ -1106,52 +1127,24 @@ export default function PublicProfileScreen() {
                 )}
               </div>
               
-              {/* Mastery Title */}
-              {profile.show_mastery !== false && (
-                <span style={styles.masteryTitle} className="profile-mastery-title">
-                  {MASTERY_MAP[profile.mastery] || profile.mastery || '🟢 Iniciante'}
-                </span>
+              {/* Role Title below avatar */}
+              {profile.profile_type === 'trainer' ? (
+                <span style={styles.roleLabel}>Personal Trainer</span>
+              ) : profile.profile_type === 'business' ? (
+                <span style={styles.roleLabel}>Empresa</span>
+              ) : (
+                /* Mastery Title for standard users */
+                profile.show_mastery !== false && (
+                  <span style={styles.masteryTitle} className="profile-mastery-title">
+                    {MASTERY_MAP[profile.mastery] || profile.mastery || '🟢 Iniciante'}
+                  </span>
+                )
               )}
             </div>
           </div>
 
           <div style={{ ...styles.bioContainer, position: 'relative', zIndex: 2 }}>
             {profile.bio && <p style={styles.bioCenter}>{profile.bio}</p>}
-
-            {/* Specialties & specs for trainer profile */}
-            {profile?.profile_type === 'trainer' && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', marginTop: '6px' }}>
-                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                  {profile.years_experience !== undefined && profile.years_experience !== null && (
-                    <span style={{ fontSize: '13px', color: '#00D4FF', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      🏋️ {profile.years_experience} {profile.years_experience === 1 ? 'ano' : 'anos'} de carreira
-                    </span>
-                  )}
-                  {profile.students_count && (
-                    <span style={{ fontSize: '13px', color: '#39FF14', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      👥 {profile.students_count}
-                    </span>
-                  )}
-                </div>
-                {profile.certifications && (
-                  <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontStyle: 'italic', textAlign: 'center' }}>
-                    📜 {profile.certifications}
-                  </span>
-                )}
-                {Array.isArray(profile.specialties) && profile.specialties.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginTop: '4px' }}>
-                    {profile.specialties.map((spec) => {
-                      const specOpt = TRAINER_SPECIALTIES_OPTIONS.find(o => o.key === spec);
-                      return (
-                        <span key={spec} style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(0,212,255,0.05)', border: '1px solid rgba(0,212,255,0.2)', color: '#00D4FF', fontSize: '13px', fontWeight: 600, backdropFilter: 'blur(10px)' }}>
-                          {specOpt ? specOpt.label : spec}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Stats inside profile card */}
@@ -2108,6 +2101,28 @@ const YouTubeIcon = ({ size = 20, color = '#fff' }) => (
 );
 
 const styles = {
+  verifiedAvatarBadge: {
+    position: 'absolute',
+    bottom: '4px',
+    right: '4px',
+    background: '#22C55E',
+    borderRadius: '50%',
+    width: '18px',
+    height: '18px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '2px solid #0A0A0F',
+    zIndex: 11,
+  },
+  roleLabel: {
+    fontSize: '12px',
+    fontWeight: 700,
+    color: '#B0B0C8',
+    marginTop: '8px',
+    fontFamily: "'Outfit', sans-serif",
+    textAlign: 'center',
+  },
   sobreTitleCompact: { fontSize: '13px', color: '#6C6C88', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' },
   hoursListCompact: {
     display: 'flex',
