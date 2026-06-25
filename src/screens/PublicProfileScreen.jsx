@@ -1040,13 +1040,13 @@ export default function PublicProfileScreen() {
           )}
 
           <div style={{ ...styles.profileCardHeader, position: 'relative', zIndex: 2, alignItems: 'flex-start' }} className="profile-card-header">
-            <div style={{ ...styles.profileInfoBlock, alignItems: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'flex-start' : 'center' }}>
+            <div style={{ ...styles.profileInfoBlock, alignItems: 'center' }}>
               <h3 style={{ 
                 ...styles.usernameLeft, 
                 display: 'flex', 
                 alignItems: 'center', 
-                justifyContent: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'flex-start' : 'center',
-                textAlign: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'left' : 'center'
+                justifyContent: 'center',
+                textAlign: 'center'
               }} className="profile-username">
                 @{profile.username}
                 {(profile.username?.toLowerCase() === 'flowrise' || profile.username?.toLowerCase() === 'flowride' || profile?.profile_type === 'trainer' || profile?.profile_type === 'business') && (
@@ -1055,32 +1055,39 @@ export default function PublicProfileScreen() {
               </h3>
               <span style={{ 
                 ...styles.displayNameLeft, 
-                textAlign: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'left' : 'center',
-                paddingLeft: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? '4px' : '0'
+                textAlign: 'center',
+                paddingLeft: '0'
               }} className="profile-display-name">{profile.display_name}</span>
 
               <div style={{ 
                 ...styles.statsRowLeft, 
-                justifyContent: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'flex-start' : 'center',
-                gap: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? '20px' : '16px',
-                paddingLeft: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? '4px' : '0'
+                justifyContent: 'center',
+                gap: '16px',
+                paddingLeft: '0'
               }} className="profile-stats-row">
-                <div style={{ ...styles.statItemLeft, alignItems: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'flex-start' : 'center' }} className="profile-stat-item">
+                <div style={{ ...styles.statItemLeft, alignItems: 'center' }} className="profile-stat-item">
                   <span style={styles.statValueLeft} className="profile-stat-value">{filteredUserPosts.length}</span>
                   <span style={styles.statLabelLeft} className="profile-stat-label">posts</span>
                 </div>
-                <div style={{ ...styles.statItemLeft, alignItems: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'flex-start' : 'center' }} className="profile-stat-item">
+                <div style={{ ...styles.statItemLeft, alignItems: 'center' }} className="profile-stat-item">
                   <span style={styles.statValueLeft} className="profile-stat-value">{profile.followers || 0}</span>
                   <span style={styles.statLabelLeft} className="profile-stat-label">seguidores</span>
                 </div>
-                <div style={{ ...styles.statItemLeft, alignItems: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? 'flex-start' : 'center' }} className="profile-stat-item">
+                <div style={{ ...styles.statItemLeft, alignItems: 'center' }} className="profile-stat-item">
                   <span style={styles.statValueLeft} className="profile-stat-value">{profile.following || 0}</span>
                   <span style={styles.statLabelLeft} className="profile-stat-label">seguindo</span>
                 </div>
               </div>
             </div>
 
-            <div style={styles.avatarContainerRight} className="profile-avatar-container">
+            <div 
+              style={{ 
+                ...styles.avatarContainerRight, 
+                marginTop: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? '-55px' : '0px',
+                zIndex: 3
+              }} 
+              className="profile-avatar-container"
+            >
               {/* Streak Badge */}
               {profile.streak >= 3 && (
                 <div style={styles.streakBadge}>
