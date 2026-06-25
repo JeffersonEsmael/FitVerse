@@ -60,6 +60,19 @@ const MASTERY_MAP = {
   Lutador: '🥋 Lutador'
 };
 
+const TRAINER_SPECIALTIES_OPTIONS = [
+  { key: 'musculacao', label: 'Musculação' },
+  { key: 'funcional', label: 'Treino Funcional' },
+  { key: 'crossfit', label: 'Crossfit' },
+  { key: 'pilates', label: 'Pilates' },
+  { key: 'yoga', label: 'Yoga' },
+  { key: 'corrida', label: 'Corrida / Atletismo' },
+  { key: 'artes_marciais', label: 'Artes Marciais' },
+  { key: 'reabilitacao', label: 'Reabilitação / Fisioterapia' },
+  { key: 'emagrecimento', label: 'Emagrecimento' },
+  { key: 'hipertrofia', label: 'Hipertrofia' },
+];
+
 function StatBox({ label, value, icon: Icon, color, onClick }) {
   return (
     <motion.div 
@@ -296,7 +309,7 @@ export default function PublicProfileScreen() {
       return;
     }
     if (user.uid === userId) {
-      alert('Você não pode avaliar a sua própria empresa!');
+      alert('Você não pode avaliar a si mesmo!');
       return;
     }
     setIsSubmittingFeedback(true);
@@ -679,7 +692,7 @@ export default function PublicProfileScreen() {
       if (cachedProf) {
         setProfile(cachedProf);
         setIsLoading(false);
-        if (cachedProf.profile_type === 'business') {
+        if (cachedProf.profile_type === 'business' || cachedProf.profile_type === 'trainer') {
           fetchBusinessFeedbacks(userId);
         }
       } else {
@@ -720,7 +733,7 @@ export default function PublicProfileScreen() {
           following: followingCount
         });
         
-        if (profData.profile_type === 'business') {
+        if (profData.profile_type === 'business' || profData.profile_type === 'trainer') {
           fetchBusinessFeedbacks(userId);
         }
       }
@@ -1006,8 +1019,27 @@ export default function PublicProfileScreen() {
         </div>
 
         {/* Profile card */}
-        <motion.div style={styles.profileCard} className="profile-card" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-          <div style={styles.profileCardHeader} className="profile-card-header">
+        <motion.div 
+          style={{
+            ...styles.profileCard,
+            paddingTop: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? '140px' : '24px'
+          }} 
+          className="profile-card" 
+          initial={{ y: 20, opacity: 0 }} 
+          animate={{ y: 0, opacity: 1 }}
+        >
+          {/* Cover Photo */}
+          {(profile?.profile_type === 'trainer' || profile?.profile_type === 'business') && (
+            <div style={styles.coverPhotoContainer}>
+              {profile?.cover_photo_url ? (
+                <img src={profile?.cover_photo_url} alt="Capa" style={styles.coverPhotoImg} />
+              ) : (
+                <div style={styles.coverPhotoFallback} />
+              )}
+            </div>
+          )}
+
+          <div style={{ ...styles.profileCardHeader, position: 'relative', zIndex: 2 }} className="profile-card-header">
             <div style={styles.profileInfoBlock}>
               <h3 style={{ ...styles.usernameLeft, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="profile-username">
                 @{profile.username}
@@ -1083,19 +1115,54 @@ export default function PublicProfileScreen() {
             </div>
           </div>
 
-          <div style={styles.bioContainer}>
+          <div style={{ ...styles.bioContainer, position: 'relative', zIndex: 2 }}>
             {profile.bio && <p style={styles.bioCenter}>{profile.bio}</p>}
+
+            {/* Specialties & specs for trainer profile */}
+            {profile?.profile_type === 'trainer' && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', marginTop: '6px' }}>
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  {profile.years_experience !== undefined && profile.years_experience !== null && (
+                    <span style={{ fontSize: '13px', color: '#00D4FF', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      🏋️ {profile.years_experience} {profile.years_experience === 1 ? 'ano' : 'anos'} de carreira
+                    </span>
+                  )}
+                  {profile.students_count && (
+                    <span style={{ fontSize: '13px', color: '#39FF14', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      👥 {profile.students_count}
+                    </span>
+                  )}
+                </div>
+                {profile.certifications && (
+                  <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontStyle: 'italic', textAlign: 'center' }}>
+                    📜 {profile.certifications}
+                  </span>
+                )}
+                {Array.isArray(profile.specialties) && profile.specialties.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginTop: '4px' }}>
+                    {profile.specialties.map((spec) => {
+                      const specOpt = TRAINER_SPECIALTIES_OPTIONS.find(o => o.key === spec);
+                      return (
+                        <span key={spec} style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(0,212,255,0.05)', border: '1px solid rgba(0,212,255,0.2)', color: '#00D4FF', fontSize: '13px', fontWeight: 600, backdropFilter: 'blur(10px)' }}>
+                          {specOpt ? specOpt.label : spec}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Stats inside profile card */}
-          {profile?.profile_type === 'business' ? (
-            <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0 }}>
+          {(profile?.profile_type === 'business' || profile?.profile_type === 'trainer') ? (
+            <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0, position: 'relative', zIndex: 2 }}>
               <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
               <StatBox label="Avaliações" value={feedbacks.length} icon={Star} color="#FFD700" onClick={() => setActiveTab('sobre')} />
               <StatBox label="Chat" value="Conversar" icon={MessageCircle} color="#00D4FF" onClick={handleMessage} />
             </div>
           ) : (
-            <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0 }}>
+            <div style={{ ...styles.statsGrid, width: '100%', marginTop: '20px', marginBottom: 0, position: 'relative', zIndex: 2 }}>
               <StatBox label="Shapes" value={totalShapes} icon={(props) => <ShapeIcon filled={true} size={props.size} color={props.color} />} color="#39FF14" />
               <StatBox label="Medalhas" value={totalMedalsCount} icon={Award} color="#FFD700" onClick={() => setShowMedalsModal(true)} />
               <StatBox label="Chat" value="Conversar" icon={MessageCircle} color="#00D4FF" onClick={handleMessage} />
@@ -1118,7 +1185,7 @@ export default function PublicProfileScreen() {
             <Trophy size={18} /> Desafios
             {profileChallenges.length > 0 && <span style={styles.badgeCountChip}>{profileChallenges.length}</span>}
           </button>
-          {profile?.profile_type === 'business' ? (
+          {(profile?.profile_type === 'business' || profile?.profile_type === 'trainer') ? (
             <button
               style={{ ...styles.contentTab, ...(activeTab === 'sobre' ? styles.contentTabActive : {}) }}
               onClick={() => setActiveTab('sobre')}
@@ -1194,296 +1261,376 @@ export default function PublicProfileScreen() {
           </div>
         )}
 
-        {/* Content - Sobre (Business details and feedbacks) */}
-        {activeTab === 'sobre' && profile?.profile_type === 'business' && (
+        {/* Content - Sobre (Business/Trainer details and feedbacks) */}
+        {activeTab === 'sobre' && (profile?.profile_type === 'business' || profile?.profile_type === 'trainer') && (
           <div style={workoutStyles.container}>
-            <div style={{
-              ...styles.sobreCard,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              textAlign: 'center',
-              gap: '18px',
-              padding: '24px 16px'
-            }}>
-              <h4 style={styles.sobreTitle}>Sobre a {profile.display_name || 'Empresa'}</h4>
-              
-              {/* Gallery Block */}
-              {(() => {
-                const photos = Array.isArray(profile.business_photos) && profile.business_photos.length > 0 
-                  ? profile.business_photos 
-                  : [
-                      'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=400',
-                      'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=400',
-                      'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=400'
-                    ];
-
-                // Safety check for selectedPhotoIndex out of bounds
-                const safeIndex = selectedPhotoIndex < photos.length ? selectedPhotoIndex : 0;
-
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginBottom: '4px' }}>
-                    {/* Main display photo (16:9) */}
-                    <div style={{ width: '100%', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', aspectRatio: '16/9', background: '#12121A' }}>
-                      <img 
-                        src={photos[safeIndex]} 
-                        alt="Principal" 
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                      />
-                    </div>
-                    {/* Thumbnails row */}
-                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', width: '100%', paddingBottom: '4px' }} className="hide-scrollbar">
-                      {photos.map((url, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setSelectedPhotoIndex(i)}
-                          style={{
-                            padding: 0,
-                            background: 'none',
-                            border: safeIndex === i ? '2px solid #39FF14' : '2px solid transparent',
-                            borderRadius: '8px',
-                            overflow: 'hidden',
-                            width: '60px',
-                            height: '45px',
-                            flexShrink: 0,
-                            cursor: 'pointer',
-                            transition: 'border-color 0.2s ease'
-                          }}
-                        >
-                          <img src={url} alt={`Galeria ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                <span style={styles.sobreLabel}>📍 Endereço</span>
-                {profile.address ? (
-                  <a
-                    href={`https://maps.google.com/?q=${encodeURIComponent(profile.address)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ ...styles.sobreValue, color: '#00D4FF', textDecoration: 'underline', cursor: 'pointer' }}
-                  >
-                    {profile.address}
-                  </a>
-                ) : (
-                  <span style={styles.sobreValue}>Endereço não informado</span>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                <span style={styles.sobreLabel}>🚗 Garagem</span>
-                <span style={styles.sobreValue}>
-                  {profile.has_garage === 'sim' ? 'Sim' : 'Não'}
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', width: '100%' }}>
-                <span style={styles.sobreLabel}>⏰ Horário de Funcionamento</span>
+            {profile?.profile_type === 'business' ? (
+              <div style={{
+                ...styles.sobreCard,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                gap: '18px',
+                padding: '24px 16px'
+              }}>
+                <h4 style={styles.sobreTitle}>Sobre a {profile.display_name || 'Empresa'}</h4>
+                
+                {/* Gallery Block */}
                 {(() => {
-                  if (!profile.operating_hours) {
-                    return <span style={styles.sobreValue}>Não informado</span>;
-                  }
-                  try {
-                    let hoursObj = null;
-                    if (profile.operating_hours.trim().startsWith('{')) {
-                      hoursObj = JSON.parse(profile.operating_hours);
+                  const photos = Array.isArray(profile.business_photos) && profile.business_photos.length > 0 
+                    ? profile.business_photos 
+                    : [
+                        'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=400',
+                        'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=400',
+                        'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=400'
+                      ];
+
+                  // Safety check for selectedPhotoIndex out of bounds
+                  const safeIndex = selectedPhotoIndex < photos.length ? selectedPhotoIndex : 0;
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginBottom: '4px' }}>
+                      {/* Main display photo (16:9) */}
+                      <div style={{ width: '100%', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', aspectRatio: '16/9', background: '#12121A' }}>
+                        <img 
+                          src={photos[safeIndex]} 
+                          alt="Principal" 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                        />
+                      </div>
+                      {/* Thumbnails row */}
+                      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', width: '100%', paddingBottom: '4px' }} className="hide-scrollbar">
+                        {photos.map((url, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setSelectedPhotoIndex(i)}
+                            style={{
+                              padding: 0,
+                              background: 'none',
+                              border: safeIndex === i ? '2px solid #39FF14' : '2px solid transparent',
+                              borderRadius: '8px',
+                              overflow: 'hidden',
+                              width: '60px',
+                              height: '45px',
+                              flexShrink: 0,
+                              cursor: 'pointer',
+                              transition: 'border-color 0.2s ease'
+                            }}
+                          >
+                            <img src={url} alt={`Galeria ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                  <span style={styles.sobreLabel}>📍 Endereço</span>
+                  {profile.address ? (
+                    <a
+                      href={`https://maps.google.com/?q=${encodeURIComponent(profile.address)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ ...styles.sobreValue, color: '#00D4FF', textDecoration: 'underline', cursor: 'pointer' }}
+                    >
+                      {profile.address}
+                    </a>
+                  ) : (
+                    <span style={styles.sobreValue}>Endereço não informado</span>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                  <span style={styles.sobreLabel}>🚗 Garagem</span>
+                  <span style={styles.sobreValue}>
+                    {profile.has_garage === 'sim' ? 'Sim' : 'Não'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', width: '100%' }}>
+                  <span style={styles.sobreLabel}>⏰ Horário de Funcionamento</span>
+                  {(() => {
+                    if (!profile.operating_hours) {
+                      return <span style={styles.sobreValue}>Não informado</span>;
                     }
-                    if (hoursObj) {
-                      const weekdays = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'];
-                      
-                      const firstDay = hoursObj[weekdays[0]];
-                      const allWeekdaysSame = weekdays.every(day => {
-                        const d = hoursObj[day];
-                        if (!d || !firstDay) return false;
-                        return d.closed === firstDay.closed && d.open === firstDay.open && d.close === firstDay.close;
-                      });
-
-                      let weekdayText = '';
-                      let weekdayClosed = false;
-                      if (allWeekdaysSame && firstDay) {
-                        weekdayClosed = firstDay.closed;
-                        weekdayText = firstDay.closed ? 'Fechado' : `${firstDay.open} às ${firstDay.close}`;
-                      } else {
-                        const firstOpen = weekdays.find(d => hoursObj[d] && !hoursObj[d].closed);
-                        if (firstOpen) {
-                          weekdayClosed = false;
-                          const info = hoursObj[firstOpen];
-                          weekdayText = `${info.open} às ${info.close}`;
-                        } else {
-                          weekdayClosed = true;
-                          weekdayText = 'Fechado';
-                        }
+                    try {
+                      let hoursObj = null;
+                      if (profile.operating_hours.trim().startsWith('{')) {
+                        hoursObj = JSON.parse(profile.operating_hours);
                       }
+                      if (hoursObj) {
+                        const weekdays = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'];
+                        
+                        const firstDay = hoursObj[weekdays[0]];
+                        const allWeekdaysSame = weekdays.every(day => {
+                          const d = hoursObj[day];
+                          if (!d || !firstDay) return false;
+                          return d.closed === firstDay.closed && d.open === firstDay.open && d.close === firstDay.close;
+                        });
 
-                      const sat = hoursObj['Sábado'] || { closed: true };
-                      const sun = hoursObj['Domingo'] || { closed: true };
+                        let weekdayText = '';
+                        let weekdayClosed = false;
+                        if (allWeekdaysSame && firstDay) {
+                          weekdayClosed = firstDay.closed;
+                          weekdayText = firstDay.closed ? 'Fechado' : `${firstDay.open} às ${firstDay.close}`;
+                        } else {
+                          const firstOpen = weekdays.find(d => hoursObj[d] && !hoursObj[d].closed);
+                          if (firstOpen) {
+                            weekdayClosed = false;
+                            const info = hoursObj[firstOpen];
+                            weekdayText = `${info.open} às ${info.close}`;
+                          } else {
+                            weekdayClosed = true;
+                            weekdayText = 'Fechado';
+                          }
+                        }
 
-                      return (
-                        <div style={styles.hoursListCompact}>
-                          <div style={styles.hoursRowCompact}>
-                            <span style={styles.hoursDayBadgeCompact}>SEG. À SEX</span>
-                            {weekdayClosed ? (
-                              <span style={styles.hoursClosedCompact}>Fechado</span>
-                            ) : (
-                              <span style={styles.hoursTimeCompact}>{weekdayText}</span>
-                            )}
+                        const sat = hoursObj['Sábado'] || { closed: true };
+                        const sun = hoursObj['Domingo'] || { closed: true };
+
+                        return (
+                          <div style={styles.hoursListCompact}>
+                            <div style={styles.hoursRowCompact}>
+                              <span style={styles.hoursDayBadgeCompact}>SEG. À SEX</span>
+                              {weekdayClosed ? (
+                                <span style={styles.hoursClosedCompact}>Fechado</span>
+                              ) : (
+                                <span style={styles.hoursTimeCompact}>{weekdayText}</span>
+                              )}
+                            </div>
+                            <div style={styles.hoursRowCompact}>
+                              <span style={styles.hoursDayBadgeCompact}>SÁBADO</span>
+                              {sat.closed ? (
+                                <span style={styles.hoursClosedCompact}>Fechado</span>
+                              ) : (
+                                <span style={styles.hoursTimeCompact}>{sat.open} às {sat.close}</span>
+                              )}
+                            </div>
+                            <div style={styles.hoursRowCompact}>
+                              <span style={styles.hoursDayBadgeCompact}>DOMINGO</span>
+                              {sun.closed ? (
+                                <span style={styles.hoursClosedCompact}>Fechado</span>
+                              ) : (
+                                <span style={styles.hoursTimeCompact}>{sun.open} às {sun.close}</span>
+                              )}
+                            </div>
                           </div>
-                          <div style={styles.hoursRowCompact}>
-                            <span style={styles.hoursDayBadgeCompact}>SÁBADO</span>
-                            {sat.closed ? (
-                              <span style={styles.hoursClosedCompact}>Fechado</span>
-                            ) : (
-                              <span style={styles.hoursTimeCompact}>{sat.open} às {sat.close}</span>
-                            )}
+                        );
+                      }
+                    } catch (e) {
+                      console.warn('Error parsing operating_hours in render:', e);
+                    }
+                    return <span style={styles.sobreValue}>{profile.operating_hours}</span>;
+                  })()}
+                </div>
+
+                {/* Nosso Ambiente (Comodidades) */}
+                {(() => {
+                  try {
+                    let amenitiesObj = null;
+                    if (profile.amenities) {
+                      amenitiesObj = typeof profile.amenities === 'string' 
+                        ? JSON.parse(profile.amenities) 
+                        : profile.amenities;
+                    }
+                    
+                    if (amenitiesObj) {
+                      const activeAmenities = AMENITIES_OPTIONS.filter(opt => !!amenitiesObj[opt.key]);
+                      
+                      if (activeAmenities.length > 0) {
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', marginTop: '12px' }}>
+                            <span style={styles.sobreLabel}>NOSSO AMBIENTE:</span>
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1fr 1fr',
+                              gap: '10px 20px',
+                              width: '100%',
+                              maxWidth: '320px',
+                              textAlign: 'left',
+                              padding: '0 10px',
+                              marginTop: '4px'
+                            }}>
+                              {activeAmenities.map((opt) => (
+                                <div key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <div style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    width: '16px', height: '16px', borderRadius: '4px',
+                                    background: '#39FF14', border: '1px solid #39FF14'
+                                  }}>
+                                    <span style={{ color: '#000', fontSize: '11px', fontWeight: 900 }}>✓</span>
+                                  </div>
+                                  <span style={{ fontSize: '13px', color: '#B0B0C8', fontWeight: 500, fontFamily: "'Inter', sans-serif" }}>{opt.label}</span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                          <div style={styles.hoursRowCompact}>
-                            <span style={styles.hoursDayBadgeCompact}>DOMINGO</span>
-                            {sun.closed ? (
-                              <span style={styles.hoursClosedCompact}>Fechado</span>
-                            ) : (
-                              <span style={styles.hoursTimeCompact}>{sun.open} às {sun.close}</span>
-                            )}
-                          </div>
-                        </div>
-                      );
+                        );
+                      }
                     }
                   } catch (e) {
-                    console.warn('Error parsing operating_hours in render:', e);
+                    console.warn('Error formatting amenities:', e);
                   }
-                  return <span style={styles.sobreValue}>{profile.operating_hours}</span>;
+                  return null;
+                })()}
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', marginTop: '8px' }}>
+                  <span style={styles.sobreLabel}>FALE CONOSCO</span>
+                  {profile.whatsapp ? (
+                    <motion.a
+                      whileTap={{ scale: 0.97 }}
+                      href={`https://wa.me/${profile.whatsapp}?text=${encodeURIComponent('Olá, vim pelo FlowRide e gostaria de mais informações!')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={styles.whatsappBtn}
+                    >
+                      <MessageSquare size={18} color="#25D366" fill="transparent" />
+                      WhatsApp
+                    </motion.a>
+                  ) : (
+                    <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>
+                      WhatsApp não cadastrado
+                    </span>
+                  )}
+                </div>
+
+                {/* Outras Redes Sociais */}
+                {(() => {
+                  try {
+                    let socialObj = null;
+                    if (profile.social_links) {
+                      socialObj = typeof profile.social_links === 'string'
+                        ? JSON.parse(profile.social_links)
+                        : profile.social_links;
+                    }
+                    
+                    if (socialObj) {
+                      const links = [
+                        { key: 'facebook', icon: FacebookIcon },
+                        { key: 'instagram', icon: InstagramIcon },
+                        { key: 'tiktok', icon: TikTokIcon },
+                        { key: 'youtube', icon: YouTubeIcon }
+                      ].filter(item => socialObj[item.key] && socialObj[item.key].trim().startsWith('http'));
+
+                      if (links.length > 0) {
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', width: '100%', marginTop: '16px' }}>
+                            <span style={styles.sobreLabel}>OUTRAS REDES</span>
+                            <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginTop: '4px' }}>
+                              {links.map((link) => (
+                                <motion.a
+                                  key={link.key}
+                                  whileTap={{ scale: 0.9 }}
+                                  href={socialObj[link.key]}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    width: '44px', height: '44px', borderRadius: '50%',
+                                    background: 'rgba(255,255,255,0.04)',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  <link.icon size={22} color="#fff" />
+                                </motion.a>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    console.warn('Error formatting social links:', e);
+                  }
+                  return null;
                 })()}
               </div>
+            ) : (
+              /* Trainer "Sobre" layout */
+              <div style={{
+                ...styles.sobreCard,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                gap: '18px',
+                padding: '24px 16px'
+              }}>
+                <h4 style={styles.sobreTitle}>Sobre o Personal Trainer</h4>
 
-              {/* Nosso Ambiente (Comodidades) */}
-              {(() => {
-                try {
-                  let amenitiesObj = null;
-                  if (profile.amenities) {
-                    amenitiesObj = typeof profile.amenities === 'string' 
-                      ? JSON.parse(profile.amenities) 
-                      : profile.amenities;
-                  }
-                  
-                  if (amenitiesObj) {
-                    const activeAmenities = AMENITIES_OPTIONS.filter(opt => !!amenitiesObj[opt.key]);
-                    
-                    if (activeAmenities.length > 0) {
-                      return (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', marginTop: '12px' }}>
-                          <span style={styles.sobreLabel}>NOSSO AMBIENTE:</span>
-                          <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: '1fr 1fr',
-                            gap: '10px 20px',
-                            width: '100%',
-                            maxWidth: '320px',
-                            textAlign: 'left',
-                            padding: '0 10px',
-                            marginTop: '4px'
-                          }}>
-                            {activeAmenities.map((opt) => (
-                              <div key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  width: '16px', height: '16px', borderRadius: '4px',
-                                  background: '#39FF14', border: '1px solid #39FF14'
-                                }}>
-                                  <span style={{ color: '#000', fontSize: '11px', fontWeight: 900 }}>✓</span>
-                                </div>
-                                <span style={{ fontSize: '13px', color: '#B0B0C8', fontWeight: 500, fontFamily: "'Inter', sans-serif" }}>{opt.label}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    }
-                  }
-                } catch (e) {
-                  console.warn('Error formatting amenities:', e);
-                }
-                return null;
-              })()}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                  <span style={styles.sobreLabel}>👨‍🏫 Nome</span>
+                  <span style={styles.sobreValue}>{profile.display_name}</span>
+                </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', marginTop: '8px' }}>
-                <span style={styles.sobreLabel}>FALE CONOSCO</span>
-                {profile.whatsapp ? (
-                  <motion.a
-                    whileTap={{ scale: 0.97 }}
-                    href={`https://wa.me/${profile.whatsapp}?text=${encodeURIComponent('Olá, vim pelo FlowRide e gostaria de mais informações!')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={styles.whatsappBtn}
-                  >
-                    <MessageSquare size={18} color="#25D366" fill="transparent" />
-                    WhatsApp
-                  </motion.a>
-                ) : (
-                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>
-                    WhatsApp não cadastrado
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                  <span style={styles.sobreLabel}>🏋️ Carreira & Experiência</span>
+                  <span style={styles.sobreValue}>
+                    {profile.years_experience} {profile.years_experience === 1 ? 'ano' : 'anos'} atuando como Personal Trainer
                   </span>
+                </div>
+
+                {profile.students_count && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                    <span style={styles.sobreLabel}>👥 Alunos Ativos</span>
+                    <span style={styles.sobreValue}>{profile.students_count}</span>
+                  </div>
                 )}
+
+                {profile.certifications && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                    <span style={styles.sobreLabel}>📜 Certificações & Formação</span>
+                    <span style={styles.sobreValue}>{profile.certifications}</span>
+                  </div>
+                )}
+
+                {/* Specialties list */}
+                {Array.isArray(profile.specialties) && profile.specialties.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%' }}>
+                    <span style={styles.sobreLabel}>🎯 Especialidades de Atendimento</span>
+                    <div style={{ ...styles.goalsCenter, marginTop: '4px' }}>
+                      {profile.specialties.map((spec) => {
+                        const specOpt = TRAINER_SPECIALTIES_OPTIONS.find(o => o.key === spec);
+                        return (
+                          <span key={spec} style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(0,212,255,0.05)', border: '1px solid rgba(0,212,255,0.2)', color: '#00D4FF', fontSize: '13px', fontWeight: 600, backdropFilter: 'blur(10px)' }}>
+                            {specOpt ? specOpt.label : spec}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', marginTop: '8px' }}>
+                  <span style={styles.sobreLabel}>FALE CONOSCO</span>
+                  {profile.whatsapp ? (
+                    <motion.a
+                      whileTap={{ scale: 0.97 }}
+                      href={`https://wa.me/${profile.whatsapp}?text=${encodeURIComponent('Olá, vi seu perfil no FlowRise e gostaria de agendar uma consultoria!')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={styles.whatsappBtn}
+                    >
+                      <MessageSquare size={18} color="#25D366" fill="transparent" />
+                      Entrar em contato
+                    </motion.a>
+                  ) : (
+                    <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>
+                      WhatsApp não cadastrado
+                    </span>
+                  )}
+                </div>
               </div>
-
-              {/* Outras Redes Sociais */}
-              {(() => {
-                try {
-                  let socialObj = null;
-                  if (profile.social_links) {
-                    socialObj = typeof profile.social_links === 'string'
-                      ? JSON.parse(profile.social_links)
-                      : profile.social_links;
-                  }
-                  
-                  if (socialObj) {
-                    const links = [
-                      { key: 'facebook', icon: FacebookIcon },
-                      { key: 'instagram', icon: InstagramIcon },
-                      { key: 'tiktok', icon: TikTokIcon },
-                      { key: 'youtube', icon: YouTubeIcon }
-                    ].filter(item => socialObj[item.key] && socialObj[item.key].trim().startsWith('http'));
-
-                    if (links.length > 0) {
-                      return (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', width: '100%', marginTop: '16px' }}>
-                          <span style={styles.sobreLabel}>OUTRAS REDES</span>
-                          <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginTop: '4px' }}>
-                            {links.map((link) => (
-                              <motion.a
-                                key={link.key}
-                                whileTap={{ scale: 0.9 }}
-                                href={socialObj[link.key]}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  width: '44px', height: '44px', borderRadius: '50%',
-                                  background: 'rgba(255,255,255,0.04)',
-                                  border: '1px solid rgba(255,255,255,0.08)',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                <link.icon size={22} color="#fff" />
-                              </motion.a>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    }
-                  }
-                } catch (e) {
-                  console.warn('Error formatting social links:', e);
-                }
-                return null;
-              })()}
-            </div>
+            )}
 
             {/* Feedbacks Header */}
             <div style={styles.feedbacksHeader}>
-              <h4 style={styles.feedbacksTitle}>Feedbacks de Frequentadores</h4>
+              <h4 style={styles.feedbacksTitle}>
+                {profile?.profile_type === 'trainer' ? 'Feedbacks de Alunos' : 'Feedbacks de Frequentadores'}
+              </h4>
               <span style={styles.feedbacksCount}>{feedbacks.length} avaliações</span>
             </div>
 
@@ -1563,7 +1710,7 @@ export default function PublicProfileScreen() {
                     <textarea
                       value={userComment}
                       onChange={(e) => setUserComment(e.target.value)}
-                      placeholder="Conte como foi sua experiência nesta academia..."
+                      placeholder={profile?.profile_type === 'trainer' ? "Conte como foi sua experiência com este personal..." : "Conte como foi sua experiência nesta academia..."}
                       style={styles.feedbackTextarea}
                       maxLength={200}
                       disabled={isSubmittingFeedback}
@@ -2203,6 +2350,26 @@ const styles = {
     border: '1px solid rgba(255,255,255,0.15)',
     borderRadius: '32px',
     boxShadow: '0 20px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)',
+  },
+  coverPhotoContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '130px',
+    zIndex: 1,
+    borderBottom: '1px solid rgba(255,255,255,0.1)',
+  },
+  coverPhotoImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  coverPhotoFallback: {
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(135deg, #00D4FF, #A855F7)',
+    opacity: 0.8,
   },
   profileCardHeader: {
     display: 'flex',

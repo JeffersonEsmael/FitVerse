@@ -40,6 +40,19 @@ const AMENITIES_OPTIONS = [
   { key: 'personal_trainer', label: 'Personal Trainer' },
 ];
 
+const TRAINER_SPECIALTIES_OPTIONS = [
+  { key: 'musculacao', label: 'Musculação' },
+  { key: 'funcional', label: 'Treino Funcional' },
+  { key: 'crossfit', label: 'Crossfit' },
+  { key: 'pilates', label: 'Pilates' },
+  { key: 'yoga', label: 'Yoga' },
+  { key: 'corrida', label: 'Corrida / Atletismo' },
+  { key: 'artes_marciais', label: 'Artes Marciais' },
+  { key: 'reabilitacao', label: 'Reabilitação / Fisioterapia' },
+  { key: 'emagrecimento', label: 'Emagrecimento' },
+  { key: 'hipertrofia', label: 'Hipertrofia' },
+];
+
 const DEFAULT_HOURS = {
   'Segunda-feira': { closed: false, open: '06:00', close: '22:00' },
   'Terça-feira': { closed: false, open: '06:00', close: '22:00' },
@@ -87,6 +100,13 @@ export default function EditProfileScreen() {
   const [saveStatus, setSaveStatus] = useState(null); // null | 'success' | 'error'
   const [errorMsg, setErrorMsg] = useState('');
 
+  const [coverPhotoFile, setCoverPhotoFile] = useState(null);
+  const [coverPhotoPreview, setCoverPhotoPreview] = useState('');
+  const [yearsExperience, setYearsExperience] = useState(0);
+  const [studentsCount, setStudentsCount] = useState('');
+  const [specialties, setSpecialties] = useState([]);
+  const [certifications, setCertifications] = useState('');
+
   const [hasGarage, setHasGarage] = useState('não');
   const [operatingHoursObj, setOperatingHoursObj] = useState(DEFAULT_HOURS);
   const [businessPhotos, setBusinessPhotos] = useState([]);
@@ -113,6 +133,7 @@ export default function EditProfileScreen() {
   });
 
   const fileInputRef = useRef(null);
+  const coverPhotoInputRef = useRef(null);
   const businessPhotoInputRef = useRef(null);
 
   useEffect(() => {
@@ -126,6 +147,26 @@ export default function EditProfileScreen() {
       setWhatsapp(profile.whatsapp || '');
       setProfileThemeColor(profile.profile_theme_color || 'default');
       setHasGarage(profile.has_garage || 'não');
+      
+      setCoverPhotoPreview(profile.cover_photo_url || '');
+      setYearsExperience(profile.years_experience || 0);
+      setStudentsCount(profile.students_count || '');
+      setCertifications(profile.certifications || '');
+      
+      let parsedSpecialties = [];
+      if (profile.specialties) {
+        try {
+          parsedSpecialties = typeof profile.specialties === 'string'
+            ? JSON.parse(profile.specialties)
+            : profile.specialties;
+          if (!Array.isArray(parsedSpecialties)) {
+            parsedSpecialties = [];
+          }
+        } catch (e) {
+          console.warn('Error parsing specialties:', e);
+        }
+      }
+      setSpecialties(parsedSpecialties);
       
       let parsedHours = DEFAULT_HOURS;
       if (profile.operating_hours) {
@@ -223,6 +264,25 @@ export default function EditProfileScreen() {
     setSaveStatus(null);
   };
 
+  const handleCoverPhotoSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      setErrorMsg('Formato inválido. Use JPG, PNG, WEBP ou GIF.');
+      setSaveStatus('error');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg('A imagem deve ter no máximo 5MB.');
+      setSaveStatus('error');
+      return;
+    }
+    setCoverPhotoFile(file);
+    setCoverPhotoPreview(URL.createObjectURL(file));
+    setSaveStatus(null);
+  };
+
   const handleBusinessPhotoSelect = (e) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -310,6 +370,13 @@ export default function EditProfileScreen() {
         console.log('[EditProfile] Avatar URL:', avatarUrl);
       }
 
+      // Validate trainer inputs
+      if (profileType === 'trainer') {
+        if (!whatsapp.trim()) {
+          throw new Error('O WhatsApp de contato é obrigatório para Personal Trainers.');
+        }
+      }
+
       // Validate business inputs
       if (profileType === 'business') {
         if (!address.trim()) {
@@ -318,6 +385,40 @@ export default function EditProfileScreen() {
         if (!whatsapp.trim()) {
           throw new Error('O WhatsApp de contato é obrigatório para perfis empresariais.');
         }
+      }
+
+      // Upload cover photo if profile type allows it and a new file was chosen
+      let coverPhotoUrl = profile?.cover_photo_url || '';
+      if ((profileType === 'trainer' || profileType === 'business') && coverPhotoFile) {
+        console.log('[EditProfile] Uploading cover photo...');
+
+        let finalFile = coverPhotoFile;
+        try {
+          const { compressImage } = await import('../utils/compression');
+          finalFile = await compressImage(coverPhotoFile, { maxWidth: 1200, maxHeight: 600, quality: 0.8 });
+        } catch (compErr) {
+          console.warn('[EditProfile] Cover photo compression failed, using original file:', compErr);
+        }
+
+        const fileExt = finalFile.name ? finalFile.name.split('.').pop().toLowerCase() : 'jpg';
+        const fileName = `cover_photos/${user.uid}/${Date.now()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, finalFile, {
+            contentType: finalFile.type,
+            cacheControl: '86400',
+            upsert: true,
+          });
+
+        if (uploadError) {
+          console.error('[EditProfile] Cover photo upload error:', uploadError);
+          throw new Error(`Falha ao enviar foto de capa: ${uploadError.message}`);
+        }
+
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+        coverPhotoUrl = urlData?.publicUrl || coverPhotoUrl;
+        console.log('[EditProfile] Cover Photo URL:', coverPhotoUrl);
       }
 
       // Upload business photos if any
@@ -365,8 +466,13 @@ export default function EditProfileScreen() {
         bio: bio.trim(),
         avatar_url: avatarUrl,
         profile_type: profileType,
-        address: profileType === 'business' ? address.trim() : null,
-        whatsapp: profileType === 'business' ? whatsapp.trim() : null,
+        cover_photo_url: (profileType === 'trainer' || profileType === 'business') ? coverPhotoUrl : null,
+        years_experience: profileType === 'trainer' ? Number(yearsExperience) : null,
+        students_count: profileType === 'trainer' ? studentsCount.trim() : null,
+        specialties: profileType === 'trainer' ? specialties : null,
+        certifications: profileType === 'trainer' ? certifications.trim() : null,
+        address: (profileType === 'business' || profileType === 'trainer') ? address.trim() : null,
+        whatsapp: (profileType === 'business' || profileType === 'trainer') ? whatsapp.trim() : null,
         has_garage: profileType === 'business' ? hasGarage : 'não',
         operating_hours: profileType === 'business' ? JSON.stringify(operatingHoursObj) : null,
         business_photos: profileType === 'business' ? uploadedPhotoUrls : null,
@@ -455,6 +561,35 @@ export default function EditProfileScreen() {
         )}
 
         <div style={styles.content}>
+          {/* Cover Photo Section */}
+          {(profileType === 'trainer' || profileType === 'business') && (
+            <div style={styles.coverSection}>
+              {coverPhotoPreview ? (
+                <img src={coverPhotoPreview} alt="Capa" style={styles.coverImg} />
+              ) : (
+                <div style={styles.coverPlaceholder}>
+                  <span>Sem Foto de Capa</span>
+                </div>
+              )}
+              <button
+                type="button"
+                style={styles.coverCameraBtn}
+                onClick={() => coverPhotoInputRef.current?.click()}
+                disabled={isSaving}
+              >
+                <Camera size={16} color="#fff" />
+                <span style={{ fontSize: '12px', fontWeight: 600 }}>Alterar Capa</span>
+              </button>
+              <input
+                ref={coverPhotoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={handleCoverPhotoSelect}
+                style={{ display: 'none' }}
+              />
+            </div>
+          )}
+
           {/* Avatar Section */}
           <div style={styles.avatarSection}>
             <div style={styles.avatarWrapper}>
@@ -537,13 +672,124 @@ export default function EditProfileScreen() {
                 </button>
                 <button
                   type="button"
+                  style={{ ...styles.toggleBtn, ...(profileType === 'trainer' ? styles.toggleActive : {}) }}
+                  onClick={() => setProfileType('trainer')}
+                >
+                  Personal Trainer
+                </button>
+                <button
+                  type="button"
                   style={{ ...styles.toggleBtn, ...(profileType === 'business' ? styles.toggleActive : {}) }}
                   onClick={() => setProfileType('business')}
                 >
-                  Empresarial (Academia)
+                  Empresarial
                 </button>
               </div>
             </div>
+
+            {/* Trainer Fields */}
+            {profileType === 'trainer' && (
+              <>
+                <div style={styles.field}>
+                  <label style={styles.label}>Anos de Carreira *</label>
+                  <input
+                    type="number"
+                    value={yearsExperience}
+                    onChange={(e) => setYearsExperience(e.target.value)}
+                    style={styles.input}
+                    placeholder="Ex: 5"
+                    min="0"
+                    disabled={isSaving}
+                  />
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Quantidade de Alunos (Ex: "+15 alunos")</label>
+                  <input
+                    type="text"
+                    value={studentsCount}
+                    onChange={(e) => setStudentsCount(e.target.value)}
+                    style={styles.input}
+                    placeholder="Ex: +10 alunos, 20 ativos"
+                    maxLength={30}
+                    disabled={isSaving}
+                  />
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>WhatsApp de Contato (DDI + DDD + Número) *</label>
+                  <input
+                    type="text"
+                    value={whatsapp}
+                    onChange={(e) => setWhatsapp(e.target.value.replace(/[^0-9]/g, ''))}
+                    style={styles.input}
+                    placeholder="Ex: 5511999999999"
+                    maxLength={20}
+                    disabled={isSaving}
+                  />
+                  <span style={{ fontSize: '11px', color: '#6C6C88' }}>
+                    Insira apenas números com código do país. Ex: 55 (Brasil) + 11 (SP) + 999999999.
+                  </span>
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Certificações (Opcional)</label>
+                  <input
+                    type="text"
+                    value={certifications}
+                    onChange={(e) => setCertifications(e.target.value)}
+                    style={styles.input}
+                    placeholder="Ex: Bacharel em Ed. Física, Pós-graduado em Fisiologia"
+                    maxLength={150}
+                    disabled={isSaving}
+                  />
+                </div>
+
+                <div style={styles.field}>
+                  <label style={styles.label}>Especialidades</label>
+                  <span style={{ fontSize: '11px', color: '#6C6C88', marginBottom: '4px' }}>
+                    Selecione suas especialidades de atuação como personal.
+                  </span>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(145px, 1fr))',
+                    gap: '12px',
+                    marginTop: '8px',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '16px',
+                    padding: '16px'
+                  }}>
+                    {TRAINER_SPECIALTIES_OPTIONS.map((opt) => {
+                      const isChecked = specialties.includes(opt.key);
+                      return (
+                        <label key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: '#fff', fontSize: '13px', fontFamily: "'Inter', sans-serif" }}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              if (checked) {
+                                setSpecialties(prev => [...prev, opt.key]);
+                              } else {
+                                setSpecialties(prev => prev.filter(k => k !== opt.key));
+                              }
+                            }}
+                            style={{
+                              accentColor: '#00D4FF',
+                              cursor: 'pointer',
+                              width: '16px',
+                              height: '16px',
+                            }}
+                          />
+                          {opt.label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Business Fields */}
             {profileType === 'business' && (
@@ -886,6 +1132,45 @@ export default function EditProfileScreen() {
 
 const styles = {
   container: { display: 'flex', flexDirection: 'column', height: '100%', background: '#0A0A0F' },
+  coverSection: {
+    position: 'relative',
+    width: '100%',
+    height: '140px',
+    borderRadius: '16px',
+    overflow: 'hidden',
+    marginBottom: '20px',
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px dashed rgba(255,255,255,0.15)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coverImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  coverPlaceholder: {
+    color: '#6C6C88',
+    fontSize: '14px',
+    fontWeight: 500,
+    fontFamily: "'Inter', sans-serif",
+  },
+  coverCameraBtn: {
+    position: 'absolute',
+    bottom: '12px',
+    right: '12px',
+    background: 'rgba(10, 10, 15, 0.75)',
+    backdropFilter: 'blur(4px)',
+    border: '1px solid rgba(255, 255, 255, 0.15)',
+    borderRadius: '20px',
+    padding: '6px 12px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    cursor: 'pointer',
+    zIndex: 5,
+  },
   header: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: '16px', paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)',
