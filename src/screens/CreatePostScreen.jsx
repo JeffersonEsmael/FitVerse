@@ -135,32 +135,23 @@ export default function CreatePostScreen() {
   const thumbnailListRef = useRef(null);
   const [draggedIndex, setDraggedIndex] = useState(null);
 
-  const handleDragStart = (e, index) => {
-    setDraggedIndex(index);
-    if (e.dataTransfer) {
-      e.dataTransfer.setData('text/plain', index);
-      e.dataTransfer.effectAllowed = 'move';
-    }
-  };
-
-  const handleDragOver = (e, index) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
+  const swapItems = (fromIndex, toIndex) => {
+    if (fromIndex === toIndex) return;
 
     const updatedFiles = [...files];
     const updatedPreviews = [...previews];
 
-    const [draggedFile] = updatedFiles.splice(draggedIndex, 1);
-    const [draggedPreview] = updatedPreviews.splice(draggedIndex, 1);
+    const [draggedFile] = updatedFiles.splice(fromIndex, 1);
+    const [draggedPreview] = updatedPreviews.splice(fromIndex, 1);
 
-    updatedFiles.splice(index, 0, draggedFile);
-    updatedPreviews.splice(index, 0, draggedPreview);
+    updatedFiles.splice(toIndex, 0, draggedFile);
+    updatedPreviews.splice(toIndex, 0, draggedPreview);
 
     let nextActiveIndex = activePreviewIndex;
-    if (activePreviewIndex === draggedIndex) {
-      nextActiveIndex = index;
-    } else if (activePreviewIndex === index) {
-      if (draggedIndex < index) {
+    if (activePreviewIndex === fromIndex) {
+      nextActiveIndex = toIndex;
+    } else if (activePreviewIndex === toIndex) {
+      if (fromIndex < toIndex) {
         nextActiveIndex = activePreviewIndex - 1;
       } else {
         nextActiveIndex = activePreviewIndex + 1;
@@ -173,12 +164,7 @@ export default function CreatePostScreen() {
     setFile(updatedFiles[nextActiveIndex]);
     setPreview(updatedPreviews[nextActiveIndex]);
 
-    setDraggedIndex(index);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
-    scrollToPreviewIndex(activePreviewIndex);
+    setDraggedIndex(toIndex);
   };
 
   const handleTouchStartReorder = (index) => {
@@ -199,39 +185,27 @@ export default function CreatePostScreen() {
     const targetIndex = parseInt(itemEl.getAttribute('data-index'), 10);
     if (isNaN(targetIndex) || targetIndex === draggedIndex) return;
 
-    const updatedFiles = [...files];
-    const updatedPreviews = [...previews];
-
-    const [draggedFile] = updatedFiles.splice(draggedIndex, 1);
-    const [draggedPreview] = updatedPreviews.splice(draggedIndex, 1);
-
-    updatedFiles.splice(targetIndex, 0, draggedFile);
-    updatedPreviews.splice(targetIndex, 0, draggedPreview);
-
-    let nextActiveIndex = activePreviewIndex;
-    if (activePreviewIndex === draggedIndex) {
-      nextActiveIndex = targetIndex;
-    } else if (activePreviewIndex === targetIndex) {
-      if (draggedIndex < targetIndex) {
-        nextActiveIndex = activePreviewIndex - 1;
-      } else {
-        nextActiveIndex = activePreviewIndex + 1;
-      }
-    }
-
-    setFiles(updatedFiles);
-    setPreviews(updatedPreviews);
-    setActivePreviewIndex(nextActiveIndex);
-    setFile(updatedFiles[nextActiveIndex]);
-    setPreview(updatedPreviews[nextActiveIndex]);
-
-    setDraggedIndex(targetIndex);
+    swapItems(draggedIndex, targetIndex);
   };
 
   const handleTouchEndReorder = () => {
     setDraggedIndex(null);
     scrollToPreviewIndex(activePreviewIndex);
   };
+
+  // Global mouseup listener to safely clear dragging state and reset cursor / scrolling
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (draggedIndex !== null) {
+        setDraggedIndex(null);
+        scrollToPreviewIndex(activePreviewIndex);
+      }
+    };
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [draggedIndex, activePreviewIndex]);
 
   useEffect(() => {
     if (postVideoRef.current && coverTime !== null) {
@@ -1016,10 +990,20 @@ export default function CreatePostScreen() {
                         <div
                           key={idx}
                           data-index={idx}
-                          draggable={true}
-                          onDragStart={(e) => handleDragStart(e, idx)}
-                          onDragOver={(e) => handleDragOver(e, idx)}
-                          onDragEnd={handleDragEnd}
+                          draggable={false}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setDraggedIndex(idx);
+                          }}
+                          onMouseEnter={() => {
+                            if (draggedIndex !== null) {
+                              swapItems(draggedIndex, idx);
+                            }
+                          }}
+                          onMouseUp={() => {
+                            setDraggedIndex(null);
+                            scrollToPreviewIndex(activePreviewIndex);
+                          }}
                           onTouchStart={() => handleTouchStartReorder(idx)}
                           onTouchMove={handleTouchMoveReorder}
                           onTouchEnd={handleTouchEndReorder}
