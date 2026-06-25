@@ -131,6 +131,107 @@ export default function CreatePostScreen() {
   const coverVideoRef = useRef(null);
   const postVideoRef = useRef(null);
   const step2VideoRef = useRef(null);
+  
+  const thumbnailListRef = useRef(null);
+  const [draggedIndex, setDraggedIndex] = useState(null);
+
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('text/plain', index);
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+
+    const updatedFiles = [...files];
+    const updatedPreviews = [...previews];
+
+    const [draggedFile] = updatedFiles.splice(draggedIndex, 1);
+    const [draggedPreview] = updatedPreviews.splice(draggedIndex, 1);
+
+    updatedFiles.splice(index, 0, draggedFile);
+    updatedPreviews.splice(index, 0, draggedPreview);
+
+    let nextActiveIndex = activePreviewIndex;
+    if (activePreviewIndex === draggedIndex) {
+      nextActiveIndex = index;
+    } else if (activePreviewIndex === index) {
+      if (draggedIndex < index) {
+        nextActiveIndex = activePreviewIndex - 1;
+      } else {
+        nextActiveIndex = activePreviewIndex + 1;
+      }
+    }
+
+    setFiles(updatedFiles);
+    setPreviews(updatedPreviews);
+    setActivePreviewIndex(nextActiveIndex);
+    setFile(updatedFiles[nextActiveIndex]);
+    setPreview(updatedPreviews[nextActiveIndex]);
+
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    scrollToPreviewIndex(activePreviewIndex);
+  };
+
+  const handleTouchStartReorder = (index) => {
+    setDraggedIndex(index);
+  };
+
+  const handleTouchMoveReorder = (e) => {
+    if (draggedIndex === null) return;
+    if (e.cancelable) e.preventDefault();
+
+    const touch = e.touches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!element) return;
+
+    const itemEl = element.closest('[data-index]');
+    if (!itemEl) return;
+
+    const targetIndex = parseInt(itemEl.getAttribute('data-index'), 10);
+    if (isNaN(targetIndex) || targetIndex === draggedIndex) return;
+
+    const updatedFiles = [...files];
+    const updatedPreviews = [...previews];
+
+    const [draggedFile] = updatedFiles.splice(draggedIndex, 1);
+    const [draggedPreview] = updatedPreviews.splice(draggedIndex, 1);
+
+    updatedFiles.splice(targetIndex, 0, draggedFile);
+    updatedPreviews.splice(targetIndex, 0, draggedPreview);
+
+    let nextActiveIndex = activePreviewIndex;
+    if (activePreviewIndex === draggedIndex) {
+      nextActiveIndex = targetIndex;
+    } else if (activePreviewIndex === targetIndex) {
+      if (draggedIndex < targetIndex) {
+        nextActiveIndex = activePreviewIndex - 1;
+      } else {
+        nextActiveIndex = activePreviewIndex + 1;
+      }
+    }
+
+    setFiles(updatedFiles);
+    setPreviews(updatedPreviews);
+    setActivePreviewIndex(nextActiveIndex);
+    setFile(updatedFiles[nextActiveIndex]);
+    setPreview(updatedPreviews[nextActiveIndex]);
+
+    setDraggedIndex(targetIndex);
+  };
+
+  const handleTouchEndReorder = () => {
+    setDraggedIndex(null);
+    scrollToPreviewIndex(activePreviewIndex);
+  };
 
   useEffect(() => {
     if (postVideoRef.current && coverTime !== null) {
@@ -907,17 +1008,32 @@ export default function CreatePostScreen() {
 
                   {/* Thumbnails row for Carousel / Multiple Photos */}
                   {mediaType === 'carousel' && (
-                    <div style={styles.thumbnailList}>
+                    <div 
+                      ref={thumbnailListRef}
+                      style={styles.thumbnailList}
+                    >
                       {previews.map((prevUrl, idx) => (
                         <div
                           key={idx}
+                          data-index={idx}
+                          draggable={true}
+                          onDragStart={(e) => handleDragStart(e, idx)}
+                          onDragOver={(e) => handleDragOver(e, idx)}
+                          onDragEnd={handleDragEnd}
+                          onTouchStart={() => handleTouchStartReorder(idx)}
+                          onTouchMove={handleTouchMoveReorder}
+                          onTouchEnd={handleTouchEndReorder}
                           style={{
                             ...styles.thumbnailItem,
                             border: activePreviewIndex === idx ? '2px solid #00D4FF' : '1px solid rgba(255,255,255,0.1)',
+                            opacity: draggedIndex === idx ? 0.4 : 1,
+                            transform: draggedIndex === idx ? 'scale(1.08)' : 'scale(1)',
+                            transition: 'transform 0.15s ease, opacity 0.15s ease',
+                            cursor: draggedIndex !== null ? 'grabbing' : 'grab',
                           }}
                           onClick={() => scrollToPreviewIndex(idx)}
                         >
-                          <img src={prevUrl} alt={`Thumbnail ${idx + 1}`} style={styles.thumbnailImg} />
+                          <img src={prevUrl} alt={`Thumbnail ${idx + 1}`} style={{ ...styles.thumbnailImg, pointerEvents: 'none' }} />
                           <button
                             style={styles.thumbnailRemoveBtn}
                             onClick={(e) => {
