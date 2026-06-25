@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, Trophy, Flame, Target, Dumbbell, Zap, Star, Plus, Check, X, Play, Copy, Info, MapPin, MessageSquare } from 'lucide-react';
+import { ChevronLeft, Grid3x3, Award, MessageCircle, Video, Image as ImageIcon, Trophy, Flame, Target, Dumbbell, Zap, Star, Plus, Check, X, Play, Copy, Info, MapPin, MessageSquare, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { cacheGet, CACHE_KEYS } from '../utils/localCache';
@@ -213,6 +213,13 @@ export default function PublicProfileScreen() {
   const { fetchPublicProfile, followUser, unfollowUser, checkIfFollowing } = useSocialStore();
   const { getOrCreateConversation } = useChatStore();
   
+  // Pull-to-refresh states
+  const containerRef = useRef(null);
+  const [touchStart, setTouchStart] = useState(null);
+  const [pullProgress, setPullProgress] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+
   const [activeTab, setActiveTab] = useState('videos');
   const [profile, setProfile] = useState(null);
   const [userPosts, setUserPosts] = useState([]);
@@ -372,160 +379,7 @@ export default function PublicProfileScreen() {
     }
   };
 
-  useEffect(() => {
-    if (currentScreen !== 'public_profile') return;
 
-    if (!userId) {
-      navigate('explore');
-      return;
-    }
-
-    if (user?.uid === userId) {
-      navigate('profile'); // redirect to own profile
-      return;
-    }
-
-    const loadData = async () => {
-      console.log('[PublicProfile] Loading data for userId:', userId);
-      // 1. Optimistic UI: try loading from cache first
-      const cachedProf = cacheGet(CACHE_KEYS.publicProfile(userId));
-      console.log('[PublicProfile] Cached profile:', cachedProf);
-      if (cachedProf) {
-        setProfile(cachedProf);
-        setIsLoading(false);
-        if (cachedProf.profile_type === 'business') {
-          fetchBusinessFeedbacks(userId);
-        }
-      } else {
-        setIsLoading(true);
-      }
-
-      // 2. Fetch fresh profile data in background/foreground (ignoring cache)
-      let profData = null;
-      try {
-        profData = await fetchPublicProfile(userId, true);
-        console.log('[PublicProfile] Fresh profile data fetched:', profData);
-        
-        if (profData) {
-          // Secondary dynamic counts fetch to bypass RLS column update lags
-          let followersCount = profData.followers || 0;
-          let followingCount = profData.following || 0;
-          
-          try {
-            const { count: fCount } = await supabase
-              .from('followers')
-              .select('*', { count: 'exact', head: true })
-              .eq('following_id', userId);
-            if (fCount !== null) followersCount = fCount;
-
-            const { count: fingCount } = await supabase
-              .from('followers')
-              .select('*', { count: 'exact', head: true })
-              .eq('follower_id', userId);
-            if (fingCount !== null) followingCount = fingCount;
-          } catch (err) {
-            console.warn('Error fetching dynamic followers/following counts:', err);
-          }
-
-          setProfile({
-            ...profData,
-            followers: followersCount,
-            following: followingCount
-          });
-          
-          if (profData.profile_type === 'business') {
-            fetchBusinessFeedbacks(userId);
-          }
-        }
-      } catch (profErr) {
-        console.error('[PublicProfile] Error fetching profile:', profErr);
-      }
-
-      // 3. Fetch other data in parallel/independently
-      try {
-        const postsData = await fetchUserPosts(userId);
-        if (postsData) {
-          setUserPosts(postsData);
-        }
-      } catch (postsErr) {
-        console.error('[PublicProfile] Error fetching posts:', postsErr);
-      }
-
-      try {
-        const followingStatus = await checkIfFollowing(user?.uid, userId);
-        setIsFollowing(followingStatus);
-      } catch (followErr) {
-        console.error('[PublicProfile] Error checking following status:', followErr);
-      }
-
-      try {
-        // Fetch public active workout series
-        let activeWS = null;
-        const { data: wsData } = await supabase
-          .from('workout_series')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('is_active', true)
-          .eq('is_public', true)
-          .maybeSingle();
-
-        if (wsData) {
-          activeWS = {
-            id: wsData.id,
-            name: wsData.name,
-            weekly_frequency: wsData.weekly_frequency,
-            progress_completed: wsData.progress_completed || 0,
-            progress_total: wsData.progress_total || 30,
-            is_public: wsData.is_public !== false,
-            copies_count: wsData.copies_count || 0,
-            exercises: Array.isArray(wsData.exercises) ? wsData.exercises : []
-          };
-        } else {
-          // Check local storage fallback for simulated mock data if public profile has local cached series
-          const cached = localStorage.getItem(`fitverse-workout-series-fallback_${userId}`);
-          if (cached) {
-            const list = JSON.parse(cached);
-            activeWS = list.find(s => s.is_active) || list[0];
-          } else {
-            // Static mock for demo public profile
-            activeWS = {
-              name: 'Hipertrofia - Push/Pull/Legs',
-              weekly_frequency: '3x por semana',
-              progress_completed: 12,
-              progress_total: 30,
-              exercises: [
-                { id: 'ex_1', name: 'Supino Reto (Barra)', sets: 4, reps: '8-10', weight: 80, done_today: true },
-                { id: 'ex_2', name: 'Desenvolvimento Militar', sets: 4, reps: '8-10', weight: 45, done_today: false },
-                { id: 'ex_3', name: 'Tríceps Testa', sets: 3, reps: '10-12', weight: 30, done_today: false },
-                { id: 'ex_4', name: 'Elevação Lateral', sets: 4, reps: '12-15', weight: 14, done_today: false },
-              ]
-            };
-          }
-        }
-        setActiveWorkoutSeries(activeWS);
-      } catch (wsErr) {
-        console.warn('[PublicProfile] Error loading active workout series:', wsErr);
-      }
-
-      // Fetch public gym bag saves
-      try {
-        const { data } = await supabase
-          .from('video_interactions')
-          .select('video_id')
-          .eq('user_id', userId)
-          .eq('interaction_type', 'gym_bag');
-        if (data) {
-          setGymBagVideos(data);
-        }
-      } catch (err) {
-        console.warn('[PublicProfile] Error fetching gym bag interactions:', err);
-      }
-
-      setIsLoading(false);
-    };
-
-    loadData();
-  }, [userId, user?.uid, fetchPublicProfile, fetchUserPosts, checkIfFollowing, navigate, currentScreen]);
 
   const handleFollowToggle = async (e) => {
     if (e) e.stopPropagation();
@@ -805,6 +659,217 @@ export default function PublicProfileScreen() {
     }
   }, [userId]);
 
+  const loadData = useCallback(async (showLoadingState = true) => {
+    if (!userId) {
+      navigate('explore');
+      return;
+    }
+
+    if (user?.uid === userId) {
+      navigate('profile'); // redirect to own profile
+      return;
+    }
+
+    console.log('[PublicProfile] Loading data for userId:', userId);
+    // 1. Optimistic UI: try loading from cache first
+    if (showLoadingState) {
+      const cachedProf = cacheGet(CACHE_KEYS.publicProfile(userId));
+      console.log('[PublicProfile] Cached profile:', cachedProf);
+      if (cachedProf) {
+        setProfile(cachedProf);
+        setIsLoading(false);
+        if (cachedProf.profile_type === 'business') {
+          fetchBusinessFeedbacks(userId);
+        }
+      } else {
+        setIsLoading(true);
+      }
+    }
+
+    // 2. Fetch fresh profile data in background/foreground (ignoring cache)
+    let profData = null;
+    try {
+      profData = await fetchPublicProfile(userId, true);
+      console.log('[PublicProfile] Fresh profile data fetched:', profData);
+      
+      if (profData) {
+        // Secondary dynamic counts fetch to bypass RLS column update lags
+        let followersCount = profData.followers || 0;
+        let followingCount = profData.following || 0;
+        
+        try {
+          const { count: fCount } = await supabase
+            .from('followers')
+            .select('*', { count: 'exact', head: true })
+            .eq('following_id', userId);
+          if (fCount !== null) followersCount = fCount;
+
+          const { count: fingCount } = await supabase
+            .from('followers')
+            .select('*', { count: 'exact', head: true })
+            .eq('follower_id', userId);
+          if (fingCount !== null) followingCount = fingCount;
+        } catch (err) {
+          console.warn('Error fetching dynamic followers/following counts:', err);
+        }
+
+        setProfile({
+          ...profData,
+          followers: followersCount,
+          following: followingCount
+        });
+        
+        if (profData.profile_type === 'business') {
+          fetchBusinessFeedbacks(userId);
+        }
+      }
+    } catch (profErr) {
+      console.error('[PublicProfile] Error fetching profile:', profErr);
+    }
+
+    // 3. Fetch other data in parallel/independently
+    try {
+      const postsData = await fetchUserPosts(userId);
+      if (postsData) {
+        setUserPosts(postsData);
+      }
+    } catch (postsErr) {
+      console.error('[PublicProfile] Error fetching posts:', postsErr);
+    }
+
+    try {
+      const followingStatus = await checkIfFollowing(user?.uid, userId);
+      setIsFollowing(followingStatus);
+    } catch (followErr) {
+      console.error('[PublicProfile] Error checking following status:', followErr);
+    }
+
+    try {
+      // Fetch public active workout series
+      let activeWS = null;
+      const { data: wsData } = await supabase
+        .from('workout_series')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .eq('is_public', true)
+        .maybeSingle();
+
+      if (wsData) {
+        activeWS = {
+          id: wsData.id,
+          name: wsData.name,
+          weekly_frequency: wsData.weekly_frequency,
+          progress_completed: wsData.progress_completed || 0,
+          progress_total: wsData.progress_total || 30,
+          is_public: wsData.is_public !== false,
+          copies_count: wsData.copies_count || 0,
+          exercises: Array.isArray(wsData.exercises) ? wsData.exercises : []
+        };
+      } else {
+        // Check local storage fallback for simulated mock data if public profile has local cached series
+        const cached = localStorage.getItem(`fitverse-workout-series-fallback_${userId}`);
+        if (cached) {
+          const list = JSON.parse(cached);
+          activeWS = list.find(s => s.is_active) || list[0];
+        } else {
+          // Static mock for demo public profile
+          activeWS = {
+            name: 'Hipertrofia - Push/Pull/Legs',
+            weekly_frequency: '3x por semana',
+            progress_completed: 12,
+            progress_total: 30,
+            exercises: [
+              { id: 'ex_1', name: 'Supino Reto (Barra)', sets: 4, reps: '8-10', weight: 80, done_today: true },
+              { id: 'ex_2', name: 'Desenvolvimento Militar', sets: 4, reps: '8-10', weight: 45, done_today: false },
+              { id: 'ex_3', name: 'Tríceps Testa', sets: 3, reps: '10-12', weight: 30, done_today: false },
+              { id: 'ex_4', name: 'Elevação Lateral', sets: 4, reps: '12-15', weight: 14, done_today: false },
+            ]
+          };
+        }
+      }
+      setActiveWorkoutSeries(activeWS);
+    } catch (wsErr) {
+      console.warn('[PublicProfile] Error loading active workout series:', wsErr);
+    }
+
+    // Fetch public gym bag saves
+    try {
+      const { data } = await supabase
+        .from('video_interactions')
+        .select('video_id')
+        .eq('user_id', userId)
+        .eq('interaction_type', 'gym_bag');
+      if (data) {
+        setGymBagVideos(data);
+      }
+    } catch (err) {
+      console.warn('[PublicProfile] Error fetching gym bag interactions:', err);
+    }
+
+    setIsLoading(false);
+  }, [userId, user?.uid, fetchPublicProfile, fetchUserPosts, checkIfFollowing, navigate, fetchBusinessFeedbacks]);
+
+  const handleTouchStart = useCallback((e) => {
+    const scrollEl = containerRef.current?.parentElement;
+    if (scrollEl && scrollEl.scrollTop === 0) {
+      setTouchStart(e.touches[0].clientY);
+    } else {
+      setTouchStart(null);
+    }
+    setDragOffset(0);
+  }, []);
+
+  const handleTouchMove = useCallback((e) => {
+    if (touchStart === null || isRefreshing) return;
+    const currentY = e.touches[0].clientY;
+    const diff = touchStart - currentY;
+    
+    if (diff < 0) {
+      const pullDist = -diff;
+      setDragOffset(Math.min(pullDist * 0.5, 80));
+      setPullProgress(Math.min(pullDist / 100, 1));
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    } else {
+      setDragOffset(0);
+      setPullProgress(0);
+    }
+  }, [touchStart, isRefreshing]);
+
+  const handleTouchEnd = useCallback(async (e) => {
+    if (touchStart === null || isRefreshing) return;
+    const currentY = e.changedTouches[0].clientY;
+    const diff = touchStart - currentY;
+    setTouchStart(null);
+
+    if (diff < 0 && pullProgress >= 1) {
+      setIsRefreshing(true);
+      setDragOffset(60);
+      try {
+        await Promise.all([
+          loadData(false),
+          loadProfileChallenges()
+        ]);
+      } catch (err) {
+        console.error('[PublicProfile] Pull-to-refresh error:', err);
+      } finally {
+        setIsRefreshing(false);
+        setPullProgress(0);
+        setDragOffset(0);
+      }
+    } else {
+      setDragOffset(0);
+      setPullProgress(0);
+    }
+  }, [touchStart, pullProgress, isRefreshing, loadData, loadProfileChallenges]);
+
+  useEffect(() => {
+    if (currentScreen !== 'public_profile') return;
+    loadData(true);
+  }, [currentScreen, loadData]);
+
   useEffect(() => {
     if (userId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -901,7 +966,31 @@ export default function PublicProfileScreen() {
         transition={{ duration: 19, repeat: Infinity, ease: 'easeInOut' }}
       />
 
-      <div style={{ ...styles.container, background: getThemeBackground(profile?.profile_theme_color) }}>
+      {/* ── Pull-to-refresh indicator ────────────────────── */}
+      {(pullProgress > 0 || isRefreshing) && (
+        <div style={{
+          ...styles.refreshIndicator,
+          transform: `translate(-50%, ${isRefreshing ? 60 : Math.min(pullProgress * 60, 60)}px) scale(${isRefreshing ? 1 : pullProgress})`,
+          opacity: isRefreshing ? 1 : pullProgress,
+        }}>
+          <Loader2 
+            size={20} 
+            color="#00D4FF" 
+            style={{ 
+              animation: isRefreshing ? 'spin 1s linear infinite' : 'none',
+              transform: isRefreshing ? 'none' : `rotate(${pullProgress * 360}deg)`
+            }} 
+          />
+        </div>
+      )}
+
+      <motion.div
+        ref={containerRef}
+        style={{ ...styles.container, background: getThemeBackground(profile?.profile_theme_color), y: dragOffset }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* Header */}
         <div style={styles.header}>
           <button style={styles.headerBtnLeft} onClick={() => goBack()}>
@@ -1498,7 +1587,7 @@ export default function PublicProfileScreen() {
             )}
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* MODAL: Medalhas (Badges) */}
       <AnimatePresence>
@@ -1834,6 +1923,24 @@ const styles = {
     boxSizing: 'border-box',
     display: 'flex',
     flexDirection: 'column',
+  },
+  refreshIndicator: {
+    position: 'absolute',
+    top: '80px',
+    left: '50%',
+    zIndex: 90,
+    background: 'rgba(10, 10, 15, 0.85)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '50%',
+    width: '40px',
+    height: '40px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+    backdropFilter: 'blur(8px)',
+    pointerEvents: 'none',
+    transition: 'transform 0.1s ease-out, opacity 0.1s ease-out',
   },
   bgBlob1: {
     position: 'absolute', width: '60vw', height: '60vw', minWidth: '400px', minHeight: '400px',
