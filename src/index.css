@@ -884,7 +884,9 @@ a {
 
 @media (max-width: 480px) {
   .profile-card {
-    padding: 16px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    padding-bottom: 16px !important;
   }
   .profile-card-header {
     gap: 8px !important;
