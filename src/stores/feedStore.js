@@ -314,6 +314,8 @@ export const useFeedStore = create(
           return; // Cache is fresh enough, skip network
         }
         // Otherwise fall through to fetch fresh data in background (without showing loading)
+      } else if (get().videos && get().videos.length > 0) {
+        // Keep hydrated videos in store to show instantly while we load fresh ones in background
       } else {
         set({ videos: [] });
       }
@@ -323,7 +325,7 @@ export const useFeedStore = create(
 
     try {
       const offset = loadMore ? get().videos.length : 0;
-      const limit = 10;
+      const limit = loadMore ? 10 : 50;
       let followedUserIds = [];
       if (get().activeTab === 'following') {
         const { useAuthStore } = await import('./authStore');

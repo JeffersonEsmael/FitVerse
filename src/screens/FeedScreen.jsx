@@ -331,48 +331,59 @@ export default function FeedScreen() {
               <ChallengesView />
             </motion.div>
           ) : videos.length === 0 ? (
-            <motion.div
-              key="empty"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              style={{ ...styles.emptyFeed, y: dragOffset }}
-            >
-              {activeTab === 'following' ? (
-                <>
-                  <span style={{ fontSize: '48px', marginBottom: '8px' }}>👥</span>
-                  <span style={styles.emptyTitle}>Feed de Seguindo Vazio</span>
-                  <span style={{ ...styles.emptySubtitle, maxWidth: '280px', textAlign: 'center', lineHeight: '1.4' }}>
-                    Você ainda não segue ninguém ou os perfis que você segue ainda não postaram vídeos. Comece a seguir outros atletas para acompanhar seus treinos!
-                  </span>
-                  <motion.button
-                    style={{ ...styles.emptyBtn, background: 'linear-gradient(135deg, #00D4FF, #0088CC)' }}
-                    onClick={() => navigate('explore')}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    Explorar Pessoas
-                  </motion.button>
-                </>
-              ) : (
-                <>
-                  <Video size={48} color="#6C6C88" />
-                  <span style={styles.emptyTitle}>
-                    {uploadingPost ? 'Publicando seu post...' : 'Nenhum post ainda'}
-                  </span>
-                  <span style={styles.emptySubtitle}>
-                    {uploadingPost ? 'Aguarde um momento' : 'Seja o primeiro a postar!'}
-                  </span>
-                  {!uploadingPost && (
+            isLoading ? (
+              <div style={styles.loadingContainer}>
+                <Loader2
+                  size={40}
+                  color="#00D4FF"
+                  style={{ animation: 'spin 1s linear infinite' }}
+                />
+                <span style={styles.loadingText}>Carregando publicações...</span>
+              </div>
+            ) : (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                style={{ ...styles.emptyFeed, y: dragOffset }}
+              >
+                {activeTab === 'following' ? (
+                  <>
+                    <span style={{ fontSize: '48px', marginBottom: '8px' }}>👥</span>
+                    <span style={styles.emptyTitle}>Feed de Seguindo Vazio</span>
+                    <span style={{ ...styles.emptySubtitle, maxWidth: '280px', textAlign: 'center', lineHeight: '1.4' }}>
+                      Você ainda não segue ninguém ou os perfis que você segue ainda não postaram vídeos. Comece a seguir outros atletas para acompanhar seus treinos!
+                    </span>
                     <motion.button
-                      style={styles.emptyBtn}
-                      onClick={() => navigate('create')}
+                      style={{ ...styles.emptyBtn, background: 'linear-gradient(135deg, #00D4FF, #0088CC)' }}
+                      onClick={() => navigate('explore')}
                       whileTap={{ scale: 0.95 }}
                     >
-                      <PlusCircle size={18} /> Criar Post
+                      Explorar Pessoas
                     </motion.button>
-                  )}
-                </>
-              )}
-            </motion.div>
+                  </>
+                ) : (
+                  <>
+                    <Video size={48} color="#6C6C88" />
+                    <span style={styles.emptyTitle}>
+                      {uploadingPost ? 'Publicando seu post...' : 'Nenhum post ainda'}
+                    </span>
+                    <span style={styles.emptySubtitle}>
+                      {uploadingPost ? 'Aguarde um momento' : 'Seja o primeiro a postar!'}
+                    </span>
+                    {!uploadingPost && (
+                      <motion.button
+                        style={styles.emptyBtn}
+                        onClick={() => navigate('create')}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <PlusCircle size={18} /> Criar Post
+                      </motion.button>
+                    )}
+                  </>
+                )}
+              </motion.div>
+            )
           ) : (
             videos.map((video, index) => (
               index === currentIndex && (
@@ -523,6 +534,16 @@ const styles = {
     position: 'absolute', bottom: '80px', right: '16px',
     color: 'rgba(255,255,255,0.3)', fontSize: '11px',
     fontFamily: "'Inter', sans-serif", zIndex: 5,
+  },
+  loadingContainer: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    justifyContent: 'center', gap: '16px',
+    background: '#000',
+  },
+  loadingText: {
+    fontSize: '15px', color: '#6C6C88', fontFamily: "'Inter', sans-serif",
+    fontWeight: 500,
   },
   emptyFeed: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
