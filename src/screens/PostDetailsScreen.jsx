@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import VideoCard from '../components/feed/VideoCard';
+import { preloadVideo, cleanupPreloads, clearAllPreloads } from '../utils/videoPreloader';
 
 export default function PostDetailsScreen() {
   const { screenParams, goBack } = useNavigationStore();
@@ -17,6 +18,41 @@ export default function PostDetailsScreen() {
   const [dragOffset, setDragOffset] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const containerRef = useRef(null);
+
+  // Pre-load videos for smooth swiping
+  useEffect(() => {
+    if (allPosts.length === 0) return;
+
+    // Preload current video
+    const currentVideo = allPosts[currentIndex];
+    if (currentVideo && currentVideo.mediaType === 'video' && currentVideo.videoUrl) {
+      preloadVideo(currentVideo.videoUrl);
+    }
+
+    // Preload next video
+    const nextVideo = allPosts[currentIndex + 1];
+    if (nextVideo && nextVideo.mediaType === 'video' && nextVideo.videoUrl) {
+      preloadVideo(nextVideo.videoUrl);
+    }
+
+    // Preload previous video
+    const prevVideo = allPosts[currentIndex - 1];
+    if (prevVideo && prevVideo.mediaType === 'video' && prevVideo.videoUrl) {
+      preloadVideo(prevVideo.videoUrl);
+    }
+
+    // Cleanup far preloads (keep current ± 1)
+    const keepUrls = [];
+    if (prevVideo?.videoUrl) keepUrls.push(prevVideo.videoUrl);
+    if (currentVideo?.videoUrl) keepUrls.push(currentVideo.videoUrl);
+    if (nextVideo?.videoUrl) keepUrls.push(nextVideo.videoUrl);
+    cleanupPreloads(keepUrls);
+  }, [allPosts, currentIndex]);
+
+  // Clean up all preloads on unmount
+  useEffect(() => {
+    return () => clearAllPreloads();
+  }, []);
 
   const goToVideo = useCallback((index) => {
     if (index < 0 || index >= allPosts.length || isTransitioning) return;
@@ -88,10 +124,10 @@ export default function PostDetailsScreen() {
   }, [currentIndex, goToVideo]);
 
   // Animation variants using custom direction
-  const variants = {
-    initial: (d) => ({ y: d > 0 ? '100%' : '-100%', opacity: 0.5 }),
-    animate: { y: 0, opacity: 1 },
-    exit: (d) => ({ y: d > 0 ? '-100%' : '100%', opacity: 0 }),
+  const slideVariants = {
+    initial: (d) => ({ y: d > 0 ? '100%' : '-100%' }),
+    animate: { y: 0 },
+    exit: (d) => ({ y: d > 0 ? '-100%' : '100%' }),
   };
 
   if (!post && allPosts.length === 0) {
@@ -120,17 +156,17 @@ export default function PostDetailsScreen() {
         </button>
 
         {/* Scrollable video feed */}
-        <AnimatePresence mode="wait" custom={direction}>
+        <AnimatePresence initial={false} custom={direction}>
           {allPosts.map((video, index) =>
             index === currentIndex ? (
               <motion.div
                 key={video.id || index}
                 custom={direction}
-                variants={variants}
+                variants={slideVariants}
                 initial="initial"
                 animate="animate"
                 exit="exit"
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                transition={{ type: 'tween', duration: 0.25, ease: 'easeInOut' }}
                 style={{
                   ...styles.videoSlide,
                   y: dragOffset,

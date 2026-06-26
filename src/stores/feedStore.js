@@ -577,9 +577,63 @@ export const useFeedStore = create(
     }
   },
 
-  // ─── Delete post permanently from DB ──────────────────────
   deletePost: async (postId) => {
     try {
+      // 1. Get post details first (to know the files to delete from Storage)
+      const { data: postToDelete } = await supabase
+        .from('videos')
+        .select('*')
+        .eq('id', postId)
+        .maybeSingle();
+
+      if (postToDelete) {
+        const parseStorageUrl = (url) => {
+          if (!url) return null;
+          const match = url.match(/\/object\/public\/([^/]+)\/(.+)$/);
+          if (match) {
+            return { bucket: match[1], path: match[2] };
+          }
+          return null;
+        };
+
+        // Delete main media file (video or image)
+        const mainFile = parseStorageUrl(postToDelete.video_url);
+        if (mainFile) {
+          try {
+            await supabase.storage.from(mainFile.bucket).remove([mainFile.path]);
+          } catch (storageErr) {
+            console.warn('[Feed] Error deleting main file from storage:', storageErr.message);
+          }
+        }
+
+        // Delete thumbnail file if exists
+        if (postToDelete.thumbnail_url) {
+          const thumbFile = parseStorageUrl(postToDelete.thumbnail_url);
+          if (thumbFile) {
+            try {
+              await supabase.storage.from(thumbFile.bucket).remove([thumbFile.path]);
+            } catch (storageErr) {
+              console.warn('[Feed] Error deleting thumbnail from storage:', storageErr.message);
+            }
+          }
+        }
+
+        // Delete carousel files if exists
+        if (postToDelete.carousel_urls && Array.isArray(postToDelete.carousel_urls)) {
+          for (const url of postToDelete.carousel_urls) {
+            const carFile = parseStorageUrl(url);
+            if (carFile) {
+              try {
+                await supabase.storage.from(carFile.bucket).remove([carFile.path]);
+              } catch (storageErr) {
+                console.warn('[Feed] Error deleting carousel file from storage:', storageErr.message);
+              }
+            }
+          }
+        }
+      }
+
+      // 2. Delete post record from DB
       const { error } = await supabase
         .from('videos')
         .delete()
