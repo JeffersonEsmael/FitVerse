@@ -426,6 +426,7 @@ export const useFeedStore = create(
         return {
           id: v.id,
           videoUrl: v.video_url,
+          thumbnailUrl: v.thumbnail_url || '',
           mediaType: v.media_type || 'video',
           carouselUrls: v.carousel_urls || [],
           userId: v.user_id,
@@ -544,6 +545,7 @@ export const useFeedStore = create(
         return {
           id: v.id,
           videoUrl: v.video_url,
+          thumbnailUrl: v.thumbnail_url || '',
           mediaType: v.media_type || 'video',
           carouselUrls: v.carousel_urls || [],
           userId: v.user_id,
@@ -604,6 +606,53 @@ export const useFeedStore = create(
       return { success: true };
     } catch (error) {
       console.error('[Feed] deletePost error:', error.message);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // ─── Update post caption, hashtags, and thumbnail_url ──────
+  updatePost: async (postId, updates) => {
+    try {
+      const { error } = await supabase
+        .from('videos')
+        .update({
+          caption: updates.caption,
+          hashtags: updates.hashtags,
+          thumbnail_url: updates.thumbnailUrl,
+        })
+        .eq('id', postId);
+
+      if (error) throw error;
+
+      // Update local state in store
+      set((state) => ({
+        videos: state.videos.map((v) =>
+          v.id === postId
+            ? {
+                ...v,
+                caption: updates.caption,
+                hashtags: updates.hashtags,
+                thumbnailUrl: updates.thumbnailUrl,
+              }
+            : v
+        ),
+      }));
+
+      // Synchronize in local caches
+      get()._updateVideoInCaches(postId, (v) => ({
+        ...v,
+        caption: updates.caption,
+        hashtags: updates.hashtags,
+        thumbnailUrl: updates.thumbnailUrl,
+      }));
+
+      // Invalidate feed and user posts caches so they get re-fetched next time
+      cacheInvalidatePattern('feed_');
+      cacheInvalidatePattern('user_posts_');
+
+      return { success: true };
+    } catch (error) {
+      console.error('[Feed] updatePost error:', error.message);
       return { success: false, error: error.message };
     }
   },
@@ -680,6 +729,7 @@ export const useFeedStore = create(
         return {
           id: v.id,
           videoUrl: v.video_url,
+          thumbnailUrl: v.thumbnail_url || '',
           mediaType: v.media_type || 'video',
           carouselUrls: v.carousel_urls || [],
           userId: v.user_id,

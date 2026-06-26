@@ -98,12 +98,26 @@ export default function CreatePostScreen() {
   const { addChallenge } = useRankingStore();
 
   useEffect(() => {
-    resetMediaStates();
-    setStep(1);
-    if (screenParams?.type === 'challenge') {
-      setCreationType('challenge');
+    if (screenParams?.mode === 'edit' && screenParams?.video) {
+      const editVideo = screenParams.video;
+      setCreationType(editVideo.mediaType || 'video');
+      setStep(2);
+      setMediaType(editVideo.mediaType || 'video');
+      setPreview(editVideo.videoUrl);
+      setCaption(editVideo.caption || '');
+      setHashtags(editVideo.hashtags || []);
+      setCategory(editVideo.category || 'treino');
+      if (editVideo.mediaType === 'video') {
+        generateTimelineThumbnails(editVideo.videoUrl);
+      }
     } else {
-      setCreationType(null); // Show selection screen
+      resetMediaStates();
+      setStep(1);
+      if (screenParams?.type === 'challenge') {
+        setCreationType('challenge');
+      } else {
+        setCreationType(null); // Show selection screen
+      }
     }
   }, [screenParams]);
 
@@ -221,8 +235,14 @@ export default function CreatePostScreen() {
 
   const generateTimelineThumbnails = (videoFile) => {
     const video = document.createElement('video');
-    const objectUrl = URL.createObjectURL(videoFile);
-    video.src = objectUrl;
+    video.crossOrigin = 'anonymous'; // Enable CORS for remote URLs
+    let objectUrl = null;
+    if (typeof videoFile === 'string') {
+      video.src = videoFile;
+    } else {
+      objectUrl = URL.createObjectURL(videoFile);
+      video.src = objectUrl;
+    }
     video.muted = true;
     video.playsInline = true;
     video.preload = 'auto';
@@ -240,7 +260,7 @@ export default function CreatePostScreen() {
       const captureNext = () => {
         if (pointIdx >= points.length) {
           setTimelineThumbnails(thumbs);
-          URL.revokeObjectURL(objectUrl);
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
           return;
         }
         
@@ -267,7 +287,7 @@ export default function CreatePostScreen() {
     };
     
     video.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   };
 
@@ -576,6 +596,65 @@ export default function CreatePostScreen() {
   const removeHashtag = (tag) => {
     setHashtags(hashtags.filter((t) => t !== tag));
   };
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleUpdatePost = async () => {
+    if (isUpdating) return;
+    setIsUpdating(true);
+
+    try {
+      const editVideo = screenParams?.video;
+      if (!editVideo) throw new Error('Dados da publicação não encontrados.');
+
+      let updatedThumbnailUrl = editVideo.thumbnailUrl || '';
+
+      // If the user selected a new cover time and it's a video
+      if (editVideo.mediaType === 'video' && coverTime !== null) {
+        const { generateVideoThumbnail } = await import('../utils/compression');
+        const thumbFile = await generateVideoThumbnail(editVideo.videoUrl, {
+          seekTime: coverTime,
+          isAuto: false
+        });
+
+        if (thumbFile) {
+          const thumbName = `${editVideo.userId}/${Date.now()}_thumb_edit.jpg`;
+          const { error: thumbUpErr } = await supabase.storage
+            .from('posts')
+            .upload(thumbName, thumbFile, {
+              contentType: 'image/jpeg',
+              cacheControl: '86400',
+              upsert: false,
+            });
+
+          if (!thumbUpErr) {
+            const { data: thumbUrlData } = supabase.storage.from('posts').getPublicUrl(thumbName);
+            updatedThumbnailUrl = thumbUrlData?.publicUrl || '';
+          }
+        }
+      }
+
+      const store = useFeedStore.getState();
+      const updates = {
+        caption,
+        hashtags,
+        thumbnailUrl: updatedThumbnailUrl
+      };
+
+      const result = await store.updatePost(editVideo.id, updates);
+      if (result.success) {
+        alert('Publicação atualizada com sucesso!');
+        goBack();
+      } else {
+        alert('Erro ao atualizar: ' + result.error);
+      }
+    } catch (err) {
+      console.error('Error updating post:', err);
+      alert('Erro ao salvar alterações: ' + err.message);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handlePost = async () => {
     if (!file && files.length === 0) {
       alert('Selecione uma foto ou vídeo para publicar.');
@@ -1178,16 +1257,17 @@ export default function CreatePostScreen() {
             <>
               {/* Header */}
               <div style={styles.header}>
-                <button style={styles.backBtn} onClick={() => setStep(1)}>
+                <button style={styles.backBtn} onClick={() => screenParams?.mode === 'edit' ? goBack() : setStep(1)}>
                   <ChevronLeft size={24} color="#fff" />
                 </button>
-                <h2 style={styles.title}>{creationType === 'photo' ? 'Post / Carrossel' : 'Publicar Vídeo'}</h2>
+                <h2 style={styles.title}>{screenParams?.mode === 'edit' ? 'Editar Publicação' : (creationType === 'photo' ? 'Post / Carrossel' : 'Publicar Vídeo')}</h2>
                 <motion.button
                   style={{ ...styles.postBtn, opacity: 1 }}
-                  onClick={handlePost}
+                  onClick={screenParams?.mode === 'edit' ? handleUpdatePost : handlePost}
                   whileTap={{ scale: 0.95 }}
+                  disabled={isUpdating}
                 >
-                  <Send size={16} /> Postar
+                  {screenParams?.mode === 'edit' ? (isUpdating ? 'Salvando...' : 'Salvar') : <><Send size={16} /> Postar</>}
                 </motion.button>
               </div>
 
@@ -1296,20 +1376,22 @@ export default function CreatePostScreen() {
               </div>
 
               {/* Category */}
-              <div style={styles.field}>
-                <label style={styles.label}>Categoria</label>
-                <div style={styles.catRow}>
-                  {categories.map((c) => (
-                    <button
-                      key={c}
-                      style={{ ...styles.catChip, ...(category === c ? styles.catChipActive : {}) }}
-                      onClick={() => setCategory(c)}
-                    >
-                      {c}
-                    </button>
-                  ))}
+              {screenParams?.mode !== 'edit' && (
+                <div style={styles.field}>
+                  <label style={styles.label}>Categoria</label>
+                  <div style={styles.catRow}>
+                    {categories.map((c) => (
+                      <button
+                        key={c}
+                        style={{ ...styles.catChip, ...(category === c ? styles.catChipActive : {}) }}
+                        onClick={() => setCategory(c)}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
 

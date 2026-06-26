@@ -331,13 +331,22 @@ export const compressVideo = (file, { maxDimension = 1280, fps = 30, bitrate = 2
  */
 export const generateVideoThumbnail = (file, { seekTime = 1, isAuto = false, maxWidth = 720, maxHeight = 1280, quality = 0.85 } = {}) => {
   return new Promise((resolve) => {
-    if (!file || !file.type || !file.type.startsWith('video/')) {
-      return resolve(null);
+    let objectUrl = null;
+    let videoSrc = '';
+
+    if (typeof file === 'string' && (file.startsWith('http://') || file.startsWith('https://'))) {
+      videoSrc = file;
+    } else {
+      if (!file || !file.type || !file.type.startsWith('video/')) {
+        return resolve(null);
+      }
+      objectUrl = URL.createObjectURL(file);
+      videoSrc = objectUrl;
     }
 
     const videoEl = document.createElement('video');
-    const objectUrl = URL.createObjectURL(file);
-    videoEl.src = objectUrl;
+    videoEl.crossOrigin = 'anonymous'; // Enable CORS for remote video URLs
+    videoEl.src = videoSrc;
     videoEl.muted = true;
     videoEl.playsInline = true;
     videoEl.preload = 'auto';
@@ -345,7 +354,7 @@ export const generateVideoThumbnail = (file, { seekTime = 1, isAuto = false, max
     // Timeout safety net
     const timeout = setTimeout(() => {
       console.warn('[compression] Thumbnail generation timed out');
-      URL.revokeObjectURL(objectUrl);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
       resolve(null);
     }, 20000);
 
@@ -377,7 +386,7 @@ export const generateVideoThumbnail = (file, { seekTime = 1, isAuto = false, max
       const ctx = canvas.getContext('2d');
 
       if (!ctx) {
-        URL.revokeObjectURL(objectUrl);
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
         return resolve(null);
       }
 
@@ -385,7 +394,7 @@ export const generateVideoThumbnail = (file, { seekTime = 1, isAuto = false, max
 
       canvas.toBlob(
         (blob) => {
-          URL.revokeObjectURL(objectUrl);
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
           if (!blob) return resolve(null);
 
           try {
@@ -407,7 +416,6 @@ export const generateVideoThumbnail = (file, { seekTime = 1, isAuto = false, max
 
     videoEl.onloadedmetadata = () => {
       if (isAuto) {
-        // Start auto-seeking to find first non-black frame
         seekToNextScanPoint();
       } else {
         videoEl.currentTime = Math.min(seekTime, videoEl.duration);
@@ -416,7 +424,6 @@ export const generateVideoThumbnail = (file, { seekTime = 1, isAuto = false, max
 
     const seekToNextScanPoint = () => {
       if (scanIdx >= scanPoints.length) {
-        // Fallback to 1.0s if all frames are dark
         videoEl.currentTime = Math.min(1.0, videoEl.duration);
         return;
       }
@@ -445,7 +452,6 @@ export const generateVideoThumbnail = (file, { seekTime = 1, isAuto = false, max
             }
             const avgBrightness = colorSum / (testCanvas.width * testCanvas.height);
             
-            // If the frame is bright enough (meaning it is not pure black or extremely dark), export it!
             if (avgBrightness > 15) {
               performExport();
               return;
@@ -455,7 +461,6 @@ export const generateVideoThumbnail = (file, { seekTime = 1, isAuto = false, max
           console.warn('[compression] Auto-scan error:', e);
         }
         
-        // Seek to next point
         scanIdx++;
         seekToNextScanPoint();
       } else {
@@ -465,7 +470,7 @@ export const generateVideoThumbnail = (file, { seekTime = 1, isAuto = false, max
 
     videoEl.onerror = () => {
       clearTimeout(timeout);
-      URL.revokeObjectURL(objectUrl);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
       console.warn('[compression] Failed to load video for thumbnail');
       resolve(null);
     };

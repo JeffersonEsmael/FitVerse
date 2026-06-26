@@ -1011,7 +1011,6 @@ export default function PublicProfileScreen() {
             <ChevronLeft size={28} color="#fff" />
           </button>
           <h2 style={{ ...styles.title, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            Perfil
           </h2>
         </div>
 

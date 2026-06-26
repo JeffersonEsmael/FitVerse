@@ -53,6 +53,15 @@ export default function VideoCard({ video, isActive, index }) {
   const isVideo = video.mediaType === 'video';
   const isCarousel = video.mediaType === 'carousel';
 
+  const canEdit = (() => {
+    if (!video.createdAt) return false;
+    const postDate = new Date(video.createdAt);
+    const now = new Date();
+    const diffTime = Math.abs(now - postDate);
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    return diffDays <= 2;
+  })();
+
   useEffect(() => {
     if (user?.uid && video.userId) {
       if (isSelf) {
@@ -414,30 +423,52 @@ export default function VideoCard({ video, isActive, index }) {
               ) : (
                 <div style={styles.optionsList}>
                   {isSelf ? (
-                    <button
-                      style={styles.optionItemDanger}
-                      onClick={async () => {
-                        if (window.confirm("Deseja realmente excluir esta publicação? Ela será removida permanentemente do banco de dados.")) {
-                          setShowOptions(false);
-                          const store = useFeedStore.getState();
-                          const res = await store.deletePost(video.id);
-                          if (res.success) {
+                    <>
+                      {canEdit && (
+                        <button
+                          style={styles.optionItem}
+                          onClick={() => {
+                            setShowOptions(false);
                             const navStore = useNavigationStore.getState();
-                            if (navStore.currentScreen === 'post_details') {
-                              navStore.goBack();
+                            navStore.navigate('create', {
+                              mode: 'edit',
+                              video: video
+                            });
+                          }}
+                        >
+                          <span style={styles.optionIcon}>✏️</span>
+                          <div style={styles.optionTextContainer}>
+                            <span style={styles.optionLabel}>Editar Descrição e Capa</span>
+                            <span style={styles.optionSub}>Modificar legenda e imagem de capa do vídeo</span>
+                          </div>
+                        </button>
+                      )}
+                      
+                      <button
+                        style={styles.optionItemDanger}
+                        onClick={async () => {
+                          if (window.confirm("Deseja realmente excluir esta publicação? Ela será removida permanentemente do banco de dados.")) {
+                            setShowOptions(false);
+                            const store = useFeedStore.getState();
+                            const res = await store.deletePost(video.id);
+                            if (res.success) {
+                              const navStore = useNavigationStore.getState();
+                              if (navStore.currentScreen === 'post_details') {
+                                navStore.goBack();
+                              }
+                            } else {
+                              alert('Erro ao excluir a publicação: ' + res.error);
                             }
-                          } else {
-                            alert('Erro ao excluir a publicação: ' + res.error);
                           }
-                        }
-                      }}
-                    >
-                      <span style={styles.optionIconDanger}>🗑️</span>
-                      <div style={styles.optionTextContainer}>
-                        <span style={styles.optionLabelDanger}>Excluir Publicação</span>
-                        <span style={styles.optionSubDanger}>Remover permanentemente este post</span>
-                      </div>
-                    </button>
+                        }}
+                      >
+                        <span style={styles.optionIconDanger}>🗑️</span>
+                        <div style={styles.optionTextContainer}>
+                          <span style={styles.optionLabelDanger}>Excluir Publicação</span>
+                          <span style={styles.optionSubDanger}>Remover permanentemente este post</span>
+                        </div>
+                      </button>
+                    </>
                   ) : (
                     <>
                       <button
