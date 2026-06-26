@@ -162,7 +162,67 @@ export const useSocialStore = create((set, get) => ({
         .limit(20);
         
       if (error) throw error;
-      set({ searchResults: data || [] });
+
+      if (!data || data.length === 0) {
+        set({ searchResults: [] });
+        return;
+      }
+
+      // Query actual user interactions to set active visual states
+      let userInteractions = [];
+      try {
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser?.uid) {
+          const videoIds = data.map((v) => v.id);
+          const { data: interactions } = await supabase
+            .from('video_interactions')
+            .select('video_id, interaction_type')
+            .eq('user_id', currentUser.uid)
+            .in('video_id', videoIds);
+          if (interactions) userInteractions = interactions;
+        }
+      } catch (authErr) {
+        console.warn('[SocialStore] Error getting active user interactions:', authErr.message);
+      }
+
+      const result = data.map((v) => {
+        const hasShaped = userInteractions.some(
+          (i) => i.video_id === v.id && i.interaction_type === 'shape'
+        );
+        const hasBoosted = userInteractions.some(
+          (i) => i.video_id === v.id && i.interaction_type === 'boost'
+        );
+        const inGymBag = userInteractions.some(
+          (i) => i.video_id === v.id && i.interaction_type === 'gym_bag'
+        );
+
+        return {
+          id: v.id,
+          videoUrl: v.video_url,
+          thumbnailUrl: v.thumbnail_url || '',
+          mediaType: v.media_type || 'video',
+          carouselUrls: v.carousel_urls || [],
+          userId: v.user_id,
+          username: v.username || 'user',
+          userAvatar: v.user_avatar || '',
+          displayName: v.display_name || 'Usuário',
+          caption: v.caption || '',
+          hashtags: v.hashtags || [],
+          category: v.category || 'geral',
+          shapes: v.shapes || 0,
+          boosts: v.boosts || 0,
+          gym_bag_saves: v.gym_bag_saves || 0,
+          comments: v.comments || 0,
+          shares: v.shares || 0,
+          views: v.views || 0,
+          hasShaped,
+          hasBoosted,
+          inGymBag,
+          createdAt: new Date(v.created_at),
+        };
+      });
+
+      set({ searchResults: result });
     } catch (error) {
       console.error('[SocialStore] searchVideos error:', error.message);
       set({ searchResults: [] });

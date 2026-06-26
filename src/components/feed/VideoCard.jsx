@@ -431,8 +431,10 @@ export default function VideoCard({ video, isActive, index }) {
                             setShowOptions(false);
                             const navStore = useNavigationStore.getState();
                             navStore.navigate('create', {
-                              mode: 'edit',
-                              video: video
+                              params: {
+                                mode: 'edit',
+                                video: video
+                              }
                             });
                           }}
                         >

@@ -1047,6 +1047,10 @@ export const useFeedStore = create(
         }));
       }, 1500);
 
+      // Invalidate caches so that the next time the feed or profile is loaded, they get fresh data
+      cacheInvalidatePattern('feed_');
+      cacheInvalidatePattern('user_posts_');
+
       return { success: true, videoId: insertedPost.id };
     } catch (error) {
       console.error('[Feed] createPost failed:', error.message);

@@ -104,6 +104,10 @@ export default function CreatePostScreen() {
       setStep(2);
       setMediaType(editVideo.mediaType || 'video');
       setPreview(editVideo.videoUrl);
+      if (editVideo.mediaType === 'carousel') {
+        setPreviews(editVideo.carouselUrls || []);
+        setPreview(editVideo.videoUrl || (editVideo.carouselUrls && editVideo.carouselUrls[0]));
+      }
       setCaption(editVideo.caption || '');
       setHashtags(editVideo.hashtags || []);
       setCategory(editVideo.category || 'treino');
@@ -1267,7 +1271,7 @@ export default function CreatePostScreen() {
                   whileTap={{ scale: 0.95 }}
                   disabled={isUpdating}
                 >
-                  {screenParams?.mode === 'edit' ? (isUpdating ? 'Salvando...' : 'Salvar') : <><Send size={16} /> Postar</>}
+                  {screenParams?.mode === 'edit' ? (isUpdating ? 'Atualizando...' : 'Atualizar') : <><Send size={16} /> Postar</>}
                 </motion.button>
               </div>
 
