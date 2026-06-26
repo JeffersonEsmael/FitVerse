@@ -1011,10 +1011,7 @@ export default function PublicProfileScreen() {
             <ChevronLeft size={28} color="#fff" />
           </button>
           <h2 style={{ ...styles.title, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {profile.username} ({profile.profile_type || 'none'})
-            {(profile.username?.toLowerCase() === 'flowrise' || profile.username?.toLowerCase() === 'flowride') && (
-              <img src={verifiedBadgeImg} alt="verificado" style={{ width: '18px', height: '18px', marginLeft: '6px', objectFit: 'contain', flexShrink: 0 }} />
-            )}
+            Perfil
           </h2>
         </div>
 
@@ -1091,7 +1088,8 @@ export default function PublicProfileScreen() {
               {/* Streak Badge */}
               {profile.streak >= 3 && (
                 <div style={styles.streakBadge}>
-                  🔥 {profile.streak}
+                  <span style={styles.streakEmoji}>🔥</span>
+                  <span style={styles.streakNumber}>{profile.streak}</span>
                 </div>
               )}
               
@@ -2420,20 +2418,26 @@ const styles = {
   },
   streakBadge: {
     position: 'absolute',
-    top: '-8px',
-    left: '-8px',
+    top: '-12px',
+    left: '-12px',
     zIndex: 10,
-    background: 'linear-gradient(135deg, #FF9500, #FF6B00)',
-    color: '#fff',
-    fontSize: '11px',
-    fontWeight: '800',
-    padding: '4px 8px',
-    borderRadius: '12px',
-    boxShadow: '0 4px 10px rgba(255,107,0,0.4)',
     display: 'flex',
     alignItems: 'center',
-    gap: '2px',
+    pointerEvents: 'none',
+    userSelect: 'none',
+  },
+  streakEmoji: {
+    fontSize: '24px',
+    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+  },
+  streakNumber: {
+    fontSize: '14px',
+    fontWeight: '900',
+    color: '#fff',
     fontFamily: "'Outfit', sans-serif",
+    marginLeft: '-4px',
+    marginTop: '10px',
+    textShadow: '-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 2px 4px rgba(0,0,0,0.5)',
   },
   masteryTitle: {
     display: 'inline-flex',
