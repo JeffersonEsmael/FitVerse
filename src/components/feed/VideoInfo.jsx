@@ -20,7 +20,7 @@ export default function VideoInfo({ video, isFollowing, isSelf, onFollowToggle }
       <div style={styles.userRow}>
         <span style={{ ...styles.username, cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }} onClick={handleUserClick}>
           @{video.username}
-          {(video.username?.toLowerCase() === 'flowrise' || video.username?.toLowerCase() === 'flowride') && (
+          {(video.username?.toLowerCase() === 'flowrise' || video.username?.toLowerCase() === 'flowride' || (video.profileType && video.profileType !== 'personal')) && (
             <img src={verifiedBadgeImg} alt="verificado" style={{ width: '16px', height: '16px', marginLeft: '4px', objectFit: 'contain', flexShrink: 0 }} />
           )}
         </span>

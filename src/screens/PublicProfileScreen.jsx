@@ -1018,14 +1018,14 @@ export default function PublicProfileScreen() {
         <motion.div 
           style={{
             ...styles.profileCard,
-            paddingTop: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? '140px' : '24px'
+            paddingTop: profile?.profile_type !== 'personal' ? '140px' : '24px'
           }} 
           className="profile-card" 
           initial={{ y: 20, opacity: 0 }} 
           animate={{ y: 0, opacity: 1 }}
         >
           {/* Cover Photo */}
-          {(profile?.profile_type === 'trainer' || profile?.profile_type === 'business') && (
+          {profile?.profile_type !== 'personal' && (
             <div style={styles.coverPhotoContainer}>
               {profile?.cover_photo_url ? (
                 <img src={profile?.cover_photo_url} alt="Capa" style={styles.coverPhotoImg} />
@@ -1045,7 +1045,7 @@ export default function PublicProfileScreen() {
                 textAlign: 'center'
               }} className="profile-username">
                 @{profile.username}
-                {(profile.username?.toLowerCase() === 'flowrise' || profile.username?.toLowerCase() === 'flowride' || profile?.profile_type === 'trainer' || profile?.profile_type === 'business') && (
+                {(profile.username?.toLowerCase() === 'flowrise' || profile.username?.toLowerCase() === 'flowride' || profile?.profile_type !== 'personal') && (
                   <img src={verifiedBadgeImg} alt="verificado" style={{ width: '22px', height: '22px', marginLeft: '6px', objectFit: 'contain', flexShrink: 0 }} />
                 )}
               </h3>
@@ -1079,7 +1079,7 @@ export default function PublicProfileScreen() {
             <div 
               style={{ 
                 ...styles.avatarContainerRight, 
-                marginTop: (profile?.profile_type === 'trainer' || profile?.profile_type === 'business') ? '-55px' : '0px',
+                marginTop: profile?.profile_type !== 'personal' ? '-55px' : '0px',
                 zIndex: 3
               }} 
               className="profile-avatar-container"
@@ -1100,7 +1100,7 @@ export default function PublicProfileScreen() {
                   )}
                 </div>
                 {/* Verified Badge for trainer/business */}
-                {(profile?.profile_type === 'trainer' || profile?.profile_type === 'business') && (
+                {profile?.profile_type !== 'personal' && (
                   <div style={styles.verifiedAvatarBadge}>
                     <Check size={10} color="#fff" strokeWidth={4} />
                   </div>
@@ -1136,6 +1136,18 @@ export default function PublicProfileScreen() {
                 <span style={styles.roleLabel}>Personal Trainer</span>
               ) : profile.profile_type === 'business' ? (
                 <span style={styles.roleLabel}>Empresa</span>
+              ) : profile.profile_type === 'premium' ? (
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  background: 'linear-gradient(135deg, #FFD700, #FFA500)',
+                  color: '#000',
+                  padding: '3px 10px',
+                  borderRadius: '12px',
+                  boxShadow: '0 2px 8px rgba(255,215,0,0.3)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>Usuário Premium</span>
               ) : (
                 /* Mastery Title for standard users */
                 profile.show_mastery !== false && (
@@ -1149,6 +1161,47 @@ export default function PublicProfileScreen() {
 
           <div style={{ ...styles.bioContainer, position: 'relative', zIndex: 2 }}>
             {profile.bio && <p style={styles.bioCenter}>{profile.bio}</p>}
+
+            {/* Social Links Row */}
+            {profile.social_links && (() => {
+              try {
+                const socialObj = typeof profile.social_links === 'string' ? JSON.parse(profile.social_links) : profile.social_links;
+                if (socialObj) {
+                  const links = [
+                    { key: 'facebook', icon: FacebookIcon },
+                    { key: 'instagram', icon: InstagramIcon },
+                    { key: 'tiktok', icon: TikTokIcon },
+                    { key: 'youtube', icon: YouTubeIcon }
+                  ].filter(item => socialObj[item.key] && socialObj[item.key].trim().startsWith('http'));
+
+                  if (links.length > 0) {
+                    return (
+                      <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', marginTop: '12px' }}>
+                        {links.map((link) => (
+                          <motion.a
+                            key={link.key}
+                            whileTap={{ scale: 0.9 }}
+                            href={socialObj[link.key]}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              width: '36px', height: '36px', borderRadius: '50%',
+                              background: 'rgba(255,255,255,0.06)',
+                              border: '1px solid rgba(255,255,255,0.12)',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <link.icon size={18} color="#fff" />
+                          </motion.a>
+                        ))}
+                      </div>
+                    );
+                  }
+                }
+              } catch (e) {}
+              return null;
+            })()}
           </div>
 
           {/* Stats inside profile card */}

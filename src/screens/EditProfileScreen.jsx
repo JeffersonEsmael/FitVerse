@@ -466,7 +466,7 @@ export default function EditProfileScreen() {
         bio: bio.trim(),
         avatar_url: avatarUrl,
         profile_type: profileType,
-        cover_photo_url: (profileType === 'trainer' || profileType === 'business') ? coverPhotoUrl : null,
+        cover_photo_url: profileType !== 'personal' ? coverPhotoUrl : null,
         years_experience: profileType === 'trainer' ? Number(yearsExperience) : null,
         students_count: profileType === 'trainer' ? studentsCount.trim() : null,
         specialties: profileType === 'trainer' ? specialties : null,
@@ -477,7 +477,7 @@ export default function EditProfileScreen() {
         operating_hours: profileType === 'business' ? JSON.stringify(operatingHoursObj) : null,
         business_photos: profileType === 'business' ? uploadedPhotoUrls : null,
         amenities: profileType === 'business' ? amenities : null,
-        social_links: profileType === 'business' ? socialLinks : null,
+        social_links: profileType !== 'personal' ? socialLinks : null,
         profile_theme_color: profileThemeColor,
         updated_at: new Date().toISOString(),
       };
@@ -562,7 +562,7 @@ export default function EditProfileScreen() {
 
         <div style={styles.content}>
           {/* Cover Photo Section */}
-          {(profileType === 'trainer' || profileType === 'business') && (
+          {profileType !== 'personal' && (
             <div style={styles.coverSection}>
               {coverPhotoPreview ? (
                 <img src={coverPhotoPreview} alt="Capa" style={styles.coverImg} />
@@ -669,6 +669,13 @@ export default function EditProfileScreen() {
                   onClick={() => setProfileType('personal')}
                 >
                   Pessoal
+                </button>
+                <button
+                  type="button"
+                  style={{ ...styles.toggleBtn, ...(profileType === 'premium' ? styles.toggleActive : {}) }}
+                  onClick={() => setProfileType('premium')}
+                >
+                  Usuário Premium
                 </button>
                 <button
                   type="button"
@@ -993,56 +1000,59 @@ export default function EditProfileScreen() {
                     ))}
                   </div>
                 </div>
+              </>
+            )}
 
-                <div style={styles.field}>
-                  <label style={styles.label}>Outras Redes Sociais (Opcional)</label>
-                  <span style={{ fontSize: '11px', color: '#6C6C88', marginBottom: '4px' }}>
-                    Insira os links completos das redes sociais da empresa. As que ficarem em branco serão ocultadas.
-                  </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#B0B0C8' }}>Link do Facebook</span>
-                      <input
-                        type="text"
-                        value={socialLinks.facebook || ''}
-                        onChange={(e) => setSocialLinks(prev => ({ ...prev, facebook: e.target.value }))}
-                        style={styles.input}
-                        placeholder="Ex: https://facebook.com/minhaacademia"
-                      />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#B0B0C8' }}>Link do Instagram</span>
-                      <input
-                        type="text"
-                        value={socialLinks.instagram || ''}
-                        onChange={(e) => setSocialLinks(prev => ({ ...prev, instagram: e.target.value }))}
-                        style={styles.input}
-                        placeholder="Ex: https://instagram.com/minhaacademia"
-                      />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#B0B0C8' }}>Link do TikTok</span>
-                      <input
-                        type="text"
-                        value={socialLinks.tiktok || ''}
-                        onChange={(e) => setSocialLinks(prev => ({ ...prev, tiktok: e.target.value }))}
-                        style={styles.input}
-                        placeholder="Ex: https://tiktok.com/@minhaacademia"
-                      />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span style={{ fontSize: '11px', color: '#B0B0C8' }}>Link do YouTube</span>
-                      <input
-                        type="text"
-                        value={socialLinks.youtube || ''}
-                        onChange={(e) => setSocialLinks(prev => ({ ...prev, youtube: e.target.value }))}
-                        style={styles.input}
-                        placeholder="Ex: https://youtube.com/c/minhaacademia"
-                      />
-                    </div>
+            {/* Outras Redes Sociais */}
+            {profileType !== 'personal' && (
+              <div style={styles.field}>
+                <label style={styles.label}>Outras Redes Sociais (Opcional)</label>
+                <span style={{ fontSize: '11px', color: '#6C6C88', marginBottom: '4px' }}>
+                  Insira os links completos das suas redes sociais. As que ficarem em branco serão ocultadas.
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '11px', color: '#B0B0C8' }}>Link do Facebook</span>
+                    <input
+                      type="text"
+                      value={socialLinks.facebook || ''}
+                      onChange={(e) => setSocialLinks(prev => ({ ...prev, facebook: e.target.value }))}
+                      style={styles.input}
+                      placeholder="Ex: https://facebook.com/seuusuario"
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '11px', color: '#B0B0C8' }}>Link do Instagram</span>
+                    <input
+                      type="text"
+                      value={socialLinks.instagram || ''}
+                      onChange={(e) => setSocialLinks(prev => ({ ...prev, instagram: e.target.value }))}
+                      style={styles.input}
+                      placeholder="Ex: https://instagram.com/seuusuario"
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '11px', color: '#B0B0C8' }}>Link do TikTok</span>
+                    <input
+                      type="text"
+                      value={socialLinks.tiktok || ''}
+                      onChange={(e) => setSocialLinks(prev => ({ ...prev, tiktok: e.target.value }))}
+                      style={styles.input}
+                      placeholder="Ex: https://tiktok.com/@seuusuario"
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '11px', color: '#B0B0C8' }}>Link do YouTube</span>
+                    <input
+                      type="text"
+                      value={socialLinks.youtube || ''}
+                      onChange={(e) => setSocialLinks(prev => ({ ...prev, youtube: e.target.value }))}
+                      style={styles.input}
+                      placeholder="Ex: https://youtube.com/c/seuusuario"
+                    />
                   </div>
                 </div>
-              </>
+              </div>
             )}
 
             {/* Cor de Fundo do Perfil */}

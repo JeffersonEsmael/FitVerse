@@ -775,15 +775,26 @@ export default function CreatePostScreen() {
             </motion.button>
 
             <motion.button
-              style={styles.selectionCard}
+              style={{
+                ...styles.selectionCard,
+                opacity: profile?.profile_type === 'personal' ? 0.6 : 1
+              }}
               whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)' }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setCreationType('challenge')}
+              onClick={() => {
+                if (profile?.profile_type === 'personal') {
+                  alert('A criação de desafios é exclusiva para Usuários Premium, Personal Trainers e Perfis Empresariais. Seja Premium para desbloquear!');
+                  return;
+                }
+                setCreationType('challenge');
+              }}
             >
-              <div style={{ ...styles.selectionIconBg, background: 'linear-gradient(135deg, #FF6B35, #FF2D55)' }}>
-                <Trophy size={28} color="#fff" />
+              <div style={{ ...styles.selectionIconBg, background: profile?.profile_type === 'personal' ? 'linear-gradient(135deg, #666, #444)' : 'linear-gradient(135deg, #FF6B35, #FF2D55)' }}>
+                {profile?.profile_type === 'personal' ? <Lock size={28} color="#fff" /> : <Trophy size={28} color="#fff" />}
               </div>
-              <h3 style={styles.selectionCardTitle}>Criar Desafio</h3>
+              <h3 style={styles.selectionCardTitle}>
+                Criar Desafio {profile?.profile_type === 'personal' && <span style={{ fontSize: '11px', color: '#FFD700', marginLeft: '6px' }}>(🔒 Premium)</span>}
+              </h3>
               <p style={styles.selectionCardDesc}>Crie um grupo de competição personalizada com duração, recompensas de XP e métricas.</p>
             </motion.button>
           </div>

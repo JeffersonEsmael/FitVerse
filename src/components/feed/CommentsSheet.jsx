@@ -192,7 +192,7 @@ export default function CommentsSheet({ isOpen, onClose, videoId }) {
           <div style={styles.commentMetaRow}>
             <span style={{ ...styles.username, display: 'inline-flex', alignItems: 'center' }}>
               @{comment.username}
-              {(comment.username?.toLowerCase() === 'flowrise' || comment.username?.toLowerCase() === 'flowride') && (
+              {(comment.username?.toLowerCase() === 'flowrise' || comment.username?.toLowerCase() === 'flowride' || (comment.profileType && comment.profileType !== 'personal') || (comment.profile_type && comment.profile_type !== 'personal')) && (
                 <img src={verifiedBadgeImg} alt="verificado" style={{ width: '14px', height: '14px', marginLeft: '4px', objectFit: 'contain', flexShrink: 0 }} />
               )}
             </span>

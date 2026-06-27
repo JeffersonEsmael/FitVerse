@@ -378,7 +378,7 @@ export const useFeedStore = create(
         try {
           const { data: profilesData, error: profilesError } = await supabase
             .from('profiles')
-            .select('id, username, display_name, avatar_url')
+            .select('id, username, display_name, avatar_url, profile_type')
             .in('id', userIds);
           if (!profilesError && profilesData) {
             profilesData.forEach((p) => {
@@ -433,6 +433,7 @@ export const useFeedStore = create(
           username: userProfile?.username || v.username,
           userAvatar: userProfile?.avatar_url || v.user_avatar || '',
           displayName: userProfile?.display_name || v.display_name,
+          profileType: userProfile?.profile_type || v.profile_type || 'personal',
           caption: v.caption || '',
           hashtags: v.hashtags || [],
           category: v.category || 'geral',
