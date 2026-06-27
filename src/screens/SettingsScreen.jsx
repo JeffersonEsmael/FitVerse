@@ -19,7 +19,7 @@ export default function SettingsScreen() {
       id: 'edit_profile',
       icon: User,
       title: 'Editar Perfil',
-      description: 'Nome, foto, bio e @',
+      description: 'Tipo de perfil (Premium, Personal...), foto e bio',
       color: '#00D4FF',
       onClick: () => navigate('edit_profile'),
     },
