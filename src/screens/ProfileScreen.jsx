@@ -47,6 +47,7 @@ const TRAINER_SPECIALTIES_OPTIONS = [
   { key: 'hipertrofia', label: 'Hipertrofia' },
 ];
 import ExerciseVideoModal from '../components/workout/ExerciseVideoModal';
+import CoverCropModal from '../components/profile/CoverCropModal';
 import verifiedBadgeImg from '../assets/verified.png';
 
 // Utility to format views counts (e.g., 1,2k, 10k, 1,2M)
@@ -222,28 +223,28 @@ export default function ProfileScreen() {
   const { user, profile, isProfileLoading, refreshProfile, updateProfile } = useAuthStore();
   const coverPhotoInputRef = useRef(null);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [cropCoverImageSrc, setCropCoverImageSrc] = useState(null);
 
-  const handleCoverPhotoUploadDirect = async (e) => {
+  const handleCoverPhotoSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropCoverImageSrc(reader.result);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
+  const handleSaveCroppedCover = async (croppedBlob) => {
+    setCropCoverImageSrc(null);
     setIsUploadingCover(true);
     try {
-      let finalFile = file;
-      try {
-        const { compressImage } = await import('../utils/compression');
-        finalFile = await compressImage(file, { maxWidth: 1200, maxHeight: 600, quality: 0.8 });
-      } catch (compErr) {
-        console.warn('[Profile] Cover photo compression failed, using original file:', compErr);
-      }
-
-      const fileExt = finalFile.name ? finalFile.name.split('.').pop().toLowerCase() : 'jpg';
-      const fileName = `cover_photos/${user.uid}/${Date.now()}.${fileExt}`;
-
+      const fileName = `cover_photos/${user.uid}/${Date.now()}.jpg`;
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, finalFile, {
-          contentType: finalFile.type,
+        .upload(fileName, croppedBlob, {
+          contentType: 'image/jpeg',
           cacheControl: '86400',
           upsert: true,
         });
@@ -259,7 +260,7 @@ export default function ProfileScreen() {
         throw new Error('URL da foto de capa não gerada.');
       }
 
-      const res = await updateProfile({ cover_photo_url: coverPhotoUrl });
+      const res = await updateProfile({ cover_photo_url: coverPhotoUrl, show_cover: true });
       if (!res.success) {
         throw new Error(res.error || 'Erro ao salvar foto de capa.');
       }
@@ -270,6 +271,21 @@ export default function ProfileScreen() {
       alert(err.message || 'Falha ao carregar a foto de capa.');
     } finally {
       setIsUploadingCover(false);
+    }
+  };
+
+  const handleRemoveCover = async (e) => {
+    if (e) e.stopPropagation();
+    if (window.confirm('Deseja remover o layout e a foto de capa do seu perfil?')) {
+      setIsUploadingCover(true);
+      try {
+        await updateProfile({ show_cover: false, cover_photo_url: null });
+        await refreshProfile();
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsUploadingCover(false);
+      }
     }
   };
 
@@ -1051,14 +1067,14 @@ export default function ProfileScreen() {
         <motion.div 
           style={{
             ...styles.profileCard,
-            paddingTop: p.profile_type !== 'personal' ? '140px' : '24px'
+            paddingTop: p.show_cover !== false ? '140px' : '24px'
           }} 
           className="profile-card" 
           initial={{ y: 20, opacity: 0 }} 
           animate={{ y: 0, opacity: 1 }}
         >
           {/* Cover Photo */}
-          {p.profile_type !== 'personal' && (
+          {p.show_cover !== false && (
             <div 
               style={{ ...styles.coverPhotoContainer, cursor: 'pointer' }}
               onClick={() => coverPhotoInputRef.current?.click()}
@@ -1069,9 +1085,34 @@ export default function ProfileScreen() {
                 <div style={styles.coverPhotoFallback} />
               )}
               {/* Overlay edit button */}
-              <div style={styles.coverEditOverlay}>
-                <Camera size={14} color="#fff" />
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#fff' }}>Alterar Capa</span>
+              <div style={{ ...styles.coverEditOverlay, display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Camera size={14} color="#fff" />
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#fff' }}>Alterar Capa</span>
+                </div>
+                {p.cover_photo_url && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveCover}
+                    style={{
+                      background: 'rgba(255, 0, 0, 0.45)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '3px 8px',
+                      color: '#fff',
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}
+                    title="Remover Capa"
+                  >
+                    <X size={12} color="#fff" />
+                    Remover
+                  </button>
+                )}
               </div>
               {isUploadingCover && (
                 <div style={styles.coverLoadingOverlay}>
@@ -1082,7 +1123,7 @@ export default function ProfileScreen() {
                 ref={coverPhotoInputRef}
                 type="file"
                 accept="image/jpeg,image/png,image/webp,image/gif"
-                onChange={handleCoverPhotoUploadDirect}
+                onChange={handleCoverPhotoSelect}
                 style={{ display: 'none' }}
               />
             </div>
@@ -1132,7 +1173,7 @@ export default function ProfileScreen() {
             <div 
               style={{ 
                 ...styles.avatarContainerRight, 
-                marginTop: p.profile_type !== 'personal' ? '-55px' : '0px',
+                marginTop: p.show_cover !== false ? '-55px' : '0px',
                 zIndex: 3
               }} 
               className="profile-avatar-container"
@@ -1161,20 +1202,8 @@ export default function ProfileScreen() {
                 <span style={styles.roleLabel}>Personal Trainer</span>
               ) : p.profile_type === 'business' ? (
                 <span style={styles.roleLabel}>Empresa</span>
-              ) : p.profile_type === 'premium' ? (
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  background: 'linear-gradient(135deg, #FFD700, #FFA500)',
-                  color: '#000',
-                  padding: '3px 10px',
-                  borderRadius: '12px',
-                  boxShadow: '0 2px 8px rgba(255,215,0,0.3)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>Usuário Premium</span>
               ) : (
-                /* Mastery Title for standard users */
+                /* Mastery Title for personal and premium users */
                 p.show_mastery !== false ? (
                   <span
                     style={{ ...styles.masteryTitle, cursor: 'pointer' }}
@@ -2239,6 +2268,17 @@ export default function ProfileScreen() {
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL: Reposicionar Foto de Capa */}
+      <AnimatePresence>
+        {cropCoverImageSrc && (
+          <CoverCropModal
+            imageSrc={cropCoverImageSrc}
+            onSave={handleSaveCroppedCover}
+            onCancel={() => setCropCoverImageSrc(null)}
+          />
         )}
       </AnimatePresence>
 

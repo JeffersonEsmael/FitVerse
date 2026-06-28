@@ -1018,14 +1018,14 @@ export default function PublicProfileScreen() {
         <motion.div 
           style={{
             ...styles.profileCard,
-            paddingTop: profile?.profile_type !== 'personal' ? '140px' : '24px'
+            paddingTop: profile?.show_cover !== false ? '140px' : '24px'
           }} 
           className="profile-card" 
           initial={{ y: 20, opacity: 0 }} 
           animate={{ y: 0, opacity: 1 }}
         >
           {/* Cover Photo */}
-          {profile?.profile_type !== 'personal' && (
+          {profile?.show_cover !== false && (
             <div style={styles.coverPhotoContainer}>
               {profile?.cover_photo_url ? (
                 <img src={profile?.cover_photo_url} alt="Capa" style={styles.coverPhotoImg} />
@@ -1079,7 +1079,7 @@ export default function PublicProfileScreen() {
             <div 
               style={{ 
                 ...styles.avatarContainerRight, 
-                marginTop: profile?.profile_type !== 'personal' ? '-55px' : '0px',
+                marginTop: profile?.show_cover !== false ? '-55px' : '0px',
                 zIndex: 3
               }} 
               className="profile-avatar-container"
@@ -1136,20 +1136,8 @@ export default function PublicProfileScreen() {
                 <span style={styles.roleLabel}>Personal Trainer</span>
               ) : profile.profile_type === 'business' ? (
                 <span style={styles.roleLabel}>Empresa</span>
-              ) : profile.profile_type === 'premium' ? (
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  background: 'linear-gradient(135deg, #FFD700, #FFA500)',
-                  color: '#000',
-                  padding: '3px 10px',
-                  borderRadius: '12px',
-                  boxShadow: '0 2px 8px rgba(255,215,0,0.3)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>Usuário Premium</span>
               ) : (
-                /* Mastery Title for standard users */
+                /* Mastery Title for personal and premium users */
                 profile.show_mastery !== false && (
                   <span style={styles.masteryTitle} className="profile-mastery-title">
                     {MASTERY_MAP[profile.mastery] || profile.mastery || '🟢 Iniciante'}

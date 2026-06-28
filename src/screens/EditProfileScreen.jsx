@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import { supabase } from '../config/supabase';
+import CoverCropModal from '../components/profile/CoverCropModal';
 
 const PROFILE_THEME_OPTIONS = [
   { id: 'default', name: 'Padrão', color: '#0A0A0F', glow: '#0A0A0F', medalsRequired: 0 },
@@ -102,6 +103,8 @@ export default function EditProfileScreen() {
 
   const [coverPhotoFile, setCoverPhotoFile] = useState(null);
   const [coverPhotoPreview, setCoverPhotoPreview] = useState('');
+  const [showCover, setShowCover] = useState(true);
+  const [cropCoverImageSrc, setCropCoverImageSrc] = useState(null);
   const [yearsExperience, setYearsExperience] = useState(0);
   const [studentsCount, setStudentsCount] = useState('');
   const [specialties, setSpecialties] = useState([]);
@@ -149,6 +152,7 @@ export default function EditProfileScreen() {
       setHasGarage(profile.has_garage || 'não');
       
       setCoverPhotoPreview(profile.cover_photo_url || '');
+      setShowCover(profile.show_cover !== false);
       setYearsExperience(profile.years_experience || 0);
       setStudentsCount(profile.students_count || '');
       setCertifications(profile.certifications || '');
@@ -273,13 +277,19 @@ export default function EditProfileScreen() {
       setSaveStatus('error');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMsg('A imagem deve ter no máximo 5MB.');
-      setSaveStatus('error');
-      return;
-    }
-    setCoverPhotoFile(file);
-    setCoverPhotoPreview(URL.createObjectURL(file));
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropCoverImageSrc(reader.result);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleSaveCroppedCoverInEdit = (croppedBlob, croppedUrl) => {
+    setCropCoverImageSrc(null);
+    setCoverPhotoFile(croppedBlob);
+    setCoverPhotoPreview(croppedUrl);
+    setShowCover(true);
     setSaveStatus(null);
   };
 
@@ -387,17 +397,19 @@ export default function EditProfileScreen() {
         }
       }
 
-      // Upload cover photo if profile type allows it and a new file was chosen
+      // Upload cover photo if a new file was chosen
       let coverPhotoUrl = profile?.cover_photo_url || '';
-      if ((profileType === 'trainer' || profileType === 'business') && coverPhotoFile) {
+      if (coverPhotoFile) {
         console.log('[EditProfile] Uploading cover photo...');
 
         let finalFile = coverPhotoFile;
-        try {
-          const { compressImage } = await import('../utils/compression');
-          finalFile = await compressImage(coverPhotoFile, { maxWidth: 1200, maxHeight: 600, quality: 0.8 });
-        } catch (compErr) {
-          console.warn('[EditProfile] Cover photo compression failed, using original file:', compErr);
+        if (coverPhotoFile.name) {
+          try {
+            const { compressImage } = await import('../utils/compression');
+            finalFile = await compressImage(coverPhotoFile, { maxWidth: 1200, maxHeight: 600, quality: 0.8 });
+          } catch (compErr) {
+            console.warn('[EditProfile] Cover photo compression failed, using original file:', compErr);
+          }
         }
 
         const fileExt = finalFile.name ? finalFile.name.split('.').pop().toLowerCase() : 'jpg';
@@ -406,7 +418,7 @@ export default function EditProfileScreen() {
         const { error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(fileName, finalFile, {
-            contentType: finalFile.type,
+            contentType: finalFile.type || 'image/jpeg',
             cacheControl: '86400',
             upsert: true,
           });
@@ -466,7 +478,8 @@ export default function EditProfileScreen() {
         bio: bio.trim(),
         avatar_url: avatarUrl,
         profile_type: profileType,
-        cover_photo_url: profileType !== 'personal' ? coverPhotoUrl : null,
+        cover_photo_url: showCover ? (coverPhotoPreview ? coverPhotoUrl : null) : null,
+        show_cover: showCover,
         years_experience: profileType === 'trainer' ? Number(yearsExperience) : null,
         students_count: profileType === 'trainer' ? studentsCount.trim() : null,
         specialties: profileType === 'trainer' ? specialties : null,
@@ -477,7 +490,7 @@ export default function EditProfileScreen() {
         operating_hours: profileType === 'business' ? JSON.stringify(operatingHoursObj) : null,
         business_photos: profileType === 'business' ? uploadedPhotoUrls : null,
         amenities: profileType === 'business' ? amenities : null,
-        social_links: profileType !== 'personal' ? socialLinks : null,
+        social_links: socialLinks,
         profile_theme_color: profileThemeColor,
         updated_at: new Date().toISOString(),
       };
@@ -562,33 +575,84 @@ export default function EditProfileScreen() {
 
         <div style={styles.content}>
           {/* Cover Photo Section */}
-          {profileType !== 'personal' && (
-            <div style={styles.coverSection}>
-              {coverPhotoPreview ? (
-                <img src={coverPhotoPreview} alt="Capa" style={styles.coverImg} />
-              ) : (
-                <div style={styles.coverPlaceholder}>
-                  <span>Sem Foto de Capa</span>
-                </div>
-              )}
+          <div style={{ ...styles.coverSection, display: 'flex', flexDirection: 'column', gap: '10px', height: 'auto', padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <span style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>Foto de Capa do Perfil</span>
               <button
                 type="button"
-                style={styles.coverCameraBtn}
-                onClick={() => coverPhotoInputRef.current?.click()}
-                disabled={isSaving}
+                onClick={() => setShowCover(!showCover)}
+                style={{
+                  background: showCover ? '#00D4FF' : 'rgba(255,255,255,0.1)',
+                  color: showCover ? '#000' : '#888',
+                  border: 'none',
+                  borderRadius: '20px',
+                  padding: '4px 12px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
               >
-                <Camera size={16} color="#fff" />
-                <span style={{ fontSize: '12px', fontWeight: 600 }}>Alterar Capa</span>
+                {showCover ? 'Exibir Capa' : 'Ocultar Capa'}
               </button>
-              <input
-                ref={coverPhotoInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                onChange={handleCoverPhotoSelect}
-                style={{ display: 'none' }}
-              />
             </div>
-          )}
+
+            {showCover && (
+              <div style={{ position: 'relative', width: '100%', height: '140px', borderRadius: '12px', overflow: 'hidden' }}>
+                {coverPhotoPreview ? (
+                  <img src={coverPhotoPreview} alt="Capa" style={styles.coverImg} />
+                ) : (
+                  <div style={styles.coverPlaceholder}>
+                    <span>Sem Foto de Capa</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '8px', position: 'absolute', bottom: '12px', right: '12px', zIndex: 3 }}>
+                  <button
+                    type="button"
+                    style={styles.coverCameraBtn}
+                    onClick={() => coverPhotoInputRef.current?.click()}
+                    disabled={isSaving}
+                  >
+                    <Camera size={16} color="#fff" />
+                    <span style={{ fontSize: '12px', fontWeight: 600 }}>Alterar Capa</span>
+                  </button>
+                  {coverPhotoPreview && (
+                    <button
+                      type="button"
+                      style={{
+                        background: 'rgba(255,0,0,0.6)',
+                        border: 'none',
+                        borderRadius: '12px',
+                        padding: '6px 12px',
+                        color: '#fff',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      onClick={() => {
+                        setCoverPhotoFile(null);
+                        setCoverPhotoPreview('');
+                        setShowCover(false);
+                      }}
+                    >
+                      <X size={14} color="#fff" />
+                      Remover
+                    </button>
+                  )}
+                </div>
+                <input
+                  ref={coverPhotoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleCoverPhotoSelect}
+                  style={{ display: 'none' }}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Avatar Section */}
           <div style={styles.avatarSection}>
@@ -1136,6 +1200,13 @@ export default function EditProfileScreen() {
           </motion.button>
         </div>
       </div>
+      {cropCoverImageSrc && (
+        <CoverCropModal
+          imageSrc={cropCoverImageSrc}
+          onSave={handleSaveCroppedCoverInEdit}
+          onCancel={() => setCropCoverImageSrc(null)}
+        />
+      )}
     </ScreenWrapper>
   );
 }

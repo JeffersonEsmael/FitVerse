@@ -31,6 +31,7 @@ const defaultProfile = {
   is_public: true,
   mastery: 'Iniciante',
   show_mastery: true,
+  show_cover: true,
 };
 
 export const useAuthStore = create(
