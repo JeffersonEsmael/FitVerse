@@ -7,6 +7,8 @@ export default function CoverCropModal({ imageSrc, onSave, onCancel }) {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [displayedSize, setDisplayedSize] = useState({ w: 0, h: 0 });
+
   const dragStartRef = useRef({ x: 0, y: 0 });
   const panStartRef = useRef({ x: 0, y: 0 });
   const pinchDistRef = useRef(null);
@@ -15,39 +17,50 @@ export default function CoverCropModal({ imageSrc, onSave, onCancel }) {
   const containerRef = useRef(null);
   const imgRef = useRef(null);
 
-  // Reset positioning when image changes
-  useEffect(() => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  }, [imageSrc]);
-
   // Clamp pan so image doesn't leave crop area with gaps
-  const clampPan = useCallback((newPan, currentZoom) => {
-    if (!containerRef.current || !imgRef.current) return newPan;
+  const clampPan = useCallback((newPan, currentZoom, baseW, baseH) => {
+    if (!containerRef.current) return newPan;
     const container = containerRef.current.getBoundingClientRect();
-    const imgWidth = imgRef.current.naturalWidth;
-    const imgHeight = imgRef.current.naturalHeight;
-    
-    if (!imgWidth || !imgHeight) return newPan;
+    const curW = (baseW || displayedSize.w) * currentZoom;
+    const curH = (baseH || displayedSize.h) * currentZoom;
 
-    // Displayed dimensions at zoom level 1 fitting cover aspect ratio
-    const scaleToFit = Math.max(container.width / imgWidth, container.height / imgHeight);
-    const scaledWidth = imgWidth * scaleToFit * currentZoom;
-    const scaledHeight = imgHeight * scaleToFit * currentZoom;
+    if (!curW || !curH) return newPan;
 
-    const maxPanX = Math.max(0, (scaledWidth - container.width) / 2);
-    const maxPanY = Math.max(0, (scaledHeight - container.height) / 2);
+    const maxPanX = Math.max(0, (curW - container.width) / 2);
+    const maxPanY = Math.max(0, (curH - container.height) / 2);
 
     return {
       x: Math.min(maxPanX, Math.max(-maxPanX, newPan.x)),
       y: Math.min(maxPanY, Math.max(-maxPanY, newPan.y))
     };
-  }, []);
+  }, [displayedSize]);
+
+  // Handle Image Loading to size it perfectly to crop container at zoom 1
+  const handleImageLoad = () => {
+    if (!containerRef.current || !imgRef.current) return;
+    const container = containerRef.current.getBoundingClientRect();
+    const nw = imgRef.current.naturalWidth;
+    const nh = imgRef.current.naturalHeight;
+    if (!nw || !nh) return;
+
+    const scaleToFit = Math.max(container.width / nw, container.height / nh);
+    const w = Math.ceil(nw * scaleToFit);
+    const h = Math.ceil(nh * scaleToFit);
+
+    setDisplayedSize({ w, h });
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  // Reset positioning when imageSrc changes
+  useEffect(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, [imageSrc]);
 
   // Mouse / Pointer handlers for Dragging
   const handlePointerDown = (e) => {
     if (e.touches && e.touches.length === 2) {
-      // Start Pinch
       const t1 = e.touches[0];
       const t2 = e.touches[1];
       pinchDistRef.current = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
@@ -96,41 +109,39 @@ export default function CoverCropModal({ imageSrc, onSave, onCancel }) {
     pinchDistRef.current = null;
   };
 
-  // Generate cropped blob from Canvas
+  // Generate cropped blob from Canvas matching exact preview
   const handleSave = async () => {
-    if (!containerRef.current || !imgRef.current) return;
+    if (!containerRef.current || !imgRef.current || !displayedSize.w) return;
     setIsProcessing(true);
 
     try {
       const container = containerRef.current.getBoundingClientRect();
       const img = imgRef.current;
 
-      // Canvas dimensions (high resolution cover e.g. 1200x500)
       const targetWidth = 1200;
-      const targetHeight = 500;
+      const targetHeight = 450;
       const canvas = document.createElement('canvas');
       canvas.width = targetWidth;
       canvas.height = targetHeight;
       const ctx = canvas.getContext('2d');
 
-      const imgWidth = img.naturalWidth;
-      const imgHeight = img.naturalHeight;
+      const nw = img.naturalWidth;
+      const nh = img.naturalHeight;
 
-      // Calculate source crop rectangle
-      const scaleToFit = Math.max(container.width / imgWidth, container.height / imgHeight);
-      const displayedWidth = imgWidth * scaleToFit * zoom;
-      const displayedHeight = imgHeight * scaleToFit * zoom;
+      const curW = displayedSize.w * zoom;
+      const curH = displayedSize.h * zoom;
 
-      // Center offset in displayed pixels
-      const displayedOffsetX = (displayedWidth - container.width) / 2 - pan.x;
-      const displayedOffsetY = (displayedHeight - container.height) / 2 - pan.y;
+      // Center offset in displayed container pixels
+      const offsetX = (curW - container.width) / 2 - pan.x;
+      const offsetY = (curH - container.height) / 2 - pan.y;
 
-      // Convert displayed offsets back to natural image coordinates
-      const effectiveScale = scaleToFit * zoom;
-      const srcX = Math.max(0, Math.min(imgWidth, displayedOffsetX / effectiveScale));
-      const srcY = Math.max(0, Math.min(imgHeight, displayedOffsetY / effectiveScale));
-      const srcW = Math.min(imgWidth - srcX, container.width / effectiveScale);
-      const srcH = Math.min(imgHeight - srcY, container.height / effectiveScale);
+      // Scale factor from natural pixels to current displayed pixels
+      const scaleFactor = curW / nw;
+
+      const srcX = Math.max(0, Math.min(nw, offsetX / scaleFactor));
+      const srcY = Math.max(0, Math.min(nh, offsetY / scaleFactor));
+      const srcW = Math.min(nw - srcX, container.width / scaleFactor);
+      const srcH = Math.min(nh - srcY, container.height / scaleFactor);
 
       ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, targetWidth, targetHeight);
 
@@ -187,16 +198,18 @@ export default function CoverCropModal({ imageSrc, onSave, onCancel }) {
             src={imageSrc}
             alt="Capa Crop"
             draggable={false}
-            onLoad={() => setPan(clampPan({ x: 0, y: 0 }, 1))}
+            onLoad={handleImageLoad}
             style={{
               ...styles.cropImage,
+              width: displayedSize.w ? `${displayedSize.w}px` : '100%',
+              height: displayedSize.h ? `${displayedSize.h}px` : 'auto',
               transform: `translate(calc(-50% + ${pan.x}px), calc(-50% + ${pan.y}px)) scale(${zoom})`,
               cursor: isDragging ? 'grabbing' : 'grab'
             }}
           />
           <div style={styles.cropOverlayHint}>
-            <Move size={18} color="rgba(255,255,255,0.7)" />
-            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)', fontWeight: 500 }}>
+            <Move size={16} color="rgba(255,255,255,0.8)" />
+            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>
               Arraste para posicionar
             </span>
           </div>
@@ -205,6 +218,7 @@ export default function CoverCropModal({ imageSrc, onSave, onCancel }) {
         {/* Zoom Controls */}
         <div style={styles.zoomControlsRow}>
           <button 
+            type="button"
             style={styles.iconBtn} 
             onClick={() => {
               const nz = Math.max(1, zoom - 0.2);
@@ -230,6 +244,7 @@ export default function CoverCropModal({ imageSrc, onSave, onCancel }) {
           />
 
           <button 
+            type="button"
             style={styles.iconBtn} 
             onClick={() => {
               const nz = Math.min(3, zoom + 0.2);
@@ -241,6 +256,7 @@ export default function CoverCropModal({ imageSrc, onSave, onCancel }) {
           </button>
 
           <button 
+            type="button"
             style={styles.resetBtn}
             onClick={() => {
               setZoom(1);
@@ -323,7 +339,7 @@ const styles = {
   cropContainer: {
     position: 'relative',
     width: '100%',
-    height: '180px',
+    height: '160px',
     borderRadius: '16px',
     overflow: 'hidden',
     backgroundColor: '#0A0B10',
@@ -345,7 +361,7 @@ const styles = {
     bottom: '10px',
     left: '50%',
     transform: 'translateX(-50%)',
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     padding: '4px 12px',
     borderRadius: '20px',
     display: 'flex',

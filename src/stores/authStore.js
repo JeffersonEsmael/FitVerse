@@ -267,10 +267,14 @@ export const useAuthStore = create(
     try {
       console.log('[Auth] Updating profile for', user.uid, updates);
 
+      // Clean updates for Supabase DB payload to prevent schema errors for non-existent columns
+      const dbPayload = { id: user.uid, ...updates };
+      delete dbPayload.show_cover;
+
       // withTimeout prevents infinite hang when RLS blocks a query silently
       // Use upsert to guarantee that if the profile row was missing from the DB, it is created now!
       const { error } = await withTimeout(
-        supabase.from('profiles').upsert({ id: user.uid, ...updates }),
+        supabase.from('profiles').upsert(dbPayload),
         10000,
         'updateProfile'
       );

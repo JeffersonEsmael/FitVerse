@@ -274,12 +274,27 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleRemoveCover = async (e) => {
+  const handleRemoveCoverPhoto = async (e) => {
     if (e) e.stopPropagation();
-    if (window.confirm('Deseja remover o layout e a foto de capa do seu perfil?')) {
+    if (window.confirm('Deseja remover apenas a foto de capa (mantendo o layout do perfil)?')) {
       setIsUploadingCover(true);
       try {
-        await updateProfile({ show_cover: false, cover_photo_url: null });
+        await updateProfile({ cover_photo_url: null, show_cover: true });
+        await refreshProfile();
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsUploadingCover(false);
+      }
+    }
+  };
+
+  const handleRemoveCoverLayout = async (e) => {
+    if (e) e.stopPropagation();
+    if (window.confirm('Deseja remover completamente o layout de capa do seu perfil?')) {
+      setIsUploadingCover(true);
+      try {
+        await updateProfile({ cover_photo_url: 'none', show_cover: false });
         await refreshProfile();
       } catch (err) {
         console.error(err);
@@ -298,11 +313,6 @@ export default function ProfileScreen() {
     seriesList,
     activeSeriesId,
     fetchSeries,
-    createSeries,
-    updateSeries,
-    setActiveSeries,
-    toggleExerciseDone,
-    incrementWorkoutProgress,
     deleteSeries
   } = useWorkoutStore();
 
@@ -316,6 +326,10 @@ export default function ProfileScreen() {
     linkUserToGym,
     performGymCheckin
   } = useGymStore();
+
+  const p = profile || {};
+  const hasCoverLayout = p.cover_photo_url !== 'none' && p.show_cover !== false;
+  const hasCoverPhoto = p.cover_photo_url && p.cover_photo_url !== 'none' && p.cover_photo_url !== 'hidden';
 
   // Pull-to-refresh states
   const containerRef = useRef(null);
