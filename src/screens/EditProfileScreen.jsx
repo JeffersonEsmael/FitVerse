@@ -151,8 +151,9 @@ export default function EditProfileScreen() {
       setProfileThemeColor(profile.profile_theme_color || 'default');
       setHasGarage(profile.has_garage || 'não');
       
-      setCoverPhotoPreview(profile.cover_photo_url || '');
-      setShowCover(profile.show_cover !== false);
+      const isCoverNone = profile.cover_photo_url === 'none';
+      setCoverPhotoPreview(profile.cover_photo_url && !isCoverNone ? profile.cover_photo_url : '');
+      setShowCover(!isCoverNone && profile.show_cover !== false);
       setYearsExperience(profile.years_experience || 0);
       setStudentsCount(profile.students_count || '');
       setCertifications(profile.certifications || '');
@@ -478,7 +479,7 @@ export default function EditProfileScreen() {
         bio: bio.trim(),
         avatar_url: avatarUrl,
         profile_type: profileType,
-        cover_photo_url: showCover ? (coverPhotoPreview ? coverPhotoUrl : null) : null,
+        cover_photo_url: showCover ? (coverPhotoPreview ? coverPhotoUrl : null) : 'none',
         show_cover: showCover,
         years_experience: profileType === 'trainer' ? Number(yearsExperience) : null,
         students_count: profileType === 'trainer' ? studentsCount.trim() : null,
@@ -606,15 +607,15 @@ export default function EditProfileScreen() {
                     <span>Sem Foto de Capa</span>
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: '8px', position: 'absolute', bottom: '12px', right: '12px', zIndex: 3 }}>
+                <div style={{ display: 'flex', gap: '6px', position: 'absolute', bottom: '10px', right: '10px', zIndex: 3, flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     style={styles.coverCameraBtn}
                     onClick={() => coverPhotoInputRef.current?.click()}
                     disabled={isSaving}
                   >
-                    <Camera size={16} color="#fff" />
-                    <span style={{ fontSize: '12px', fontWeight: 600 }}>Alterar Capa</span>
+                    <Camera size={14} color="#fff" />
+                    <span style={{ fontSize: '11px', fontWeight: 600 }}>Alterar</span>
                   </button>
                   {coverPhotoPreview && (
                     <button
@@ -623,9 +624,9 @@ export default function EditProfileScreen() {
                         background: 'rgba(255,0,0,0.6)',
                         border: 'none',
                         borderRadius: '12px',
-                        padding: '6px 12px',
+                        padding: '6px 10px',
                         color: '#fff',
-                        fontSize: '12px',
+                        fontSize: '11px',
                         fontWeight: 600,
                         cursor: 'pointer',
                         display: 'flex',
@@ -635,13 +636,34 @@ export default function EditProfileScreen() {
                       onClick={() => {
                         setCoverPhotoFile(null);
                         setCoverPhotoPreview('');
-                        setShowCover(false);
                       }}
+                      title="Remover apenas a foto"
                     >
-                      <X size={14} color="#fff" />
-                      Remover
+                      <X size={12} color="#fff" />
+                      Remover Foto
                     </button>
                   )}
+                  <button
+                    type="button"
+                    style={{
+                      background: 'rgba(0,0,0,0.7)',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      borderRadius: '12px',
+                      padding: '6px 10px',
+                      color: '#fff',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    onClick={() => setShowCover(false)}
+                    title="Ocultar layout completamente"
+                  >
+                    <X size={12} color="#fff" />
+                    Remover Layout
+                  </button>
                 </div>
                 <input
                   ref={coverPhotoInputRef}

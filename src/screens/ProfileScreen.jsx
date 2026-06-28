@@ -1081,33 +1081,33 @@ export default function ProfileScreen() {
         <motion.div 
           style={{
             ...styles.profileCard,
-            paddingTop: p.show_cover !== false ? '140px' : '24px'
+            paddingTop: hasCoverLayout ? '140px' : '24px'
           }} 
           className="profile-card" 
           initial={{ y: 20, opacity: 0 }} 
           animate={{ y: 0, opacity: 1 }}
         >
           {/* Cover Photo */}
-          {p.show_cover !== false && (
+          {hasCoverLayout && (
             <div 
               style={{ ...styles.coverPhotoContainer, cursor: 'pointer' }}
               onClick={() => coverPhotoInputRef.current?.click()}
             >
-              {p.cover_photo_url ? (
+              {hasCoverPhoto ? (
                 <img src={p.cover_photo_url} alt="Capa" style={styles.coverPhotoImg} />
               ) : (
                 <div style={styles.coverPhotoFallback} />
               )}
-              {/* Overlay edit button */}
-              <div style={{ ...styles.coverEditOverlay, display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {/* Overlay edit & remove buttons */}
+              <div style={{ ...styles.coverEditOverlay, display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Camera size={14} color="#fff" />
                   <span style={{ fontSize: '11px', fontWeight: 600, color: '#fff' }}>Alterar Capa</span>
                 </div>
-                {p.cover_photo_url && (
+                {hasCoverPhoto && (
                   <button
                     type="button"
-                    onClick={handleRemoveCover}
+                    onClick={handleRemoveCoverPhoto}
                     style={{
                       background: 'rgba(255, 0, 0, 0.45)',
                       border: 'none',
@@ -1121,12 +1121,33 @@ export default function ProfileScreen() {
                       alignItems: 'center',
                       gap: '3px'
                     }}
-                    title="Remover Capa"
+                    title="Remover apenas a foto"
                   >
                     <X size={12} color="#fff" />
-                    Remover
+                    Remover Foto
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={handleRemoveCoverLayout}
+                  style={{
+                    background: 'rgba(0, 0, 0, 0.65)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: '8px',
+                    padding: '3px 8px',
+                    color: '#fff',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px'
+                  }}
+                  title="Remover layout completamente"
+                >
+                  <X size={12} color="#fff" />
+                  Remover Layout
+                </button>
               </div>
               {isUploadingCover && (
                 <div style={styles.coverLoadingOverlay}>
@@ -1187,7 +1208,7 @@ export default function ProfileScreen() {
             <div 
               style={{ 
                 ...styles.avatarContainerRight, 
-                marginTop: p.show_cover !== false ? '-55px' : '0px',
+                marginTop: hasCoverLayout ? '-55px' : '0px',
                 zIndex: 3
               }} 
               className="profile-avatar-container"

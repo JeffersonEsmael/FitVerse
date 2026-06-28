@@ -1018,16 +1018,16 @@ export default function PublicProfileScreen() {
         <motion.div 
           style={{
             ...styles.profileCard,
-            paddingTop: profile?.show_cover !== false ? '140px' : '24px'
+            paddingTop: (profile?.cover_photo_url !== 'none' && profile?.show_cover !== false) ? '140px' : '24px'
           }} 
           className="profile-card" 
           initial={{ y: 20, opacity: 0 }} 
           animate={{ y: 0, opacity: 1 }}
         >
           {/* Cover Photo */}
-          {profile?.show_cover !== false && (
+          {(profile?.cover_photo_url !== 'none' && profile?.show_cover !== false) && (
             <div style={styles.coverPhotoContainer}>
-              {profile?.cover_photo_url ? (
+              {(profile?.cover_photo_url && profile?.cover_photo_url !== 'none' && profile?.cover_photo_url !== 'hidden') ? (
                 <img src={profile?.cover_photo_url} alt="Capa" style={styles.coverPhotoImg} />
               ) : (
                 <div style={styles.coverPhotoFallback} />
@@ -1079,7 +1079,7 @@ export default function PublicProfileScreen() {
             <div 
               style={{ 
                 ...styles.avatarContainerRight, 
-                marginTop: profile?.show_cover !== false ? '-55px' : '0px',
+                marginTop: (profile?.cover_photo_url !== 'none' && profile?.show_cover !== false) ? '-55px' : '0px',
                 zIndex: 3
               }} 
               className="profile-avatar-container"
