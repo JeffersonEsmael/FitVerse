@@ -327,10 +327,6 @@ export default function ProfileScreen() {
     performGymCheckin
   } = useGymStore();
 
-  const p = profile || {};
-  const hasCoverLayout = p.cover_photo_url !== 'none' && p.show_cover !== false;
-  const hasCoverPhoto = p.cover_photo_url && p.cover_photo_url !== 'none' && p.cover_photo_url !== 'hidden';
-
   // Pull-to-refresh states
   const containerRef = useRef(null);
   const [touchStart, setTouchStart] = useState(null);
@@ -616,6 +612,8 @@ export default function ProfileScreen() {
   };
   
   const p = profile || {};
+  const hasCoverLayout = p.cover_photo_url !== 'none' && p.show_cover !== false;
+  const hasCoverPhoto = p.cover_photo_url && p.cover_photo_url !== 'none' && p.cover_photo_url !== 'hidden';
 
   // Dynamically derive fallback names from user email/metadata
   const fallbackName = user?.email ? user.email.split('@')[0] : 'user';
