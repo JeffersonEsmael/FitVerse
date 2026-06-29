@@ -145,7 +145,8 @@ export default function EditProfileScreen() {
       setUsername(profile.username || '');
       setBio(profile.bio || '');
       setPhotoPreview(profile.avatar_url || '');
-      setProfileType(profile.profile_type || 'personal');
+      const pType = (profile.profile_type === 'premium' || !profile.profile_type) ? 'personal' : profile.profile_type;
+      setProfileType(pType);
       setAddress(profile.address || '');
       setWhatsapp(profile.whatsapp || '');
       setProfileThemeColor(profile.profile_theme_color || 'default');
@@ -755,13 +756,6 @@ export default function EditProfileScreen() {
                   onClick={() => setProfileType('personal')}
                 >
                   Pessoal
-                </button>
-                <button
-                  type="button"
-                  style={{ ...styles.toggleBtn, ...(profileType === 'premium' ? styles.toggleActive : {}) }}
-                  onClick={() => setProfileType('premium')}
-                >
-                  Usuário Premium
                 </button>
                 <button
                   type="button"

@@ -783,7 +783,7 @@ export default function CreatePostScreen() {
               whileTap={{ scale: 0.98 }}
               onClick={() => {
                 if (profile?.profile_type === 'personal') {
-                  alert('A criação de desafios é exclusiva para Usuários Premium, Personal Trainers e Perfis Empresariais. Seja Premium para desbloquear!');
+                  alert('A criação de desafios é exclusiva para Personal Trainers e Perfis Empresariais.');
                   return;
                 }
                 setCreationType('challenge');
@@ -793,7 +793,7 @@ export default function CreatePostScreen() {
                 {profile?.profile_type === 'personal' ? <Lock size={28} color="#fff" /> : <Trophy size={28} color="#fff" />}
               </div>
               <h3 style={styles.selectionCardTitle}>
-                Criar Desafio {profile?.profile_type === 'personal' && <span style={{ fontSize: '11px', color: '#FFD700', marginLeft: '6px' }}>(🔒 Premium)</span>}
+                Criar Desafio {profile?.profile_type === 'personal' && <span style={{ fontSize: '11px', color: '#888', marginLeft: '6px' }}>(🔒 Pro)</span>}
               </h3>
               <p style={styles.selectionCardDesc}>Crie um grupo de competição personalizada com duração, recompensas de XP e métricas.</p>
             </motion.button>

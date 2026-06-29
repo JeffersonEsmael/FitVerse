@@ -13,6 +13,7 @@ const withTimeout = (promise, ms = 10000, label = 'query') =>
 
 // Default profile shape matching Supabase columns exactly
 const defaultProfile = {
+  profile_type: 'personal',
   display_name: '',
   username: '',
   avatar_url: '',
@@ -163,6 +164,11 @@ export const useAuthStore = create(
         const displayName = metadata?.display_name || email?.split('@')[0] || 'Usuário';
         const username = displayName.toLowerCase().replace(/[^a-z0-9]/g, '') + Math.floor(Math.random() * 9000 + 1000);
         return { ...defaultProfile, id: uid, display_name: displayName, username };
+      }
+
+      if (data && data.profile_type === 'premium') {
+        data.profile_type = 'personal';
+        supabase.from('profiles').update({ profile_type: 'personal' }).eq('id', uid).then();
       }
 
       try {
