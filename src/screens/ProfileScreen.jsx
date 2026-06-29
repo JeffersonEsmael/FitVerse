@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play, MoreVertical, Check, MapPin, QrCode, Calendar, Shield, Copy, Info, MessageSquare, Lock, Loader2 } from 'lucide-react';
+import { Settings, Grid3x3, Award, ChevronRight, ScanLine, MessageCircle, Video, Image as ImageIcon, Plus, Trophy, Flame, Target, Dumbbell, Zap, Star, X, Camera, Play, MoreVertical, Check, MapPin, QrCode, Calendar, Shield, Copy, Info, MessageSquare, Lock, Loader2, Users, UserPlus, Building, UserCheck } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../config/supabase';
 import { useNavigationStore } from '../stores/navigationStore';
@@ -9,9 +9,11 @@ import { useFeedStore } from '../stores/feedStore';
 import { useRankingStore } from '../stores/rankingStore';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useGymStore } from '../stores/gymStore';
+import { useConnectionStore } from '../stores/connectionStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import ShapeIcon from '../components/icons/ShapeIcon';
 import ProfileChallengeCard from '../components/profile/ProfileChallengeCard';
+import InviteUserModal from '../components/profile/InviteUserModal';
 
 const MASTERY_MAP = {
   none: 'Sem Maestria',
@@ -304,6 +306,18 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleEnableCoverLayout = async () => {
+    setIsUploadingCover(true);
+    try {
+      await updateProfile({ cover_photo_url: null, show_cover: true });
+      await refreshProfile();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUploadingCover(false);
+    }
+  };
+
   const navigate = useNavigationStore((s) => s.navigate);
   const currentScreen = useNavigationStore((s) => s.currentScreen);
   const { fetchUserPosts } = useFeedStore();
@@ -326,6 +340,27 @@ export default function ProfileScreen() {
     linkUserToGym,
     performGymCheckin
   } = useGymStore();
+
+  const {
+    companyTrainers,
+    trainerStudents,
+    fetchCompanyTrainers,
+    fetchTrainerStudents,
+    sendCompanyInvite,
+    sendTrainerInvite,
+    removeConnection
+  } = useConnectionStore();
+
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+
+  // Fetch connections based on profile type
+  useEffect(() => {
+    if (user?.uid && profile?.profile_type === 'business') {
+      fetchCompanyTrainers(user.uid);
+    } else if (user?.uid && profile?.profile_type === 'trainer') {
+      fetchTrainerStudents(user.uid);
+    }
+  }, [user?.uid, profile?.profile_type]);
 
   // Pull-to-refresh states
   const containerRef = useRef(null);
@@ -1079,12 +1114,41 @@ export default function ProfileScreen() {
         <motion.div 
           style={{
             ...styles.profileCard,
-            paddingTop: hasCoverLayout ? '140px' : '24px'
+            paddingTop: hasCoverLayout ? '140px' : '24px',
+            position: 'relative'
           }} 
           className="profile-card" 
           initial={{ y: 20, opacity: 0 }} 
           animate={{ y: 0, opacity: 1 }}
         >
+          {/* Button to re-enable cover layout if currently hidden */}
+          {!hasCoverLayout && (
+            <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 10 }}>
+              <button
+                type="button"
+                onClick={handleEnableCoverLayout}
+                style={{
+                  background: 'rgba(0, 212, 255, 0.12)',
+                  border: '1px solid rgba(0, 212, 255, 0.3)',
+                  borderRadius: '20px',
+                  padding: '5px 12px',
+                  color: '#00D4FF',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  backdropFilter: 'blur(8px)'
+                }}
+                title="Reativar o layout de capa"
+              >
+                <Camera size={13} color="#00D4FF" />
+                <span>+ Ativar Capa</span>
+              </button>
+            </div>
+          )}
+
           {/* Cover Photo */}
           {hasCoverLayout && (
             <div 
@@ -1412,6 +1476,27 @@ export default function ProfileScreen() {
             <Trophy size={18} /> Desafios
             {profileChallenges.length > 0 && <span style={styles.badgeCountChip}>{profileChallenges.length}</span>}
           </button>
+
+          {p.profile_type === 'business' && (
+            <button
+              style={{ ...styles.contentTab, ...(activeProfileTab === 'equipe' ? styles.contentTabActive : {}) }}
+              onClick={() => setActiveProfileTab('equipe')}
+            >
+              <Users size={18} /> Personais
+              {companyTrainers.length > 0 && <span style={styles.badgeCountChip}>{companyTrainers.length}</span>}
+            </button>
+          )}
+
+          {p.profile_type === 'trainer' && (
+            <button
+              style={{ ...styles.contentTab, ...(activeProfileTab === 'alunos' ? styles.contentTabActive : {}) }}
+              onClick={() => setActiveProfileTab('alunos')}
+            >
+              <Users size={18} /> Alunos
+              {trainerStudents.length > 0 && <span style={styles.badgeCountChip}>{trainerStudents.length}</span>}
+            </button>
+          )}
+
           {(p.profile_type === 'business' || p.profile_type === 'trainer') ? (
             <button
               style={{ ...styles.contentTab, ...(activeProfileTab === 'sobre' ? styles.contentTabActive : {}) }}
@@ -2172,6 +2257,235 @@ export default function ProfileScreen() {
             )}
           </div>
         )}
+
+        {/* Content - Equipe (Company Personal Trainers) */}
+        {activeProfileTab === 'equipe' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h4 style={{ color: '#fff', fontSize: '16px', fontWeight: 700, margin: 0 }}>
+                Personal Trainers da Empresa ({companyTrainers.filter(c => c.status === 'accepted').length})
+              </h4>
+              <button
+                type="button"
+                onClick={() => setIsInviteModalOpen(true)}
+                style={{
+                  background: 'linear-gradient(135deg, #00D4FF, #0055FF)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '8px 14px',
+                  color: '#000',
+                  fontWeight: 800,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <UserPlus size={14} color="#000" />
+                <span>Convidar Personal</span>
+              </button>
+            </div>
+
+            {companyTrainers.length === 0 ? (
+              <div style={styles.emptyGrid}>
+                <Users size={36} color="rgba(255,255,255,0.3)" />
+                <span style={styles.emptyGridText}>Nenhum personal trainer vinculado ainda.</span>
+                <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>
+                  Convide os personais da sua equipe para aparecerem aqui.
+                </span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {companyTrainers.map((item) => {
+                  const trainer = item.trainer || {};
+                  const isAccepted = item.status === 'accepted';
+
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 16px',
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: '16px'
+                      }}
+                    >
+                      <div
+                        style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                        onClick={() => navigate('public_profile', { params: { userId: trainer.id } })}
+                      >
+                        {trainer.avatar_url ? (
+                          <img src={trainer.avatar_url} alt="" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} />
+                        ) : (
+                          <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#333', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '16px' }}>
+                            {(trainer.username || 'P').charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ color: '#fff', fontWeight: 600, fontSize: '14px' }}>{trainer.display_name || trainer.username}</span>
+                          <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>@{trainer.username}</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          background: isAccepted ? 'rgba(57, 255, 20, 0.15)' : 'rgba(255, 215, 0, 0.15)',
+                          color: isAccepted ? '#39FF14' : '#FFD700',
+                          border: isAccepted ? '1px solid rgba(57, 255, 20, 0.3)' : '1px solid rgba(255, 215, 0, 0.3)'
+                        }}>
+                          {isAccepted ? 'Ativo' : 'Aguardando'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm('Deseja remover este personal trainer da equipe?')) {
+                              removeConnection('company_invite', item.id, user.uid);
+                            }
+                          }}
+                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px' }}
+                          title="Remover"
+                        >
+                          <X size={16} color="rgba(255,255,255,0.4)" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Content - Alunos (Trainer Students) */}
+        {activeProfileTab === 'alunos' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h4 style={{ color: '#fff', fontSize: '16px', fontWeight: 700, margin: 0 }}>
+                Meus Alunos ({trainerStudents.filter(c => c.status === 'accepted').length})
+              </h4>
+              <button
+                type="button"
+                onClick={() => setIsInviteModalOpen(true)}
+                style={{
+                  background: 'linear-gradient(135deg, #39FF14, #00E676)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '8px 14px',
+                  color: '#0A0A0F',
+                  fontWeight: 800,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 10px rgba(57,255,20,0.3)'
+                }}
+              >
+                <UserPlus size={14} color="#000" />
+                <span>Convidar Aluno</span>
+              </button>
+            </div>
+
+            {trainerStudents.length === 0 ? (
+              <div style={styles.emptyGrid}>
+                <Users size={36} color="rgba(255,255,255,0.3)" />
+                <span style={styles.emptyGridText}>Nenhum aluno vinculado ainda.</span>
+                <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>
+                  Convide seus alunos para gerenciar os treinos deles.
+                </span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {trainerStudents.map((item) => {
+                  const student = item.student || {};
+                  const isAccepted = item.status === 'accepted';
+
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 16px',
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: '16px'
+                      }}
+                    >
+                      <div
+                        style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                        onClick={() => navigate('public_profile', { params: { userId: student.id } })}
+                      >
+                        {student.avatar_url ? (
+                          <img src={student.avatar_url} alt="" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover' }} />
+                        ) : (
+                          <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#333', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '16px' }}>
+                            {(student.username || 'A').charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ color: '#fff', fontWeight: 600, fontSize: '14px' }}>{student.display_name || student.username}</span>
+                          <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>@{student.username}</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          background: isAccepted ? 'rgba(57, 255, 20, 0.15)' : 'rgba(255, 215, 0, 0.15)',
+                          color: isAccepted ? '#39FF14' : '#FFD700',
+                          border: isAccepted ? '1px solid rgba(57, 255, 20, 0.3)' : '1px solid rgba(255, 215, 0, 0.3)'
+                        }}>
+                          {isAccepted ? 'Aluno Ativo' : 'Aguardando'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm('Deseja remover este aluno da sua lista?')) {
+                              removeConnection('trainer_invite', item.id, user.uid);
+                            }
+                          }}
+                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px' }}
+                          title="Remover"
+                        >
+                          <X size={16} color="rgba(255,255,255,0.4)" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Invite User Modal */}
+        <InviteUserModal
+          isOpen={isInviteModalOpen}
+          onClose={() => setIsInviteModalOpen(false)}
+          title={p.profile_type === 'business' ? 'Convidar Personal Trainer' : 'Convidar Aluno'}
+          subtitle={p.profile_type === 'business' ? 'Envie um convite para o personal fazer parte da sua equipe.' : 'Envie um convite para adicionar o aluno ao seu acompanhamento.'}
+          targetRoleFilter={p.profile_type === 'business' ? 'trainer' : null}
+          onInvite={(targetUser) => {
+            if (p.profile_type === 'business') {
+              return sendCompanyInvite(user.uid, targetUser.id);
+            } else {
+              return sendTrainerInvite(user.uid, targetUser.id);
+            }
+          }}
+        />
       </motion.div>
 
       {/* MODAL: Selecionar Maestria */}

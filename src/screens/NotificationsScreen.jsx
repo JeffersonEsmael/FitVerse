@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, UserPlus, Award, Bell, AtSign, Play } from 'lucide-react';
+import { Heart, MessageCircle, UserPlus, Award, Bell, AtSign, Play, Check, X, Building, UserCheck } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useSocialStore } from '../stores/socialStore';
 import { useNavigationStore } from '../stores/navigationStore';
 import { useFeedStore } from '../stores/feedStore';
+import { useConnectionStore } from '../stores/connectionStore';
 import ScreenWrapper from '../components/layout/ScreenWrapper';
 import ShapeIcon from '../components/icons/ShapeIcon';
 
@@ -21,6 +22,12 @@ const notifConfig = {
   save: { text: 'salvou seu vídeo', icon: Heart, color: '#FF2D55' },
   boost: { text: 'deu boost no seu vídeo', icon: Award, color: '#FFD700' },
   message: { text: 'te enviou uma mensagem', icon: MessageCircle, color: '#A855F7' },
+  company_invite: { text: 'convidou você para fazer parte da equipe de personais da empresa', icon: Building, color: '#00D4FF' },
+  trainer_invite: { text: 'convidou você para ser aluno(a) dele(a)', icon: UserCheck, color: '#39FF14' },
+  company_invite_accepted: { text: 'aceitou seu convite para a equipe da empresa!', icon: Check, color: '#39FF14' },
+  trainer_invite_accepted: { text: 'aceitou seu convite de aluno!', icon: Check, color: '#39FF14' },
+  company_invite_declined: { text: 'recusou o convite para a equipe.', icon: X, color: '#FF2D55' },
+  trainer_invite_declined: { text: 'recusou o convite de aluno.', icon: X, color: '#FF2D55' },
 };
 
 // Group notifications by date: Today, This Week, Earlier
@@ -68,10 +75,36 @@ function NotificationRow({ notif, index, onNotifClick }) {
   const hasPreview = notif.type === 'comment' && notif.reference_data?.preview;
   const hasVideoThumb = ['shape', 'comment', 'save', 'boost', 'mention'].includes(notif.type) && notif.reference_data?.video_thumbnail;
 
+  const isInvite = notif.type === 'company_invite' || notif.type === 'trainer_invite';
+  const [actionDone, setActionDone] = useState(null); // 'accepted' | 'declined'
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleInviteAction = async (e, accept) => {
+    e.stopPropagation();
+    if (!notif.reference_id) return;
+    setIsProcessing(true);
+    try {
+      const res = await useConnectionStore.getState().respondToInvite(notif.type, notif.reference_id, accept);
+      if (res.success) {
+        setActionDone(accept ? 'accepted' : 'declined');
+      } else {
+        alert(res.error || 'Erro ao processar convite.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao processar convite.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <motion.div
       style={{
         ...styles.notifRow,
+        flexDirection: isInvite ? 'column' : 'row',
+        alignItems: isInvite ? 'flex-start' : 'center',
+        gap: isInvite ? '10px' : '12px',
         background: notif.read ? 'rgba(255,255,255,0.03)' : 'rgba(0,212,255,0.06)',
         borderColor: notif.read ? 'rgba(255,255,255,0.06)' : 'rgba(0,212,255,0.15)',
       }}
@@ -79,44 +112,107 @@ function NotificationRow({ notif, index, onNotifClick }) {
       animate={{ x: 0, opacity: 1 }}
       transition={{ delay: index * 0.04, type: 'spring', stiffness: 300, damping: 30 }}
       onClick={() => onNotifClick(notif)}
-      whileTap={{ scale: 0.97 }}
+      whileTap={{ scale: 0.98 }}
     >
-      {/* Avatar */}
-      <div style={styles.avatar}>
-        {notif.sender?.avatar_url ? (
-          <img src={notif.sender.avatar_url} style={styles.avatarImg} alt="" />
-        ) : (
-          <div style={styles.avatarPlaceholder}>{senderName.charAt(0).toUpperCase()}</div>
-        )}
-        {/* Notification type badge on avatar */}
-        <div style={{ ...styles.typeBadge, background: config.color, boxShadow: `0 0 8px ${config.color}50` }}>
-          <Icon size={10} color="#fff" />
-        </div>
-      </div>
-
-      {/* Info */}
-      <div style={styles.info}>
-        <span style={styles.text}>
-          <strong style={styles.username}>@{senderName}</strong> {config.text}
-        </span>
-        {/* Comment preview */}
-        {hasPreview && (
-          <span style={styles.commentPreview}>"{notif.reference_data.preview}"</span>
-        )}
-        <span style={styles.time}>{formatRelativeTime(notif.created_at)}</span>
-      </div>
-
-      {/* Video thumbnail for video-related notifs */}
-      {hasVideoThumb ? (
-        <div style={styles.videoThumb}>
-          <img src={notif.reference_data.video_thumbnail} alt="" style={styles.videoThumbImg} />
-          <div style={styles.videoThumbOverlay}>
-            <Play size={12} color="#fff" fill="#fff" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+        {/* Avatar */}
+        <div style={styles.avatar}>
+          {notif.sender?.avatar_url ? (
+            <img src={notif.sender.avatar_url} style={styles.avatarImg} alt="" />
+          ) : (
+            <div style={styles.avatarPlaceholder}>{senderName.charAt(0).toUpperCase()}</div>
+          )}
+          {/* Notification type badge on avatar */}
+          <div style={{ ...styles.typeBadge, background: config.color, boxShadow: `0 0 8px ${config.color}50` }}>
+            <Icon size={10} color="#fff" />
           </div>
         </div>
-      ) : (
-        <div style={{ ...styles.iconWrap, background: `${config.color}12`, border: `1px solid ${config.color}25` }}>
-          <Icon size={16} color={config.color} />
+
+        {/* Info */}
+        <div style={styles.info}>
+          <span style={styles.text}>
+            <strong style={styles.username}>@{senderName}</strong> {config.text}
+          </span>
+          {/* Comment preview */}
+          {hasPreview && (
+            <span style={styles.commentPreview}>"{notif.reference_data.preview}"</span>
+          )}
+          <span style={styles.time}>{formatRelativeTime(notif.created_at)}</span>
+        </div>
+
+        {/* Video thumbnail or Icon */}
+        {!isInvite && (
+          hasVideoThumb ? (
+            <div style={styles.videoThumb}>
+              <img src={notif.reference_data.video_thumbnail} alt="" style={styles.videoThumbImg} />
+              <div style={styles.videoThumbOverlay}>
+                <Play size={12} color="#fff" fill="#fff" />
+              </div>
+            </div>
+          ) : (
+            <div style={{ ...styles.iconWrap, background: `${config.color}12`, border: `1px solid ${config.color}25` }}>
+              <Icon size={16} color={config.color} />
+            </div>
+          )
+        )}
+      </div>
+
+      {/* Invite Action Buttons */}
+      {isInvite && (
+        <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '4px', justifyContent: 'flex-end' }}>
+          {actionDone ? (
+            <div style={{ fontSize: '12px', fontWeight: 600, color: actionDone === 'accepted' ? '#39FF14' : '#FF2D55', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {actionDone === 'accepted' ? <Check size={14} /> : <X size={14} />}
+              <span>{actionDone === 'accepted' ? 'Convite Aceito!' : 'Convite Recusado'}</span>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={(e) => handleInviteAction(e, false)}
+                style={{
+                  background: 'rgba(255, 45, 85, 0.15)',
+                  border: '1px solid rgba(255, 45, 85, 0.3)',
+                  borderRadius: '10px',
+                  padding: '6px 14px',
+                  color: '#FF2D55',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <X size={14} />
+                Recusar
+              </button>
+
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={(e) => handleInviteAction(e, true)}
+                style={{
+                  background: 'linear-gradient(135deg, #39FF14, #00E676)',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '6px 16px',
+                  color: '#0A0A0F',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  boxShadow: '0 2px 8px rgba(57, 255, 20, 0.3)'
+                }}
+              >
+                <Check size={14} />
+                Aceitar
+              </button>
+            </>
+          )}
         </div>
       )}
     </motion.div>
